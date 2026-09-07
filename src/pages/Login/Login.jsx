@@ -6,12 +6,12 @@ import Footer from '../../components/Footer.jsx'
 import './login.css'
 
 const ASSETS = {
-  logo: '/public/CTPM.png',
+  logo: '/CTPM.png',
   heroImages: [
-    '/public/Principal/PEDRO.png',
-    '/public/Principal/PRY-590.png',
-    '/public/Principal/CARDIO.png',
-    '/public/Principal/MUNDO.png',
+    '/Principal/PEDRO.png',
+    '/Principal/PRY-590.png',
+    '/Principal/CARDIO.png',
+    '/Principal/MUNDO.png',
   ],
 }
 
@@ -52,7 +52,7 @@ function Login() {
         {/* Solo el logo (la imagen de la píldora), alineado a la izquierda */}
         <div className="flex justify-start pt-5 sm:pt-8 ps-12 sm:ps-20">
           <img
-            src="/public/CTP.png"
+            src="/CTP.png"
             alt="CTP"
             className="h-[clamp(60px,9vw,96px)] object-contain"
           />

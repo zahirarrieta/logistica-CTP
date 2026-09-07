@@ -17,7 +17,7 @@ export default function Header() {
       <nav className="ctp-menu pointer-events-auto" aria-label="Navegación principal">
         <span className="ctp-brand-wrap">
           <Link to="/inicio" className="ctp-brand" aria-label="CTP inicio">
-            <img src="/public/CTP.png" alt="CTP" />
+            <img src="/CTP.png" alt="CTP" />
           </Link>
         </span>
 

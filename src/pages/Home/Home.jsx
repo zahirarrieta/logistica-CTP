@@ -10,12 +10,12 @@ import { saveSolicitud } from './Components/solicitudesStore.js'
 
 
 const ASSETS = {
-  logo: '/public/CTPM.png',
+  logo: '/CTPM.png',
   heroImages: [
-    '/public/Principal/PEDRO.png',
-    '/public/Principal/PRY-590.png',
-    '/public/Principal/CARDIO.png',
-    '/public/Principal/MUNDO.png',
+    '/Principal/PEDRO.png',
+    '/Principal/PRY-590.png',
+    '/Principal/CARDIO.png',
+    '/Principal/MUNDO.png',
   ],
 }
 
@@ -111,7 +111,7 @@ function Home() {
                     >
                       <span className="relative z-10 flex w-full items-center gap-3 transition-all duration-500 group-hover:gap-10">
                         <img
-                          src="/public/Principal/PRY-590.png"
+                          src="/Principal/PRY-590.png"
                           alt="Truck"
                           className="order-1 w-7 h-7 object-contain transition-all duration-500 ease-out group-hover:order-2 group-hover:ml-auto group-hover:translate-x-4 group-hover:scale-110 group-hover:drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)] group-hover:animate-truckMove"
                         />
