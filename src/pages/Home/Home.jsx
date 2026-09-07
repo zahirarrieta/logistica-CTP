@@ -146,7 +146,7 @@ function Home() {
                       {/* Halo cian sutil alrededor del carrusel */}
                       <div aria-hidden className="absolute inset-[-10%] rounded-full bg-brand-cyan/12 blur-[80px] pointer-events-none" />
                       {/* Viewport fijo para evitar saltos por tamaños distintos */}
-                      <div className="relative w-[min(95vw,900px)] md:w-[clamp(500px,50vw,1000px)] xl:w-[clamp(600px,45vw,1100px)] 2xl:w-[clamp(700px,40vw,1200px)] max-w-full min-h-[280px] md:min-h-[400px] xl:min-h-[480px] flex items-center justify-center">
+                      <div className="relative w-[min(95vw,900px)] md:w-[clamp(500px,50vw,1000px)] xl:w-[clamp(600px,45vw,1100px)] 2xl:w-[clamp(700px,40vw,1200px)] max-w-full min-h-[280px] md:min-h-[400px] xl:min-h-[480px] aspect-[5/4] flex items-center justify-center">
                         {ASSETS.heroImages.map((src, idx) => (
                           <img
                             key={src}
