@@ -1,0 +1,330 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset global y configuraciÃ³n base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: 'Arial', 'Helvetica', sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: radial-gradient(1200px 700px at 10% 10%, rgba(0,229,255,0.10), transparent 60%),
+              linear-gradient(150deg, #0A0027 0%, #071A3D 55%, #003B73 100%);
+  background-attachment: fixed;
+  color: #fff;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Estilos para elementos de formulario */
+input, button, textarea, select {
+  font-family: inherit;
+}
+
+/* Estilos para enlaces */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Estilos para listas */
+ul, ol {
+  list-style: none;
+}
+
+/* Estilos para imÃ¡genes */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Estilos para botones */
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: all 200ms ease;
+}
+
+/* Estilos para inputs */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+}
+
+/* Utilidad para brillos en elementos con fondo amarillo brand */
+.shine {
+  background-image: linear-gradient(110deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,.5) 50%, rgba(255,255,255,0) 60%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.2s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ===== Menú píldora flotante (glassmorphism) ===== */
+.ctp-menu {
+  position: relative;
+  margin-inline: auto;
+  width: calc(100% - 16px);
+  max-width: none;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  background: rgba(7, 26, 61, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), 0 0 22px rgba(0, 229, 255, 0.18);
+  padding: 8px 12px;
+  border-radius: 99rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  z-index: 950;
+}
+
+.ctp-menu::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 2px 2px 5px -2px rgba(255, 255, 255, 0.4),
+    inset -2px -2px 5px 2px rgba(255, 255, 255, 0.2),
+    inset 0 -2px 0 rgba(0, 229, 255, 0.25);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.ctp-brand-wrap {
+  flex: 0 0 132px;
+  width: 132px;
+  display: flex;
+  margin-left: clamp(8px, 2vw, 24px);
+}
+
+.ctp-spacer {
+  margin-left: 0;
+}
+
+@media (max-width: 768px) {
+  .ctp-links a span {
+    display: none;
+  }
+  .ctp-links a {
+    padding: 10px 8px;
+  }
+  .ctp-links a svg {
+    width: 1.8rem;
+    font-size: 1.8rem;
+  }
+  .ctp-brand-wrap {
+    flex: 0 0 auto;
+    width: auto;
+    margin-left: 4px;
+  }
+  .ctp-spacer {
+    display: none;
+  }
+  .ctp-brand img {
+    height: 34px;
+  }
+}
+
+.ctp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: transform 0.18s ease-out;
+}
+
+.ctp-brand:hover {
+  transform: scale(1.03);
+}
+
+.ctp-brand img {
+  height: clamp(38px, 5vw, 48px);
+  object-fit: contain;
+}
+
+.ctp-brand-text {
+  font-weight: 800;
+  color: #00e5ff;
+  letter-spacing: 0.06em;
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+}
+
+.ctp-links {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.ctp-links a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  padding: 10px 6px;
+  border-radius: 999rem;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.18s ease-out,
+    color 0.18s ease-out,
+    transform 0.18s ease-out,
+    box-shadow 0.3s ease-in-out;
+}
+
+.ctp-links a:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 2px 2px 5px -2px rgba(255, 255, 255, 0.4),
+    inset -2px -1px 5px 0 rgba(255, 255, 255, 0.3);
+  color: #7bf1ff;
+  transform: rotate(2.2deg);
+}
+
+.ctp-links a svg {
+  width: 1.4rem;
+  font-size: 1.4rem;
+}
+
+.ctp-links a span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+@media (max-width: 380px) {
+  .ctp-links a span {
+    display: none;
+  }
+  .ctp-links a {
+    padding: 10px 8px;
+  }
+  .ctp-links a svg {
+    width: 1.6rem;
+    font-size: 1.6rem;
+  }
+  .ctp-brand-wrap {
+    flex: 0 0 auto;
+    width: auto;
+    margin-left: 6px;
+  }
+  .ctp-brand img {
+    height: 32px;
+  }
+}
+
+.ctp-links a.active {
+  background: rgba(0, 229, 255, 0.22);
+  color: #00e5ff;
+  box-shadow: inset 0 0 12px rgba(0, 229, 255, 0.18);
+}
+
+.ctp-links a:active {
+  transform: scale(0.98);
+}
+
+/* Botón de cerrar sesión en el menú */
+.ctp-logout {
+  flex: 0 0 132px;
+  width: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-right: clamp(8px, 2vw, 24px);
+  padding: 6px;
+  border-radius: 999rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.18s ease-out, color 0.18s ease-out, transform 0.18s ease-out, box-shadow 0.3s ease-in-out;
+}
+
+.ctp-logout:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: #7bf1ff;
+  box-shadow: inset 2px 2px 5px -2px rgba(255, 255, 255, 0.4), inset -2px -1px 5px 0 rgba(255, 255, 255, 0.3);
+}
+
+.ctp-logout svg {
+  width: 1.4rem;
+  font-size: 1.4rem;
+}
+
+.ctp-logout span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .ctp-logout {
+    flex: 0 0 auto;
+    width: 48px;
+    margin-right: 4px;
+  }
+  .ctp-logout span {
+    display: none;
+  }
+  .ctp-logout svg {
+    width: 1.8rem;
+    font-size: 1.8rem;
+  }
+}
+
+@keyframes rowPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(0.995); }
+  100% { transform: scale(1); }
+}
+
+.animate-rowPop {
+  animation: rowPop 0.3s ease-out;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

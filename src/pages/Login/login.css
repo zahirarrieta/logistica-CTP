@@ -1,0 +1,92 @@
+.login-ingresar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 999rem;
+  color: #0a0027;
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  background-image: linear-gradient(110deg, #00e5ff 0%, #7bf1ff 45%, #00e5ff 90%);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.45), inset 0 0 6px rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+  transition: transform 0.18s ease-out, box-shadow 0.3s ease-out;
+}
+
+.login-ingresar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.7);
+}
+
+.login-ingresar:active {
+  transform: scale(0.97);
+}
+
+.login-ingresar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  transform: skewX(-18deg);
+  animation: loginSheen 2.6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes loginSheen {
+  0% { transform: translateX(-160%) skewX(-18deg); }
+  100% { transform: translateX(360%) skewX(-18deg); }
+}
+
+.login-lock {
+  font-size: 1.15rem;
+  animation: loginLock 1.8s ease-in-out infinite;
+}
+
+@keyframes loginLock {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+.login-cta-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 1rem;
+  animation: loginPulse 2s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes loginPulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.45); }
+  70% { box-shadow: 0 0 0 14px rgba(0, 229, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); }
+}
+
+.login-enter {
+  opacity: 0;
+  animation: loginEnter 0.7s ease-out forwards;
+}
+
+.login-enter:nth-child(2) { animation-delay: 0.15s; }
+.login-enter:nth-child(3) { animation-delay: 0.3s; }
+.login-enter:nth-child(4) { animation-delay: 0.45s; }
+
+@keyframes loginEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 380px) {
+  .login-ingresar {
+    padding: 9px 14px;
+    gap: 6px;
+    font-size: 0.78rem;
+  }
+  .login-lock {
+    font-size: 1rem;
+  }
+}
