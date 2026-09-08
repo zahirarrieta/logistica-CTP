@@ -6,6 +6,8 @@ import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
 import { saveSolicitud } from './Components/solicitudesStore.js'
+import { useAuth } from '../../auth/AuthContext.jsx'
+import { shortName } from '../../auth/user.js'
 
 
 
@@ -19,9 +21,10 @@ const ASSETS = {
   ],
 }
 
-const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional']
+const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional', 'Logística inversa']
 
 function Home() {
+  const { account } = useAuth()
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [solicitudModalOpen, setSolicitudModalOpen] = useState(false)
@@ -86,12 +89,12 @@ function Home() {
                   <h1 className="mt-4 font-display text-[clamp(2.4rem,5.8vw,6rem)] leading-[0.9] font-black text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
                     <span className="block">BIENVENIDO</span>
                     <span className="block relative bg-gradient-to-r from-brand-cyan via-brand-cyanSoft to-brand-cyan bg-clip-text text-transparent text-[clamp(1.6rem,4.4vw,4.2rem)]">
-                      ADMINISTRADOR
+                      {shortName(account) || 'ADMINISTRADOR'}
                       <span aria-hidden className="absolute -inset-x-1 -bottom-1 h-2 bg-gradient-to-r from-brand-cyan/40 via-brand-cyan/60 to-brand-cyan/40 blur-md" />
                     </span>
                   </h1>
                   <h2 className="mt-3 sm:mt-4 text-[clamp(1rem,2.2vw,1.7rem)] font-extrabold text-brand-mist drop-shadow-[0_4px_14px_rgba(0,0,0,0.4)]">
-                    LOGISTICA Y TRANSPORTE
+                    LOGÍSTICA Y TRANSPORTE
                   </h2>
                   <div className="mt-6 flex flex-wrap gap-2 opacity-95">
                     {TAGS.map((tag) => (

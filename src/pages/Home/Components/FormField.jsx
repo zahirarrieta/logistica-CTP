@@ -8,9 +8,13 @@ export default function FormField({
   value,
   onChange,
   options = [],
-  unit = ""
+  unit = "",
+  readOnly = false
 }) {
   const baseClasses = "peer w-full px-3 py-2 rounded-md bg-white border-2 border-black/10 focus:outline-none focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/30 text-brand-ink placeholder-transparent"
+  const readOnlyClasses = readOnly
+    ? "read-only:bg-brand-mist/40 read-only:border-brand-cyan/30 read-only:text-brand-deep/80"
+    : ""
   const isFilled = value !== undefined && value !== null && `${value}` !== ""
   const baseLabel = "pointer-events-none absolute left-2 bg-white px-1 rounded transition-all"
   const floatingWhenFilled = isFilled ? "-top-2 text-[0.7rem] text-brand-deep" : "top-2 text-[0.78rem] text-brand-deep"
@@ -97,8 +101,9 @@ export default function FormField({
         onChange={onChange}
         placeholder=" "
         name={name}
-        className={baseClasses}
+        className={`${baseClasses} ${readOnlyClasses}`}
         required={required}
+        readOnly={readOnly}
       />
       <label className={`${baseLabel} ${floatingWhenFilled} ${focusFloating}`}>
         {label}{required && <span className="text-red-500 ml-1">*</span>}

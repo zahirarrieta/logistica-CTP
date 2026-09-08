@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { MdClose, MdCloudUpload, MdSend, MdTag } from 'react-icons/md'
+import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
 import { peekNextId } from '../solicitudesStore.js'
+import { useAuth } from '../../../../auth/AuthContext.jsx'
+import ClientPickerModal from './ClientPickerModal.jsx'
 
 const TIPO_SOLICITUD_OPTIONS = [
   { value: 'mensajeria', label: 'Mensajería' },
@@ -10,20 +12,16 @@ const TIPO_SOLICITUD_OPTIONS = [
   { value: 'transporte', label: 'Transporte' },
 ]
 
-const ZONA_OPTIONS = [
-  { value: 'norte', label: 'Norte' },
-  { value: 'sur', label: 'Sur' },
-  { value: 'oriente', label: 'Oriente' },
-  { value: 'occidente', label: 'Occidente' },
-  { value: 'centro', label: 'Centro' },
-]
-
 export default function SolicitudModal({ open, onClose, onSubmit }) {
+  const { account } = useAuth()
+  const [clientPickerOpen, setClientPickerOpen] = useState(false)
   const [formData, setFormData] = useState({
-    nombreCompleto: '',
-    correo: '',
+    nombreCompleto: account?.name || '',
+    correo: account?.username || '',
     tipoSolicitud: '',
     cliente: '',
+    bodega: '',
+    nit: '',
     zona: '',
     adjuntos: [],
     observaciones: '',
@@ -40,12 +38,25 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
     setFormData(prev => ({ ...prev, adjuntos: files }))
   }
 
+  const handleSelectCliente = (c) => {
+    setFormData(prev => ({
+      ...prev,
+      cliente: c.cliente,
+      bodega: c.bodega,
+      nit: c.nit,
+      zona: c.zona,
+    }))
+    setClientPickerOpen(false)
+  }
+
   const resetForm = () => {
     setFormData({
-      nombreCompleto: '',
-      correo: '',
+      nombreCompleto: account?.name || '',
+      correo: account?.username || '',
       tipoSolicitud: '',
       cliente: '',
+      bodega: '',
+      nit: '',
       zona: '',
       adjuntos: [],
       observaciones: '',
@@ -121,6 +132,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               onChange={handleInputChange}
               placeholder="Nombre completo"
               required
+              readOnly
             />
             <FormField
               label="Correo"
@@ -130,6 +142,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               onChange={handleInputChange}
               placeholder="correo@CTP.com"
               required
+              readOnly
             />
             <FormField
               label="Tipo de solicitud"
@@ -141,27 +154,59 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               options={TIPO_SOLICITUD_OPTIONS}
               required
             />
+            <div className="relative">
+              <FormField
+                label="Cliente"
+                type="text"
+                name="cliente"
+                value={formData.cliente}
+                onChange={handleInputChange}
+                placeholder="Nombre del cliente"
+                required
+                readOnly
+              />
+              <button
+                type="button"
+                onClick={() => setClientPickerOpen(true)}
+                title="Buscar y seleccionar cliente"
+                aria-label="Seleccionar cliente"
+                className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+              >
+                <MdSearch className="text-lg" />
+              </button>
+            </div>
             <FormField
-              label="Cliente"
+              label="Bodega"
               type="text"
-              name="cliente"
-              value={formData.cliente}
+              name="bodega"
+              value={formData.bodega}
               onChange={handleInputChange}
-              placeholder="Nombre del cliente"
+              placeholder="Bodega del cliente"
               required
+              readOnly
             />
             <FormField
-              label="Zona"
-              type="select"
-              name="zona"
-              value={formData.zona}
+              label="NIT"
+              type="text"
+              name="nit"
+              value={formData.nit}
               onChange={handleInputChange}
-              placeholder="Seleccionar zona"
-              options={ZONA_OPTIONS}
+              placeholder="NIT del cliente"
               required
-              className="sm:col-span-2"
+              readOnly
             />
           </div>
+
+          <FormField
+            label="Zona"
+            type="text"
+            name="zona"
+            value={formData.zona}
+            onChange={handleInputChange}
+            placeholder="Zona (se llena al seleccionar el cliente)"
+            required
+            readOnly
+          />
 
           {/* Adjuntos */}
           <div>
@@ -218,6 +263,12 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
     </div>
 
       {loading && <Loader />}
+
+      <ClientPickerModal
+        open={clientPickerOpen}
+        onClose={() => setClientPickerOpen(false)}
+        onSelect={handleSelectCliente}
+      />
     </>
   )
 }

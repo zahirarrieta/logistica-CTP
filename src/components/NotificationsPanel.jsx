@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { MdNotificationsNone, MdNotificationsActive, MdClose, MdHistory, MdTag, MdAccessTime, MdPerson, MdArrowForward, MdVisibility } from 'react-icons/md'
+import { MdNotificationsNone, MdNotificationsActive, MdClose, MdHistory, MdTag, MdAccessTime, MdPerson, MdArrowForward, MdVisibility, MdCheckCircle, MdAssignmentInd } from 'react-icons/md'
 import { getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
+import { safeText } from '../pages/Home/Components/solicitudesStore.js'
 
 const VISTAS_KEY = 'ctp_notif_vistas'
 
@@ -22,6 +23,10 @@ function persistVistas(v) {
 
 function notifKey(c) {
   return `${c.id}|${c.fecha}|${c.hora}|${c.campo}|${c.nuevo}`
+}
+
+function changeText(value) {
+  return safeText(value)
 }
 
 export default function NotificationsPanel({ solicitudes }) {
@@ -114,12 +119,12 @@ export default function NotificationsPanel({ solicitudes }) {
                           <span className="truncate">{c.id}</span>
                         </span>
                         <span className="hidden sm:inline max-w-full truncate text-brand-ink/60 font-semibold text-[11px]">
-                          {c.cliente || '—'} · {c.zona || '—'}
+                          {changeText(c.cliente) || '—'} · {changeText(c.zona) || '—'}
                         </span>
                       </span>
                       <span className="shrink-0 flex flex-col items-end gap-1">
                         <span className="inline-flex items-center gap-1 text-brand-ink/50 text-[11px] whitespace-nowrap">
-                          <MdAccessTime /> {c.fecha} · {c.hora}
+                          <MdAccessTime /> {changeText(c.fecha)} · {changeText(c.hora)}
                         </span>
                         {vistas[c.key] ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-brand-deep/10 text-brand-deep px-2 py-0.5 text-[10px] font-bold">
@@ -136,26 +141,35 @@ export default function NotificationsPanel({ solicitudes }) {
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {c.campo === 'estado' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">
+                          <MdCheckCircle /> Cambio de estado
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-brand-deep/10 text-brand-deep px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">
+                          <MdAssignmentInd /> Asignación de usuario
+                        </span>
+                      )}
+                      {c.campo === 'estado' ? (
                         <>
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${getBadgeColor(c.anterior)}`}>
-                            <span className={`size-1.5 rounded-full ${getDotColor(c.anterior)}`} />
-                            {c.anterior}
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${getBadgeColor(changeText(c.anterior))}`}>
+                            <span className={`size-1.5 rounded-full ${getDotColor(changeText(c.anterior))}`} />
+                            {changeText(c.anterior)}
                           </span>
                           <MdArrowForward className="text-brand-ink/40" />
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${getBadgeColor(c.nuevo)}`}>
-                            <span className={`size-1.5 rounded-full ${getDotColor(c.nuevo)}`} />
-                            {c.nuevo}
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${getBadgeColor(changeText(c.nuevo))}`}>
+                            <span className={`size-1.5 rounded-full ${getDotColor(changeText(c.nuevo))}`} />
+                            {changeText(c.nuevo)}
                           </span>
                         </>
                       ) : (
                         <>
-                          <span className="rounded-full bg-brand-ink/10 text-brand-ink/60 px-2.5 py-0.5 text-xs font-bold">{c.anterior}</span>
+                          <span className="rounded-full bg-brand-ink/10 text-brand-ink/60 px-2.5 py-0.5 text-xs font-bold">{changeText(c.anterior)}</span>
                           <MdArrowForward className="text-brand-ink/40" />
-                          <span className="rounded-full bg-brand-deep/10 text-brand-deep px-2.5 py-0.5 text-xs font-bold">{c.nuevo}</span>
+                          <span className="rounded-full bg-brand-deep/10 text-brand-deep px-2.5 py-0.5 text-xs font-bold">{changeText(c.nuevo)}</span>
                         </>
                       )}
                       <span className="inline-flex items-center gap-1 text-brand-ink/50 text-[11px]">
-                        <MdPerson /> {c.persona || '—'}
+                        <MdPerson /> {changeText(c.persona) || '—'}
                       </span>
                     </div>
                   </div>

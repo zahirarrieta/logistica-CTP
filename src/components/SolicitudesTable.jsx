@@ -17,8 +17,15 @@ import {
   MdExpandMore,
   MdInbox,
   MdHistory,
+  MdMessage,
+  MdWarehouse,
+  MdPersonAdd,
+  MdSwapHoriz,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
+import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
+import ObservacionesModal from './ObservacionesModal.jsx'
+import DetalleModal from './DetalleModal.jsx'
 
 const ITEMS_PER_PAGE = 10
 
@@ -43,8 +50,9 @@ export function EstadoBadge({ estado }) {
 }
 
 export function AsignadoBadge({ asignado }) {
-  if (!asignado) return <span className="text-brand-ink/40 text-sm">—</span>
-  const ini = asignado
+  const nombre = nombreDeAsignado(asignado)
+  if (!nombre) return <span className="text-brand-ink/40 text-sm">—</span>
+  const ini = nombre
     .split(' ')
     .map((p) => p[0])
     .slice(0, 2)
@@ -53,7 +61,7 @@ export function AsignadoBadge({ asignado }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-deep/10 text-brand-deep px-2.5 py-1 text-xs font-bold whitespace-nowrap">
       <span className="grid place-items-center size-4 rounded-full bg-brand-deep text-white text-[9px]">{ini}</span>
-      {asignado}
+      {nombre}
     </span>
   )
 }
@@ -65,14 +73,14 @@ function HistorialButton({ onClick }) {
       onClick={onClick}
       aria-label="Ver historial"
       title="Historial"
-      className="grid place-items-center size-8 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-deep/20 transition-colors"
+      className="grid place-items-center size-9 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-deep/20 transition-colors"
     >
       <MdHistory className="text-lg" />
     </button>
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, actions, onEstadoClick }) {
+function SolicitudCard({ s, expanded, onToggle, index, actions, onEstadoClick, onClickObs }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
 
@@ -101,9 +109,25 @@ function SolicitudCard({ s, expanded, onToggle, index, actions, onEstadoClick })
           <Row icon={<MdEmail />} label="Correo" value={s.correo} />
           <Row icon={<MdAssignmentAdd />} label="Tipo" value={s.tipoSolicitud} />
           <Row icon={<MdBusiness />} label="Cliente" value={s.cliente} />
+          <Row icon={<MdWarehouse />} label="Bodega" value={s.bodega} />
+          <Row icon={<MdTag />} label="NIT" value={s.nit} />
           <Row icon={<MdPlace />} label="Zona" value={s.zona} />
           <Row icon={<MdAttachFile />} label="Adjuntos" value={s.adjuntos?.length > 0 ? `${s.adjuntos.length} archivo(s)` : '—'} />
-          <Row icon={<MdNotes />} label="Observaciones" value={s.observaciones || '—'} />
+          <div className="flex items-center justify-between gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
+            <div className="flex items-center gap-2">
+              <span className="text-brand-cyan mt-0.5 shrink-0"><MdNotes /></span>
+              <span className="text-brand-ink/50 shrink-0">Observaciones</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onClickObs(s)}
+              aria-label="Ver observaciones"
+              title="Ver observaciones"
+              className="grid place-items-center size-8 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+            >
+              <MdMessage className="text-lg" />
+            </button>
+          </div>
           <div className="flex items-start gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
             <span className="text-brand-cyan mt-0.5 shrink-0"><MdAssignmentInd /></span>
             <span className="text-brand-ink/50 w-24 shrink-0">Asignado a</span>
@@ -131,9 +155,15 @@ function SolicitudCard({ s, expanded, onToggle, index, actions, onEstadoClick })
   )
 }
 
-export default function SolicitudesTable({ items, onRowClick, onEstadoClick, cardActions, empty }) {
+export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, cardActions, empty }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
+  const [obsSolicitud, setObsSolicitud] = useState(null)
+  const [detalleSolicitud, setDetalleSolicitud] = useState(null)
+
+  const openObs = (s) => setObsSolicitud(s)
+  const openDetalle = (s) => setDetalleSolicitud(s)
+  const hasAcciones = Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick)
 
   const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1
   const page = Math.min(currentPage, totalPages)
@@ -163,6 +193,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, car
             onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
             actions={cardActions}
             onEstadoClick={onEstadoClick}
+            onClickObs={openObs}
           />
         ))}
       </div>
@@ -180,12 +211,9 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, car
                   <span className="inline-flex items-center gap-1.5"><MdCalendarToday className="text-base" /> Fecha</span>
                 </th>
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
-                  <span className="inline-flex items-center gap-1.5"><MdAccessTime className="text-base" /> Hora</span>
-                </th>
-                <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdPerson className="text-base" /> Nombre</span>
                 </th>
-                <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
+                <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center w-16">
                   <span className="inline-flex items-center gap-1.5"><MdEmail className="text-base" /> Correo</span>
                 </th>
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
@@ -200,8 +228,8 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, car
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdAttachFile className="text-base" /> Adjuntos</span>
                 </th>
-                <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
-                  <span className="inline-flex items-center gap-1.5"><MdNotes className="text-base" /> Observaciones</span>
+                <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center w-16">
+                  <span className="inline-flex items-center gap-1.5"><MdNotes className="text-base" /> Obs.</span>
                 </th>
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdAssignmentInd className="text-base" /> Asignado a</span>
@@ -209,6 +237,11 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, car
                 <th className="px-3 py-4 text-xs font-bold">
                   <span className="inline-flex items-center gap-1.5"><MdCheckCircle className="text-base" /> Estado</span>
                 </th>
+                {hasAcciones && (
+                  <th className="px-3 py-4 w-32 sticky right-0 z-10 bg-brand-navy">
+                    <span className="sr-only">Acciones</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -216,44 +249,93 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, car
                 <tr
                   key={s.id}
                   onClick={onRowClick ? () => onRowClick(s) : undefined}
-                  className={`${onRowClick ? 'group cursor-pointer transition-colors hover:bg-brand-deep/20 active:bg-brand-deep/30 active:animate-rowPop' : 'transition-colors hover:bg-brand-deep/20'} ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'}`}
+                  className={`group ${onRowClick ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'}`}
                 >
                   <td className="px-3 py-3 font-bold text-brand-deep whitespace-nowrap border-b border-l border-brand-ink/10">
-                    {onRowClick ? (
-                      <span className="group-hover:underline decoration-brand-cyan decoration-2 underline-offset-4">
-                        {s.id}
-                      </span>
-                    ) : (
-                      <span>{s.id}</span>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); openDetalle(s) }}
+                      title="Ver detalle completo"
+                      aria-label="Ver detalle de la solicitud"
+                      className="inline-flex items-center gap-1 rounded-md text-brand-deep font-bold underline-offset-4 hover:underline decoration-brand-cyan decoration-2 hover:text-brand-deep/90 transition-colors"
+                    >
+                      {s.id}
+                    </button>
                   </td>
-                  <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.fechaSubida || '—'}</td>
-                  <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.horaSubida || '—'}</td>
-                  <td className="px-3 py-3 font-semibold text-brand-ink whitespace-nowrap border-b border-l border-brand-ink/10">{s.nombreCompleto}</td>
-                  <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.correo}</td>
-                  <td className="px-3 py-3 capitalize text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.tipoSolicitud}</td>
-                  <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.cliente}</td>
-                  <td className="px-3 py-3 capitalize text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.zona}</td>
                   <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
+                    <span className="block">{s.fechaSubida || '—'}</span>
+                    {s.horaSubida && <span className="block text-xs text-brand-ink/50">{s.horaSubida}</span>}
+                  </td>
+                  <td className="px-2 py-3 font-semibold text-brand-ink min-w-[150px] border-b border-l border-brand-ink/10">{s.nombreCompleto}</td>
+                  <td className="px-2 py-3 border-b border-l border-brand-ink/10 text-center">
+                    <span className="group/correo relative inline-flex items-center justify-center">
+                      <span className="grid place-items-center size-8 rounded-full bg-brand-cyan/10 text-brand-deep cursor-help" title={s.correo}>
+                        <MdEmail className="text-lg" />
+                      </span>
+                      <span className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 z-50 hidden group-hover/correo:block whitespace-nowrap rounded-lg bg-brand-navy text-white text-xs px-3 py-1.5 shadow-xl">
+                        {s.correo}
+                      </span>
+                    </span>
+                  </td>
+                  <td className="px-2 py-3 capitalize text-brand-ink/80 max-w-[110px] truncate whitespace-nowrap border-b border-l border-brand-ink/10">{s.tipoSolicitud}</td>
+                  <td className="px-2 py-3 text-brand-ink/80 max-w-[140px] truncate whitespace-nowrap border-b border-l border-brand-ink/10">{s.cliente}</td>
+                  <td className="px-2 py-3 capitalize text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.zona}</td>
+                  <td className="px-2 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
                     {s.adjuntos && s.adjuntos.length > 0 ? `${s.adjuntos.length} archivo(s)` : '—'}
                   </td>
-                  <td className="px-3 py-3 text-brand-ink/70 min-w-[160px] border-b border-l border-brand-ink/10">{s.observaciones || '—'}</td>
-                  <td className="px-3 py-3 border-b border-l border-brand-ink/10">
+                  <td className="px-2 py-3 border-b border-l border-brand-ink/10 text-center">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setObsSolicitud(s) }}
+                      title="Ver observaciones"
+                      aria-label="Ver observaciones"
+                      className="grid place-items-center size-8 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors mx-auto"
+                    >
+                      <MdMessage className="text-lg" />
+                    </button>
+                  </td>
+                  <td className="px-2 py-3 border-b border-l border-brand-ink/10">
                     <AsignadoBadge asignado={s.asignadoA} />
                   </td>
                   <td className="px-3 py-3 border-b border-l border-brand-ink/10">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <EstadoBadge estado={s.estado} />
-                      {onEstadoClick && (
-                        <HistorialButton
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onEstadoClick(s)
-                          }}
-                        />
-                      )}
-                    </div>
+                    <EstadoBadge estado={s.estado} />
                   </td>
+                  {hasAcciones && (
+                    <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'}`}>
+                      <div className="flex items-center justify-center gap-1.5">
+                        {onAsignarClick && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onAsignarClick(s) }}
+                            title="Asignar usuario"
+                            aria-label="Asignar usuario"
+                            className="grid place-items-center size-9 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                          >
+                            <MdPersonAdd className="text-xl" />
+                          </button>
+                        )}
+                        {onCambiarEstadoClick && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onCambiarEstadoClick(s) }}
+                            title="Cambiar estado"
+                            aria-label="Cambiar estado"
+                            className="grid place-items-center size-9 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors"
+                          >
+                            <MdSwapHoriz className="text-xl" />
+                          </button>
+                        )}
+                        {onEstadoClick && (
+                          <HistorialButton
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEstadoClick(s)
+                            }}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -298,6 +380,18 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, car
           <MdNavigateNext className="text-lg" />
         </button>
       </div>
+
+      <ObservacionesModal
+        solicitud={obsSolicitud}
+        open={obsSolicitud !== null}
+        onClose={() => setObsSolicitud(null)}
+      />
+
+      <DetalleModal
+        solicitud={detalleSolicitud}
+        open={detalleSolicitud !== null}
+        onClose={() => setDetalleSolicitud(null)}
+      />
     </>
   )
 }

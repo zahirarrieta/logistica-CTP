@@ -40,5 +40,20 @@ export const DOT_COLORS = {
   'Despacho Parcial': 'bg-orange-500',
 }
 
+export const SOFT_COLORS = {
+  'Abierto': 'bg-white ring-1 ring-green-400/60 text-green-700',
+  'Autorizado': 'bg-white ring-1 ring-blue-400/60 text-blue-700',
+  'Cancelado': 'bg-white ring-1 ring-red-400/60 text-red-700',
+  'Cerrado': 'bg-white ring-1 ring-gray-400/60 text-gray-600',
+  'Devolución Solicitante': 'bg-white ring-1 ring-amber-400/60 text-amber-700',
+  'En alistamiento': 'bg-white ring-1 ring-cyan-400/60 text-cyan-700',
+  'Entregado': 'bg-white ring-1 ring-emerald-400/60 text-emerald-700',
+  'Entregado/Parcial': 'bg-white ring-1 ring-teal-400/60 text-teal-700',
+  'En Transito': 'bg-white ring-1 ring-indigo-400/60 text-indigo-700',
+  'En Tramite': 'bg-white ring-1 ring-purple-400/60 text-purple-700',
+  'Despacho Parcial': 'bg-white ring-1 ring-orange-400/60 text-orange-700',
+}
+
 export const getBadgeColor = (estado) => BADGE_COLORS[estado] || 'bg-green-100 text-green-700'
 export const getDotColor = (estado) => DOT_COLORS[estado] || 'bg-green-500'
+export const getSoftColor = (estado) => SOFT_COLORS[estado] || 'bg-white ring-1 ring-green-400/60 text-green-700'

@@ -312,19 +312,29 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* Scrollbar personalizado */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, 0.55) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(0, 229, 255, 0.75), rgba(0, 229, 255, 0.35));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: rgba(0, 229, 255, 0.9);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }

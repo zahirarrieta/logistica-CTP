@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { MdLogin } from 'react-icons/md'
 import { FiTruck } from 'react-icons/fi'
 import Footer from '../../components/Footer.jsx'
+import { useAuth } from '../../auth/AuthContext.jsx'
 import './login.css'
 
 const ASSETS = {
@@ -15,10 +15,10 @@ const ASSETS = {
   ],
 }
 
-const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional']
+const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional', 'Logística inversa']
 
 function Login() {
-  const navigate = useNavigate()
+  const { login } = useAuth()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const touchStartXRef = useRef(null)
@@ -35,8 +35,6 @@ function Login() {
     }, 5000)
     return () => clearInterval(id)
   }, [totalSlides, isPaused])
-
-  const ingresar = () => navigate('/inicio')
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-brand-ink text-white">
@@ -77,7 +75,7 @@ function Login() {
                     </span>
                   </h1>
                   <h2 className="mt-3 sm:mt-4 text-[clamp(1rem,2.2vw,1.7rem)] font-extrabold text-brand-mist drop-shadow-[0_4px_14px_rgba(0,0,0,0.4)] login-enter">
-                    LOGISTICA Y TRANSPORTE
+                    LOGÍSTICA Y TRANSPORTE
                   </h2>
                   <div className="mt-6 flex flex-wrap gap-2 opacity-95 login-enter">
                     {TAGS.map((tag) => (
@@ -92,7 +90,7 @@ function Login() {
                   <div className="mt-8 sm:mt-10 flex flex-wrap justify-start gap-3 login-enter">
                     <button
                       type="button"
-                      onClick={ingresar}
+                      onClick={login}
                       className="group relative inline-flex items-center justify-center rounded-2xl px-10 py-4 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40"
                     >
                       <span className="login-cta-ring" aria-hidden="true" />

@@ -8,12 +8,14 @@ import AsignadoFilter from '../../components/AsignadoFilter.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import Toast from '../../components/Toast.jsx'
 import EstadosModal from './Components/modals/EstadosModal.jsx'
+import AsignarUsuarioModal from './Components/modals/AsignarUsuarioModal.jsx'
 import HistorialModal from './Components/modals/HistorialModal.jsx'
 import { loadSolicitudes, updateSolicitud, clearSolicitudes } from '../Home/Components/solicitudesStore.js'
 
 export default function Administrador() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [editSolicitud, setEditSolicitud] = useState(null)
+  const [asignarSolicitud, setAsignarSolicitud] = useState(null)
   const [historialSolicitud, setHistorialSolicitud] = useState(null)
   const [toast, setToast] = useState(null)
   const [filterEstado, setFilterEstado] = useState(null)
@@ -46,6 +48,11 @@ export default function Administrador() {
   const handleUpdateEstado = (id, updates) => {
     setSolicitudes(updateSolicitud(id, updates))
     setToast({ estado: updates.estado })
+  }
+
+  const handleAsignar = (id, asignadoA) => {
+    setSolicitudes(updateSolicitud(id, { asignadoA }))
+    setToast({ mensaje: `Solicitud ${id} asignada a «${asignadoA}»` })
   }
 
   return (
@@ -96,8 +103,9 @@ export default function Administrador() {
 
           <SolicitudesTable
             items={filtered}
-            onRowClick={(s) => setEditSolicitud(s)}
             onEstadoClick={(s) => setHistorialSolicitud(s)}
+            onAsignarClick={(s) => setAsignarSolicitud(s)}
+            onCambiarEstadoClick={(s) => setEditSolicitud(s)}
             cardActions={(s) => (
               <button
                 type="button"
@@ -132,6 +140,13 @@ export default function Administrador() {
         open={editSolicitud !== null}
         onClose={() => setEditSolicitud(null)}
         onUpdate={handleUpdateEstado}
+      />
+
+      <AsignarUsuarioModal
+        solicitud={asignarSolicitud}
+        open={asignarSolicitud !== null}
+        onClose={() => setAsignarSolicitud(null)}
+        onUpdate={handleAsignar}
       />
 
       <HistorialModal

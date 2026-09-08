@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { MdAssignmentInd, MdExpandMore } from 'react-icons/md'
+import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
 
 function initials(name) {
-  return name
+  if (!name) return ''
+  const nombre = String(name).trim()
+  if (!nombre) return ''
+  return nombre
     .split(' ')
     .map((p) => p[0])
     .slice(0, 2)
@@ -14,7 +18,7 @@ export default function AsignadoFilter({ solicitudes, value, onChange }) {
   const [open, setOpen] = useState(false)
 
   const counts = solicitudes.reduce((acc, s) => {
-    const a = s.asignadoA || ''
+    const a = nombreDeAsignado(s.asignadoA)
     if (!a) return acc
     acc[a] = (acc[a] || 0) + 1
     return acc

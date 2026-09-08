@@ -1,5 +1,13 @@
+import { msalInstance } from '../../../auth/msal.js'
+import { shortName } from '../../../auth/user.js'
+
 const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
+
+function currentPersona() {
+  const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0]
+  return shortName(account)
+}
 
 function nextId() {
   let counter = parseInt(localStorage.getItem(COUNTER_KEY) || '0', 10) || 0
@@ -12,10 +20,71 @@ function nextId() {
   return `CTPLOG-${String(counter).padStart(5, '0')}`
 }
 
+export function safeText(value) {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (value && typeof value === 'object') {
+    const candidato = [
+      value.asignadoA,
+      value.nombre,
+      value.name,
+      value.nombreCompleto,
+      value.label,
+      value.usuario,
+      value.correo,
+    ].find((v) => typeof v === 'string' && v.trim())
+    return candidato ? candidato.trim() : ''
+  }
+  return ''
+}
+
+export function nombreDeAsignado(value) {
+  return safeText(value)
+}
+
+const TEXT_FIELDS = [
+  'id',
+  'fechaSubida',
+  'horaSubida',
+  'fecha',
+  'hora',
+  'nombreCompleto',
+  'correo',
+  'tipoSolicitud',
+  'cliente',
+  'bodega',
+  'nit',
+  'zona',
+  'observaciones',
+  'estado',
+  'asignadoA',
+]
+
 export function loadSolicitudes() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
+    const list = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(list)) return []
+    return list.map((s) => {
+      if (!s || typeof s !== 'object') return {}
+      const normal = { ...s }
+      for (const key of TEXT_FIELDS) {
+        if (typeof normal[key] !== 'string') normal[key] = safeText(normal[key])
+      }
+      if (Array.isArray(normal.historial)) {
+        normal.historial = normal.historial.map((h) => {
+          if (!h || typeof h !== 'object') return {}
+          const hn = { ...h }
+          if (typeof hn.anterior !== 'string') hn.anterior = safeText(hn.anterior)
+          if (typeof hn.nuevo !== 'string') hn.nuevo = safeText(hn.nuevo)
+          if (typeof hn.persona !== 'string') hn.persona = safeText(hn.persona)
+          if (typeof hn.fecha !== 'string') hn.fecha = safeText(hn.fecha)
+          if (typeof hn.hora !== 'string') hn.hora = safeText(hn.hora)
+          return hn
+        })
+      }
+      return normal
+    })
   } catch {
     return []
   }
@@ -79,7 +148,7 @@ export function updateSolicitud(id, updates) {
     }
     if (campos.length === 0) return { ...s, ...updates, historial }
     const { fecha, hora } = nowStamp()
-    const nuevos = campos.map((c) => ({ ...c, fecha, hora, persona: 'Administrador' }))
+    const nuevos = campos.map((c) => ({ ...c, fecha, hora, persona: currentPersona() }))
     return { ...s, ...updates, historial: [...nuevos, ...historial].slice(0, 30) }
   })
   try {

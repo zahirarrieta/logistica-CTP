@@ -1,6 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
 import { MdHome, MdFolderOpen, MdSettings, MdLogout } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { shortName } from '../auth/user.js'
 
 const MENU = [
   { to: '/inicio', label: 'Inicio', Icon: MdHome },
@@ -11,6 +13,9 @@ const MENU = [
 
 export default function Header() {
   const { pathname } = useLocation()
+  const { logout, account } = useAuth()
+
+  const greeting = account?.name ? `Hola, ${shortName(account)}` : 'Cerrar sesión'
 
   return (
     <header className="sticky top-0 z-[100] pointer-events-none pt-3 px-2">
@@ -34,10 +39,16 @@ export default function Header() {
           })}
         </div>
 
-        <Link to="/" className="ctp-logout" aria-label="Cerrar sesión" title="Cerrar sesión">
+        <button
+          type="button"
+          className="ctp-logout"
+          onClick={logout}
+          aria-label="Cerrar sesión"
+          title={greeting}
+        >
           <MdLogout />
-          <span>Cerrar sesión</span>
-        </Link>
+          <span>{greeting}</span>
+        </button>
       </nav>
     </header>
   )
