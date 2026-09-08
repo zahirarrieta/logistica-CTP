@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag } from 'react-icons/md'
+import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
 import { peekNextId } from '../solicitudesStore.js'
@@ -7,9 +7,14 @@ import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
 
 const TIPO_SOLICITUD_OPTIONS = [
-  { value: 'mensajeria', label: 'Mensajería' },
-  { value: 'paqueteria', label: 'Paquetería' },
-  { value: 'transporte', label: 'Transporte' },
+  { value: 'EMERGENCIA / 2 Horas', label: 'EMERGENCIA / 2 Horas' },
+  { value: 'ENVÍO REPOSICIÓN - CONSIGNACIÓN / Ventana de Pedido', label: 'ENVÍO REPOSICIÓN - CONSIGNACIÓN / Ventana de Pedido' },
+  { value: 'OPORTUNIDAD DE VENTA / 8 Horas', label: 'OPORTUNIDAD DE VENTA / 8 Horas' },
+  { value: 'PROCEDIMIENTO ESPECIAL - CLIENTE TEMPORAL / Ventana', label: 'PROCEDIMIENTO ESPECIAL - CLIENTE TEMPORAL / Ventana' },
+  { value: 'URGENCIA / 4 Horas', label: 'URGENCIA / 4 Horas' },
+  { value: 'VENTA DIRECTA', label: 'VENTA DIRECTA' },
+  { value: 'ADMINISTRATIVA', label: 'ADMINISTRATIVA' },
+  { value: 'RECOLECCIÓN DE DISPOSITIVOS', label: 'RECOLECCIÓN DE DISPOSITIVOS' },
 ]
 
 export default function SolicitudModal({ open, onClose, onSubmit }) {
@@ -27,15 +32,18 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
     observaciones: '',
   })
   const [loading, setLoading] = useState(false)
+  const [errores, setErrores] = useState([])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+    if (errores.length > 0) setErrores([])
   }
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || [])
     setFormData(prev => ({ ...prev, adjuntos: files }))
+    if (errores.length > 0) setErrores([])
   }
 
   const handleSelectCliente = (c) => {
@@ -47,6 +55,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
       zona: c.zona,
     }))
     setClientPickerOpen(false)
+    if (errores.length > 0) setErrores([])
   }
 
   const resetForm = () => {
@@ -70,6 +79,32 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    const obligatorios = [
+      { campo: 'nombreCompleto', etiqueta: 'Nombre completo' },
+      { campo: 'correo', etiqueta: 'Correo' },
+      { campo: 'tipoSolicitud', etiqueta: 'Tipo de solicitud' },
+      { campo: 'cliente', etiqueta: 'Cliente' },
+      { campo: 'bodega', etiqueta: 'Bodega' },
+      { campo: 'nit', etiqueta: 'NIT' },
+      { campo: 'zona', etiqueta: 'Zona' },
+      { campo: 'adjuntos', etiqueta: 'Adjuntos' },
+    ]
+
+    const faltantes = obligatorios
+      .filter((f) => {
+        const v = formData[f.campo]
+        if (Array.isArray(v)) return v.length === 0
+        return !v || `${v}`.trim() === ''
+      })
+      .map((f) => f.etiqueta)
+
+    if (faltantes.length > 0) {
+      setErrores(faltantes)
+      return
+    }
+
+    setErrores([])
     setLoading(true)
     // Simular envío del formulario
     await new Promise(resolve => setTimeout(resolve, 1200))
@@ -92,7 +127,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
       onClick={handleClose}
     >
       <div
-        className="relative bg-white text-brand-ink w-full max-w-lg rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
+        className="relative bg-white text-brand-ink w-full max-w-2xl rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -123,6 +158,15 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
 
         {/* Cuerpo del formulario */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
+          {errores.length > 0 && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm text-red-700 flex items-start gap-2"
+            >
+              <span className="font-extrabold whitespace-nowrap">Faltan campos obligatorios:</span>
+              <span className="font-medium">{errores.join(' · ')}</span>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <FormField
               label="Nombre Completo"
@@ -133,6 +177,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="Nombre completo"
               required
               readOnly
+              icon={<MdPerson className="text-xs" />}
             />
             <FormField
               label="Correo"
@@ -143,6 +188,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="correo@CTP.com"
               required
               readOnly
+              icon={<MdEmail className="text-xs" />}
             />
             <FormField
               label="Tipo de solicitud"
@@ -153,6 +199,8 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="Tipo"
               options={TIPO_SOLICITUD_OPTIONS}
               required
+              icon={<MdAssignmentAdd className="text-xs" />}
+              invalid={errores.includes('Tipo de solicitud')}
             />
             <div className="relative">
               <FormField
@@ -164,6 +212,8 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
                 placeholder="Nombre del cliente"
                 required
                 readOnly
+                icon={<MdBusiness className="text-xs" />}
+                invalid={errores.includes('Cliente')}
               />
               <button
                 type="button"
@@ -184,6 +234,8 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="Bodega del cliente"
               required
               readOnly
+              icon={<MdWarehouse className="text-xs" />}
+              invalid={errores.includes('Bodega')}
             />
             <FormField
               label="NIT"
@@ -194,6 +246,8 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="NIT del cliente"
               required
               readOnly
+              icon={<MdTag className="text-xs" />}
+              invalid={errores.includes('NIT')}
             />
           </div>
 
@@ -206,6 +260,8 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
             placeholder="Zona (se llena al seleccionar el cliente)"
             required
             readOnly
+            icon={<MdPlace className="text-xs" />}
+            invalid={errores.includes('Zona')}
           />
 
           {/* Adjuntos */}
@@ -224,16 +280,21 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
           </div>
 
           {/* Observaciones */}
-          <div>
-            <label className="block text-sm font-semibold text-brand-deep mb-1.5">Observaciones</label>
+          <div className="relative">
             <textarea
               name="observaciones"
               value={formData.observaciones}
               onChange={handleInputChange}
               rows={3}
-              placeholder="Escribe tus observaciones o comentarios adicionales"
-              className="w-full px-3 py-2 rounded-md bg-white border-2 border-brand-ink/10 focus:outline-none focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/30 text-brand-ink placeholder-brand-ink/40 resize-y"
+              placeholder=" "
+              className="peer w-full px-3 py-2 rounded-md bg-white border border-brand-deep/20 focus:outline-none focus:border-brand-deep/60 focus:ring-2 focus:ring-brand-deep/15 text-brand-ink placeholder-transparent resize-y"
             />
+            <label className={`pointer-events-none absolute left-2 bg-white px-1 rounded transition-all inline-flex items-center gap-1 ${
+              formData.observaciones ? '-top-2 text-[0.7rem] text-brand-ink' : 'top-2 text-[0.78rem] text-brand-ink'
+            } peer-focus:-top-2 peer-focus:text-[0.7rem] peer-focus:text-brand-deep`}>
+              <span className="shrink-0 text-brand-deep"><MdNotes className="text-xs" /></span>
+              <span>Observaciones</span>
+            </label>
           </div>
 
           {/* Pie del modal */}

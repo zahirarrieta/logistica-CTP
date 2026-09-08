@@ -31,6 +31,7 @@ function changeText(value) {
 
 export default function NotificationsPanel({ solicitudes }) {
   const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState('estado')
   const [vistas, setVistas] = useState(() => loadVistas())
 
   const changes = solicitudes
@@ -46,21 +47,27 @@ export default function NotificationsPanel({ solicitudes }) {
     .reverse()
     .map((c) => ({ ...c, key: notifKey(c) }))
 
+  const deEstado = changes.filter((c) => c.campo === 'estado')
+  const asignaciones = changes.filter((c) => c.campo !== 'estado')
+
   const total = changes.length
   const noVistas = changes.filter((c) => !vistas[c.key]).length
+  const noVistasEstado = deEstado.filter((c) => !vistas[c.key]).length
+  const noVistasAsig = asignaciones.filter((c) => !vistas[c.key]).length
+
+  const listado = tab === 'estado' ? deEstado : asignaciones
 
   const handleToggle = () => {
-    if (!open) {
-      const actuales = { ...loadVistas() }
-      const ahora = new Date()
-      const stamp = `${ahora.toLocaleDateString('es-CO')} ${ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-      changes.forEach((c) => {
-        if (!actuales[c.key]) actuales[c.key] = stamp
-      })
-      persistVistas(actuales)
-      setVistas(actuales)
-    }
     setOpen(!open)
+  }
+
+  const marcarVista = (key) => {
+    if (vistas[key]) return
+    const ahora = new Date()
+    const stamp = `${ahora.toLocaleDateString('es-CO')} ${ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+    const actuales = { ...loadVistas(), [key]: stamp }
+    persistVistas(actuales)
+    setVistas(actuales)
   }
 
   return (
@@ -103,18 +110,56 @@ export default function NotificationsPanel({ solicitudes }) {
               </button>
             </div>
 
+            {/* Tabs */}
+            <div className="flex items-stretch gap-2 p-2 border-b border-brand-ink/10 shrink-0">
+              <button
+                type="button"
+                onClick={() => setTab('estado')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold transition-all ${
+                  tab === 'estado' ? 'bg-brand-cyan/20 text-brand-deep ring-1 ring-brand-cyan/40' : 'bg-brand-mist/40 text-brand-ink/60 hover:bg-brand-cyan/10'
+                }`}
+              >
+                <MdCheckCircle className="text-base" />
+                Cambio de estado
+                {noVistasEstado > 0 && <span className="min-w-5 h-5 px-1 grid place-items-center rounded-full bg-red-500 text-white text-[10px] font-extrabold">{noVistasEstado > 9 ? '9+' : noVistasEstado}</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('asignado')}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold transition-all ${
+                  tab === 'asignado' ? 'bg-brand-cyan/20 text-brand-deep ring-1 ring-brand-cyan/40' : 'bg-brand-mist/40 text-brand-ink/60 hover:bg-brand-cyan/10'
+                }`}
+              >
+                <MdAssignmentInd className="text-base" />
+                Asignación
+                {noVistasAsig > 0 && <span className="min-w-5 h-5 px-1 grid place-items-center rounded-full bg-red-500 text-white text-[10px] font-extrabold">{noVistasAsig > 9 ? '9+' : noVistasAsig}</span>}
+              </button>
+            </div>
+
             <div className="overflow-y-auto p-2">
-              {total === 0 ? (
+              {listado.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
                   <MdHistory className="text-3xl text-brand-ink/20 mb-2" />
-                  <p className="text-brand-ink/50 text-sm">Sin notificaciones de cambios</p>
+                  <p className="text-brand-ink/50 text-sm">Sin notificaciones de {tab === 'estado' ? 'cambios de estado' : 'asignaciones'}</p>
                 </div>
               ) : (
-                changes.map((c, i) => (
-                  <div key={c.key || i} className="rounded-xl border border-brand-ink/10 bg-white shadow-sm p-3 mb-2 animate-fadeIn">
+                listado.map((c, i) => (
+                  <button
+                    key={c.key || i}
+                    type="button"
+                    onClick={() => marcarVista(c.key)}
+                    className={`w-full text-left rounded-xl border p-3 mb-2 shadow-sm animate-fadeIn transition-all ${
+                      vistas[c.key]
+                        ? 'border-brand-ink/10 bg-brand-mist/30 hover:bg-brand-cyan/10'
+                        : 'border-brand-cyan/30 bg-white hover:bg-brand-cyan/10'
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-2 w-full min-w-0">
                       <span className="flex min-w-0 flex-col items-start gap-0.5">
                         <span className="flex min-w-0 items-center gap-1.5 font-bold text-brand-deep text-sm">
+                          <span className="shrink-0 grid place-items-center size-6 rounded-full bg-brand-navy text-white text-[11px] font-extrabold">
+                            {listado.length - i}
+                          </span>
                           <MdTag className="text-brand-cyan shrink-0" />
                           <span className="truncate">{c.id}</span>
                         </span>
@@ -172,7 +217,7 @@ export default function NotificationsPanel({ solicitudes }) {
                         <MdPerson /> {changeText(c.persona) || '—'}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>

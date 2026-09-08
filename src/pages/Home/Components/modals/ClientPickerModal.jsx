@@ -79,7 +79,7 @@ export default function ClientPickerModal({ open, onClose, onSelect }) {
                         onSelect?.(c)
                         onClose()
                       }}
-                      className={`cursor-pointer transition-colors hover:bg-brand-cyan/15 active:bg-brand-cyan/25 ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'}`}
+                      className={`group cursor-pointer transition-colors hover:bg-brand-deep/20 active:bg-brand-deep/30 ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'}`}
                     >
                       <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{c.bodega}</td>
                       <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{c.nit}</td>

@@ -80,7 +80,7 @@ function HistorialButton({ onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, actions, onEstadoClick, onClickObs }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
 
@@ -92,7 +92,14 @@ function SolicitudCard({ s, expanded, onToggle, index, actions, onEstadoClick, o
         className={`w-full flex items-center justify-between px-4 py-4 text-left transition-colors hover:bg-brand-deep/20 ${expanded ? 'bg-brand-deep/20' : ''}`}
       >
         <div className="flex flex-col gap-1 min-w-0">
-          <span className="font-bold text-brand-deep truncate">{s.id}</span>
+          <span className="inline-flex items-center gap-2 min-w-0">
+            {number != null && (
+              <span className="shrink-0 grid place-items-center size-6 rounded-full bg-brand-navy text-white text-[11px] font-extrabold">
+                {number}
+              </span>
+            )}
+            <span className="font-bold text-brand-deep truncate">{s.id}</span>
+          </span>
           <span className="text-xs text-brand-ink/60 capitalize">{s.nombreCompleto} · {s.tipoSolicitud}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -160,6 +167,13 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
   const [expandedId, setExpandedId] = useState(null)
   const [obsSolicitud, setObsSolicitud] = useState(null)
   const [detalleSolicitud, setDetalleSolicitud] = useState(null)
+  const [correoTooltip, setCorreoTooltip] = useState(null)
+
+  const handleCorreoEnter = (e, correo) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setCorreoTooltip({ text: correo, x: rect.left + rect.width / 2, y: rect.bottom + 6 })
+  }
+  const handleCorreoLeave = () => setCorreoTooltip(null)
 
   const openObs = (s) => setObsSolicitud(s)
   const openDetalle = (s) => setDetalleSolicitud(s)
@@ -189,6 +203,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
             key={s.id}
             s={s}
             index={i}
+            number={startIndex + i + 1}
             expanded={expandedId === s.id}
             onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
             actions={cardActions}
@@ -204,6 +219,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
           <table className="w-full text-left text-sm border-separate border-spacing-0">
             <thead>
               <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
+                <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-14 text-center">N°</th>
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdTag className="text-base" /> ID</span>
                 </th>
@@ -251,6 +267,11 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                   onClick={onRowClick ? () => onRowClick(s) : undefined}
                   className={`group ${onRowClick ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'}`}
                 >
+                  <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
+                    <span className={`inline-flex items-center justify-center size-7 rounded-full text-xs font-extrabold ${i % 2 === 0 ? 'bg-brand-navy text-white' : 'bg-brand-deep text-white'}`}>
+                      {startIndex + i + 1}
+                    </span>
+                  </td>
                   <td className="px-3 py-3 font-bold text-brand-deep whitespace-nowrap border-b border-l border-brand-ink/10">
                     <button
                       type="button"
@@ -268,12 +289,13 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                   </td>
                   <td className="px-2 py-3 font-semibold text-brand-ink min-w-[150px] border-b border-l border-brand-ink/10">{s.nombreCompleto}</td>
                   <td className="px-2 py-3 border-b border-l border-brand-ink/10 text-center">
-                    <span className="group/correo relative inline-flex items-center justify-center">
-                      <span className="grid place-items-center size-8 rounded-full bg-brand-cyan/10 text-brand-deep cursor-help" title={s.correo}>
+                    <span
+                      className="inline-flex items-center justify-center"
+                      onMouseEnter={(e) => handleCorreoEnter(e, s.correo)}
+                      onMouseLeave={handleCorreoLeave}
+                    >
+                      <span className="grid place-items-center size-8 rounded-full bg-brand-cyan/10 text-brand-deep cursor-help">
                         <MdEmail className="text-lg" />
-                      </span>
-                      <span className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 z-50 hidden group-hover/correo:block whitespace-nowrap rounded-lg bg-brand-navy text-white text-xs px-3 py-1.5 shadow-xl">
-                        {s.correo}
                       </span>
                     </span>
                   </td>
@@ -392,6 +414,15 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
         open={detalleSolicitud !== null}
         onClose={() => setDetalleSolicitud(null)}
       />
+
+      {correoTooltip && (
+        <div
+          className="pointer-events-none fixed z-[1200] -translate-x-1/2 whitespace-nowrap rounded-lg bg-brand-navy text-white text-xs px-3 py-1.5 shadow-xl"
+          style={{ left: correoTooltip.x, top: correoTooltip.y }}
+        >
+          {correoTooltip.text}
+        </div>
+      )}
     </>
   )
 }

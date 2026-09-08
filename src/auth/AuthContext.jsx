@@ -29,8 +29,11 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = () => msalInstance.loginRedirect(loginRequest)
-  const logout = () =>
-    msalInstance.logoutRedirect({ postLogoutRedirectUri: window.location.origin })
+  const logout = () => {
+    try { msalInstance.setActiveAccount(null) } catch { /* noop */ }
+    setAccount(null)
+    msalInstance.logoutPopup({ postLogoutRedirectUri: 'about:blank' }).catch(() => {})
+  }
 
   return (
     <AuthContext.Provider value={{ account, loading, login, logout }}>

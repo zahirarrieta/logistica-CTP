@@ -38,22 +38,24 @@ export default function DetalleModal({ solicitud, open, onClose }) {
             </span>
             DETALLE SOLICITUD
           </h3>
-          <button
-            aria-label="Cerrar"
-            onClick={onClose}
-            className="grid place-items-center size-8 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
-          >
-            <MdClose className="text-lg" />
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/15 ring-1 ring-brand-cyan/40 text-brand-cyan px-2.5 sm:px-3 py-1 text-[10px] sm:text-sm font-bold tracking-wide select-none shadow-[0_0_14px_rgba(0,229,255,0.25)]">
+              <MdTag className="text-xs sm:text-sm" />
+              {solicitud.id}
+            </span>
+            <button
+              aria-label="Cerrar"
+              onClick={onClose}
+              className="grid place-items-center size-8 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+            >
+              <MdClose className="text-lg" />
+            </button>
+          </div>
         </div>
 
         {/* Cuerpo */}
         <div className="p-5 sm:p-6 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/5 border border-brand-ink/10 px-3 py-1.5 text-xs sm:text-sm font-bold text-brand-deep">
-              <MdTag className="text-brand-cyan" />
-              {solicitud.id}
-            </span>
+          <div className="flex items-center justify-start gap-2">
             <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${getBadgeColor(solicitud.estado || 'Abierto')}`}>
               <span className={`size-2 rounded-full ${getDotColor(solicitud.estado || 'Abierto')}`} />
               {solicitud.estado || 'Abierto'}

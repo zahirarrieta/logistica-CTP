@@ -2,7 +2,6 @@ export const ESTADOS = [
   'Abierto',
   'Autorizado',
   'Cancelado',
-  'Cerrado',
   'Devolución Solicitante',
   'En alistamiento',
   'Entregado',

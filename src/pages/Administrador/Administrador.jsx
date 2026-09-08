@@ -47,12 +47,12 @@ export default function Administrador() {
 
   const handleUpdateEstado = (id, updates) => {
     setSolicitudes(updateSolicitud(id, updates))
-    setToast({ estado: updates.estado })
+    setToast({ tipo: 'estado', estado: updates.estado })
   }
 
-  const handleAsignar = (id, asignadoA) => {
-    setSolicitudes(updateSolicitud(id, { asignadoA }))
-    setToast({ mensaje: `Solicitud ${id} asignada a «${asignadoA}»` })
+  const handleAsignar = (id, updates) => {
+    setSolicitudes(updateSolicitud(id, updates))
+    setToast({ tipo: 'asignado', asignadoA: updates.asignadoA })
   }
 
   return (
@@ -157,7 +157,9 @@ export default function Administrador() {
 
       {toast && (
         <Toast
+          tipo={toast.tipo}
           estado={toast.estado}
+          asignadoA={toast.asignadoA}
           onClose={() => setToast(null)}
         />
       )}
