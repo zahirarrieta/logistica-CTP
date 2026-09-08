@@ -135,11 +135,11 @@ function Login() {
                             alt={`Slide ${idx + 1}`}
                             loading={idx === 0 ? 'eager' : 'lazy'}
                             decoding="async"
-                            className={`absolute inset-0 m-auto max-h-full max-w-full object-contain transition-all duration-500 ease-out ${
-                              idx === currentSlide
-                                ? 'opacity-100 scale-100 blur-0 drop-shadow-[0_0_40px_rgba(0,229,255,0.30)]'
-                                : 'opacity-0 scale-[1.02] blur-[1px]'
-                            }`}
+className={`absolute inset-0 m-auto max-h-full max-w-full object-contain transition-opacity duration-500 ease-out ${
+  idx === currentSlide
+    ? 'opacity-100 drop-shadow-[0_0_40px_rgba(0,229,255,0.30)]'
+    : 'opacity-0'
+}`}
                             sizes="(max-width: 768px) 95vw, (max-width: 1280px) 50vw, (max-width: 1536px) 45vw, 40vw"
                           />
                         ))}
