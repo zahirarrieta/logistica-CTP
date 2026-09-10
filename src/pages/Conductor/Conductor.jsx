@@ -6,7 +6,7 @@ import Footer from '../../components/Footer.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import { loadSolicitudes } from '../Home/Components/solicitudesStore.js'
 
-const ESTADO_TRANSITO = 'En Transito'
+const ESTADO_TRANSITO = 'En Tránsito'
 
 export default function Conductor() {
   const [solicitudes] = useState(loadSolicitudes())

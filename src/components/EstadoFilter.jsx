@@ -1,20 +1,6 @@
 import { useState } from 'react'
 import { MdFilterList, MdExpandMore } from 'react-icons/md'
-import { getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
-
-const ESTADOS = [
-  'Abierto',
-  'Autorizado',
-  'Cancelado',
-  'Cerrado',
-  'Devolución Solicitante',
-  'En alistamiento',
-  'Entregado',
-  'Entregado/Parcial',
-  'En Transito',
-  'En Tramite',
-  'Despacho Parcial',
-]
+import { ESTADOS, getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
 
 export default function EstadoFilter({ solicitudes, value, onChange }) {
   const [open, setOpen] = useState(false)

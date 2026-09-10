@@ -56,11 +56,11 @@ img {
   height: auto;
 }
 
-/* Estilos para botones */
+/* Estilos para botones: NO se ponen border/fondo aquí porque Tailwind Preflight
+   ya los deja en 0/transparente; así las utilidades border-* y bg-* del select
+   (p. ej. "Tipo de solicitud") siempre pueden aplicarse. */
 button {
   cursor: pointer;
-  border: none;
-  background: none;
   transition: all 200ms ease;
 }
 

@@ -22,7 +22,7 @@ import {
   MdPersonAdd,
   MdSwapHoriz,
 } from 'react-icons/md'
-import { getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
+import { getBadgeColor, getDotColor, getEstadoBg } from '../pages/Home/Components/estadoColors.js'
 import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
 import ObservacionesModal from './ObservacionesModal.jsx'
 import DetalleModal from './DetalleModal.jsx'
@@ -73,19 +73,21 @@ function HistorialButton({ onClick }) {
       onClick={onClick}
       aria-label="Ver historial"
       title="Historial"
-      className="grid place-items-center size-9 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-deep/20 transition-colors"
+      className="grid place-items-center size-9 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
     >
       <MdHistory className="text-lg" />
     </button>
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
+  const cardBg = colorRow ? getEstadoBg(s.estado) : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
+  const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick)
 
   return (
-    <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${isEven ? 'bg-white' : 'bg-brand-cyan/10'}`}>
+    <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${cardBg}`}>
       <button
         type="button"
         onClick={onToggle}
@@ -145,16 +147,51 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
             <span className="text-brand-ink/50 w-24 shrink-0">Estado</span>
             <span className="flex flex-wrap items-center gap-2 min-w-0">
               <EstadoBadge estado={s.estado} />
+            </span>
+          </div>
+          {hasCardAcciones && (
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              {onAsignarClick && (
+                <button
+                  type="button"
+                  onClick={() => onAsignarClick(s)}
+                  title="Asignar usuario"
+                  aria-label="Asignar usuario"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdPersonAdd className="text-lg" />
+                  Asignar
+                </button>
+              )}
+              {onCambiarEstadoClick && (
+                <button
+                  type="button"
+                  onClick={() => onCambiarEstadoClick(s)}
+                  title="Cambiar estado"
+                  aria-label="Cambiar estado"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdSwapHoriz className="text-lg" />
+                  Estado
+                </button>
+              )}
               {onEstadoClick && (
-                <HistorialButton
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation()
                     onEstadoClick(s)
                   }}
-                />
+                  title="Historial"
+                  aria-label="Ver historial"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdHistory className="text-lg" />
+                  Historial
+                </button>
               )}
-            </span>
-          </div>
+            </div>
+          )}
           {action}
         </div>
       )}
@@ -162,7 +199,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
   )
 }
 
-export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, cardActions, empty }) {
+export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, cardActions, empty, colorRowsPorEstado }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [obsSolicitud, setObsSolicitud] = useState(null)
@@ -208,7 +245,10 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
             onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
             actions={cardActions}
             onEstadoClick={onEstadoClick}
+            onAsignarClick={onAsignarClick}
+            onCambiarEstadoClick={onCambiarEstadoClick}
             onClickObs={openObs}
+            colorRow={colorRowsPorEstado}
           />
         ))}
       </div>
@@ -265,7 +305,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                 <tr
                   key={s.id}
                   onClick={onRowClick ? () => onRowClick(s) : undefined}
-                  className={`group ${onRowClick ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'}`}
+                  className={`group ${onRowClick ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${colorRowsPorEstado ? getEstadoBg(s.estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')}`}
                 >
                   <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
                     <span className={`inline-flex items-center justify-center size-7 rounded-full text-xs font-extrabold ${i % 2 === 0 ? 'bg-brand-navy text-white' : 'bg-brand-deep text-white'}`}>
@@ -323,7 +363,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                     <EstadoBadge estado={s.estado} />
                   </td>
                   {hasAcciones && (
-                    <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'}`}>
+                    <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${colorRowsPorEstado ? getEstadoBg(s.estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')}`}>
                       <div className="flex items-center justify-center gap-1.5">
                         {onAsignarClick && (
                           <button

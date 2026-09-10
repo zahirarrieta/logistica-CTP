@@ -177,7 +177,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="Nombre completo"
               required
               readOnly
-              icon={<MdPerson className="text-xs" />}
+              icon={<MdPerson className="text-sm" />}
             />
             <FormField
               label="Correo"
@@ -188,7 +188,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="correo@CTP.com"
               required
               readOnly
-              icon={<MdEmail className="text-xs" />}
+              icon={<MdEmail className="text-sm" />}
             />
             <FormField
               label="Tipo de solicitud"
@@ -199,7 +199,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="Tipo"
               options={TIPO_SOLICITUD_OPTIONS}
               required
-              icon={<MdAssignmentAdd className="text-xs" />}
+              icon={<MdAssignmentAdd className="text-sm" />}
               invalid={errores.includes('Tipo de solicitud')}
             />
             <div className="relative">
@@ -212,7 +212,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
                 placeholder="Nombre del cliente"
                 required
                 readOnly
-                icon={<MdBusiness className="text-xs" />}
+                icon={<MdBusiness className="text-sm" />}
                 invalid={errores.includes('Cliente')}
               />
               <button
@@ -234,7 +234,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="Bodega del cliente"
               required
               readOnly
-              icon={<MdWarehouse className="text-xs" />}
+              icon={<MdWarehouse className="text-sm" />}
               invalid={errores.includes('Bodega')}
             />
             <FormField
@@ -246,7 +246,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               placeholder="NIT del cliente"
               required
               readOnly
-              icon={<MdTag className="text-xs" />}
+              icon={<MdTag className="text-sm" />}
               invalid={errores.includes('NIT')}
             />
           </div>
@@ -260,7 +260,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
             placeholder="Zona (se llena al seleccionar el cliente)"
             required
             readOnly
-            icon={<MdPlace className="text-xs" />}
+            icon={<MdPlace className="text-sm" />}
             invalid={errores.includes('Zona')}
           />
 
@@ -287,12 +287,12 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
               onChange={handleInputChange}
               rows={3}
               placeholder=" "
-              className="peer w-full px-3 py-2 rounded-md bg-white border border-brand-deep/20 focus:outline-none focus:border-brand-deep/60 focus:ring-2 focus:ring-brand-deep/15 text-brand-ink placeholder-transparent resize-y"
+              className="peer w-full px-3 py-2.5 rounded-xl bg-white border border-brand-deep/20 shadow-sm focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:shadow-none transition-all text-brand-ink placeholder-transparent resize-y"
             />
             <label className={`pointer-events-none absolute left-2 bg-white px-1 rounded transition-all inline-flex items-center gap-1 ${
-              formData.observaciones ? '-top-2 text-[0.7rem] text-brand-ink' : 'top-2 text-[0.78rem] text-brand-ink'
+              formData.observaciones ? '-top-2 text-[0.7rem] text-brand-ink' : 'top-2.5 text-[0.78rem] text-brand-ink'
             } peer-focus:-top-2 peer-focus:text-[0.7rem] peer-focus:text-brand-deep`}>
-              <span className="shrink-0 text-brand-deep"><MdNotes className="text-xs" /></span>
+              <span className="shrink-0 text-brand-deep"><MdNotes className="text-sm" /></span>
               <span>Observaciones</span>
             </label>
           </div>

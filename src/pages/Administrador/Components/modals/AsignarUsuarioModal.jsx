@@ -3,13 +3,16 @@ import { MdClose, MdSave, MdAssignmentInd, MdTag, MdPersonAdd, MdCheck } from 'r
 import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
 
 const ASIGNADOS = [
-  'Juan Andrés Pérez',
-  'María Camila Gómez',
-  'Carlos Andrés Rodríguez',
-  'Ana Sofía Martínez',
-  'Luis Fernando Hernández',
-  'Laura Daniela Díaz',
-  'Andrés Felipe Torres',
+  'Hernán García',
+  'Daniel Chamorro',
+  'Sebastián Rojas',
+  'Duber Sepúlveda',
+  'Laura Puentes',
+  'Yonathan Ortiz',
+  'Reinel Peña',
+  'Robert',
+  'Diego Peña',
+  'Camilo Melo',
 ]
 
 function initials(name) {

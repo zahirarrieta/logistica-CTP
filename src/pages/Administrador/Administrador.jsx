@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MdAdminPanelSettings, MdDeleteSweep, MdEdit, MdInbox, MdFilterList } from 'react-icons/md'
+import { MdAdminPanelSettings, MdDeleteSweep, MdInbox, MdFilterList } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
@@ -106,16 +106,7 @@ export default function Administrador() {
             onEstadoClick={(s) => setHistorialSolicitud(s)}
             onAsignarClick={(s) => setAsignarSolicitud(s)}
             onCambiarEstadoClick={(s) => setEditSolicitud(s)}
-            cardActions={(s) => (
-              <button
-                type="button"
-                onClick={() => setEditSolicitud(s)}
-                className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-brand-cyan px-4 py-2 text-sm font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] transition-all"
-              >
-                <MdEdit className="text-lg" />
-                Cambiar estado
-              </button>
-            )}
+            colorRowsPorEstado
             empty={
               hasFilters
                 ? {
