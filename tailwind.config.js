@@ -62,6 +62,17 @@ export default {
           '50%': { transform: 'translateY(0) rotate(0deg)' },
           '75%': { transform: 'translateY(-2px) rotate(-1deg)' },
         },
+        truckRide: {
+          '0%': { left: '-12%', opacity: '0' },
+          '8%': { opacity: '1' },
+          '45%': { opacity: '1' },
+          '92%': { opacity: '1' },
+          '100%': { left: 'calc(100% - 64px)', opacity: '0' },
+        },
+        roadStripes: {
+          '0%': { backgroundPosition: '0 0' },
+          '100%': { backgroundPosition: '-32px 0' },
+        },
       },
       animation: {
         slideDown: 'slideDown 1200ms ease-out both',
@@ -70,6 +81,8 @@ export default {
         scaleIn: 'scaleIn 300ms ease-out both',
         shimmer: 'shimmer 2.2s linear infinite',
         truckMove: 'truckMove 0.5s ease-in-out infinite',
+        truckRide: 'truckRide 7s linear infinite',
+        roadStripes: 'roadStripes 0.9s linear infinite',
       },
       fontFamily: {
         sans: ['Montserrat', 'system-ui', 'sans-serif'],

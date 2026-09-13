@@ -56,8 +56,11 @@ const TEXT_FIELDS = [
   'nit',
   'zona',
   'observaciones',
+  'notaEstado',
+  'numeroReferencia',
   'estado',
   'asignadoA',
+  'conductor',
 ]
 
 export function loadSolicitudes() {
@@ -80,6 +83,9 @@ export function loadSolicitudes() {
           if (typeof hn.persona !== 'string') hn.persona = safeText(hn.persona)
           if (typeof hn.fecha !== 'string') hn.fecha = safeText(hn.fecha)
           if (typeof hn.hora !== 'string') hn.hora = safeText(hn.hora)
+          if (typeof hn.nota !== 'string') hn.nota = safeText(hn.nota)
+          if (typeof hn.referencia !== 'string') hn.referencia = safeText(hn.referencia)
+          if (typeof hn.adjunto !== 'string') hn.adjunto = safeText(hn.adjunto)
           return hn
         })
       }
@@ -141,7 +147,14 @@ export function updateSolicitud(id, updates) {
     const historial = Array.isArray(s.historial) ? s.historial : []
     const campos = []
     if (updates.estado && updates.estado !== (s.estado || 'Abierto')) {
-      campos.push({ campo: 'estado', anterior: s.estado || 'Abierto', nuevo: updates.estado })
+      campos.push({
+        campo: 'estado',
+        anterior: s.estado || 'Abierto',
+        nuevo: updates.estado,
+        nota: updates.notaEstado || '',
+        referencia: updates.numeroReferencia || '',
+        adjunto: Array.isArray(updates.adjuntosTramite) ? updates.adjuntosTramite.join(', ') : '',
+      })
     }
     if ('asignadoA' in updates && updates.asignadoA !== (s.asignadoA || '')) {
       campos.push({ campo: 'asignado', anterior: s.asignadoA || 'Sin asignar', nuevo: updates.asignadoA || 'Sin asignar' })

@@ -24,10 +24,15 @@ import {
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../pages/Home/Components/estadoColors.js'
 import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
+import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'
 import DetalleModal from './DetalleModal.jsx'
 
 const ITEMS_PER_PAGE = 10
+
+const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
+const enTransito = (s) => ESTADOS_TRANSITO.includes(s.estado)
+const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !== '')
 
 function Row({ icon, label, value }) {
   return (
@@ -61,6 +66,22 @@ export function AsignadoBadge({ asignado }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-deep/10 text-brand-deep px-2.5 py-1 text-xs font-bold whitespace-nowrap">
       <span className="grid place-items-center size-4 rounded-full bg-brand-deep text-white text-[9px]">{ini}</span>
+      {nombre}
+    </span>
+  )
+}
+
+export function ConductorBadge({ conductor, estado }) {
+  const nombre = nombreDeAsignado(conductor)
+  if (!nombre) return null
+  const cls =
+    {
+      'En Tránsito': 'bg-purple-100 text-purple-700',
+      'En Tránsito Parcial': 'bg-yellow-100 text-yellow-800',
+    }[estado] || 'bg-brand-cyan/15 text-brand-deep'
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap ${cls}`}>
+      <RiSteering2Line className="text-sm" />
       {nombre}
     </span>
   )
@@ -140,7 +161,10 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
           <div className="flex items-start gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
             <span className="text-brand-cyan mt-0.5 shrink-0"><MdAssignmentInd /></span>
             <span className="text-brand-ink/50 w-24 shrink-0">Asignado a</span>
-            <AsignadoBadge asignado={s.asignadoA} />
+            <span className="flex flex-wrap items-center gap-1.5">
+              <AsignadoBadge asignado={s.asignadoA} />
+              <ConductorBadge conductor={s.conductor} estado={s.estado} />
+            </span>
           </div>
           <div className="flex items-start gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
             <span className="text-brand-cyan mt-0.5 shrink-0"><MdCheckCircle /></span>
@@ -154,10 +178,14 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
               {onAsignarClick && (
                 <button
                   type="button"
-                  onClick={() => onAsignarClick(s)}
-                  title="Asignar usuario"
+                  onClick={() => {
+                    if (enTransito(s)) return
+                    onAsignarClick(s)
+                  }}
+                  disabled={enTransito(s)}
+                  title={enTransito(s) ? 'No se puede asignar: la solicitud está en tránsito' : 'Asignar usuario'}
                   aria-label="Asignar usuario"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-2 py-2 text-xs font-bold"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-2 py-2 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-cyan/15 disabled:hover:text-brand-deep"
                 >
                   <MdPersonAdd className="text-lg" />
                   Asignar
@@ -166,10 +194,14 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
               {onCambiarEstadoClick && (
                 <button
                   type="button"
-                  onClick={() => onCambiarEstadoClick(s)}
-                  title="Cambiar estado"
+                  onClick={() => {
+                    if (!tieneAsignado(s)) return
+                    onCambiarEstadoClick(s)
+                  }}
+                  disabled={!tieneAsignado(s)}
+                  title={tieneAsignado(s) ? 'Cambiar estado' : 'Debes asignar una persona primero'}
                   aria-label="Cambiar estado"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors px-2 py-2 text-xs font-bold"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors px-2 py-2 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-navy/10 disabled:hover:text-brand-deep"
                 >
                   <MdSwapHoriz className="text-lg" />
                   Estado
@@ -357,7 +389,10 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                     </button>
                   </td>
                   <td className="px-2 py-3 border-b border-l border-brand-ink/10">
-                    <AsignadoBadge asignado={s.asignadoA} />
+                    <span className="flex flex-col items-start gap-1">
+                      <AsignadoBadge asignado={s.asignadoA} />
+                      <ConductorBadge conductor={s.conductor} estado={s.estado} />
+                    </span>
                   </td>
                   <td className="px-3 py-3 border-b border-l border-brand-ink/10">
                     <EstadoBadge estado={s.estado} />
@@ -368,10 +403,15 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                         {onAsignarClick && (
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); onAsignarClick(s) }}
-                            title="Asignar usuario"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (enTransito(s)) return
+                              onAsignarClick(s)
+                            }}
+                            disabled={enTransito(s)}
+                            title={enTransito(s) ? 'No se puede asignar: la solicitud está en tránsito' : 'Asignar usuario'}
                             aria-label="Asignar usuario"
-                            className="grid place-items-center size-9 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                            className="grid place-items-center size-9 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-cyan/15 disabled:hover:text-brand-deep"
                           >
                             <MdPersonAdd className="text-xl" />
                           </button>
@@ -379,10 +419,15 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                         {onCambiarEstadoClick && (
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); onCambiarEstadoClick(s) }}
-                            title="Cambiar estado"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (!tieneAsignado(s)) return
+                              onCambiarEstadoClick(s)
+                            }}
+                            disabled={!tieneAsignado(s)}
+                            title={tieneAsignado(s) ? 'Cambiar estado' : 'Debes asignar una persona primero'}
                             aria-label="Cambiar estado"
-                            className="grid place-items-center size-9 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors"
+                            className="grid place-items-center size-9 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-navy/10 disabled:hover:text-brand-deep"
                           >
                             <MdSwapHoriz className="text-xl" />
                           </button>

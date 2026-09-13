@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MdClose, MdSave, MdAssignmentInd, MdTag, MdPersonAdd, MdCheck } from 'react-icons/md'
+import { MdClose, MdCheckCircle, MdAssignmentInd, MdTag, MdPersonAdd, MdCheck } from 'react-icons/md'
 import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
 
 const ASIGNADOS = [
@@ -9,11 +9,12 @@ const ASIGNADOS = [
   'Duber Sepúlveda',
   'Laura Puentes',
   'Yonathan Ortiz',
-  'Reinel Peña',
-  'Robert',
-  'Diego Peña',
   'Camilo Melo',
 ]
+
+const CONDUCTORES = ['Reinel Peña', 'Robert', 'Diego Peña']
+
+const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
 function initials(name) {
   return name
@@ -33,6 +34,9 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
   }, [open, asignadoA])
 
   if (!open || !solicitud) return null
+
+  const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
+  const lista = enTransito ? CONDUCTORES : ASIGNADOS
 
   const isAsignadoActualmente = (n) => n === asignadoA
   const isSeleccion = (n) => n === seleccion
@@ -86,10 +90,10 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
         {/* Lista de usuarios */}
         <div className="p-4 sm:p-6 overflow-y-auto">
           <p className="text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-3">
-            Selecciona el usuario a asignar
+            {enTransito ? 'Selecciona el conductor' : 'Selecciona el usuario a asignar'}
           </p>
           <div className="space-y-1.5">
-            {ASIGNADOS.map((n) => {
+            {lista.map((n) => {
               const actual = isAsignadoActualmente(n)
               const sel = isSeleccion(n)
               return (
@@ -141,7 +145,9 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
             disabled={!seleccion || seleccion === asignadoA}
             className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
-            <MdSave className="text-lg" />
+            <span className="grid place-items-center size-6 rounded-full bg-brand-deep/10 text-brand-deep">
+              <MdCheckCircle className="text-base" />
+            </span>
             Guardar
           </button>
         </div>

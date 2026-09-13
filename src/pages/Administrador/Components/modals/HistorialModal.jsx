@@ -136,6 +136,21 @@ export default function HistorialModal({ solicitud, open, onClose }) {
                           </>
                         )}
                       </div>
+                      {h.nota && (
+                        <p className="mt-2 text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-cyan px-2.5 py-1.5">
+                          {h.nota}
+                        </p>
+                      )}
+                      {h.referencia && (
+                        <p className="mt-2 text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-cyan px-2.5 py-1.5">
+                          Factura/Remisión: {h.referencia}
+                        </p>
+                      )}
+                      {h.adjunto && (
+                        <p className="mt-2 text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-cyan px-2.5 py-1.5">
+                          Adjunto: {h.adjunto}
+                        </p>
+                      )}
                     </div>
                   </li>
                 )

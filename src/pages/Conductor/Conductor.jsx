@@ -4,13 +4,29 @@ import { MdLocalShipping } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
-import { loadSolicitudes } from '../Home/Components/solicitudesStore.js'
+import Toast from '../../components/Toast.jsx'
+import EstadosModal from '../Administrador/Components/modals/EstadosModal.jsx'
+import { loadSolicitudes, updateSolicitud } from '../Home/Components/solicitudesStore.js'
 
-const ESTADO_TRANSITO = 'En Tránsito'
+const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
+
+function estadosConductor(s) {
+  const actual = s.estado || 'Abierto'
+  if (actual === 'En Tránsito') return ['Entregado']
+  if (actual === 'En Tránsito Parcial') return ['Entregado Parcial']
+  return ['Entregado', 'Entregado Parcial']
+}
 
 export default function Conductor() {
-  const [solicitudes] = useState(loadSolicitudes())
-  const enTransito = solicitudes.filter((s) => (s.estado || 'Abierto') === ESTADO_TRANSITO)
+  const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
+  const [editarSolicitud, setEditarSolicitud] = useState(null)
+  const [toast, setToast] = useState(null)
+  const enTransito = solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || 'Abierto'))
+
+  const handleUpdateEstado = (id, updates) => {
+    setSolicitudes(updateSolicitud(id, updates))
+    setToast({ tipo: 'estado', estado: updates.estado })
+  }
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white text-brand-ink">
@@ -42,16 +58,34 @@ export default function Conductor() {
 
           <SolicitudesTable
             items={enTransito}
+            onCambiarEstadoClick={(s) => setEditarSolicitud(s)}
+            colorRowsPorEstado
             empty={{
               icon: <MdLocalShipping />,
               title: 'No hay solicitudes en tránsito',
-              text: 'Cuando una solicitud cambie a estado «En Transito» aparecerá aquí.',
+              text: 'Cuando una solicitud cambie a estado «En Transto» aparecerá aquí.',
             }}
           />
         </div>
       </main>
 
       <Footer />
+
+      <EstadosModal
+        solicitud={editarSolicitud}
+        open={editarSolicitud !== null}
+        onClose={() => setEditarSolicitud(null)}
+        onUpdate={handleUpdateEstado}
+        permitidos={editarSolicitud ? estadosConductor(editarSolicitud) : undefined}
+      />
+
+      {toast && (
+        <Toast
+          tipo={toast.tipo}
+          estado={toast.estado}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

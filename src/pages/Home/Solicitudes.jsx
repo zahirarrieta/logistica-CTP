@@ -3,15 +3,16 @@ import { MdAdd, MdAssignmentAdd, MdInbox, MdFilterList } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
+import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
-import NotificationsPanel from '../../components/NotificationsPanel.jsx'
 import { loadSolicitudes, saveSolicitud } from './Components/solicitudesStore.js'
 
 export default function Solicitudes() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [modalOpen, setModalOpen] = useState(false)
+  const [detalleSolicitud, setDetalleSolicitud] = useState(null)
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
@@ -51,7 +52,6 @@ export default function Solicitudes() {
               </p>
             </div>
             <div className="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
-              <NotificationsPanel solicitudes={solicitudes} />
               <button
                 type="button"
                 onClick={() => setModalOpen(true)}
@@ -77,6 +77,7 @@ export default function Solicitudes() {
 
           <SolicitudesTable
             items={filtered}
+            onRowClick={(s) => setDetalleSolicitud(s)}
             empty={
               hasFilters
                 ? {
@@ -100,6 +101,13 @@ export default function Solicitudes() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleNewSolicitud}
+      />
+
+      <SeguimientoModal
+        solicitud={detalleSolicitud}
+        open={detalleSolicitud !== null}
+        onClose={() => setDetalleSolicitud(null)}
+        solicitudes={solicitudes}
       />
     </div>
   )

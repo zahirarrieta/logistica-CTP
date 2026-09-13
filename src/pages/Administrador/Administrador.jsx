@@ -8,7 +8,9 @@ import AsignadoFilter from '../../components/AsignadoFilter.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import Toast from '../../components/Toast.jsx'
 import EstadosModal from './Components/modals/EstadosModal.jsx'
+import { ESTADOS } from '../Home/Components/estadoColors.js'
 import AsignarUsuarioModal from './Components/modals/AsignarUsuarioModal.jsx'
+import AsignarConductorModal from './Components/modals/AsignarConductorModal.jsx'
 import HistorialModal from './Components/modals/HistorialModal.jsx'
 import { loadSolicitudes, updateSolicitud, clearSolicitudes } from '../Home/Components/solicitudesStore.js'
 
@@ -16,6 +18,7 @@ export default function Administrador() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [editSolicitud, setEditSolicitud] = useState(null)
   const [asignarSolicitud, setAsignarSolicitud] = useState(null)
+  const [asignarConductorSolicitud, setAsignarConductorSolicitud] = useState(null)
   const [historialSolicitud, setHistorialSolicitud] = useState(null)
   const [toast, setToast] = useState(null)
   const [filterEstado, setFilterEstado] = useState(null)
@@ -33,6 +36,8 @@ export default function Administrador() {
   })
 
   const hasFilters = Boolean(filterEstado || filtroAsignado || filtroCliente || filtroZona)
+
+const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
 
   const handleClearAll = () => {
     if (window.confirm('¿Seguro que deseas eliminar todas las solicitudes? Esta acción no se puede deshacer.')) {
@@ -53,6 +58,11 @@ export default function Administrador() {
   const handleAsignar = (id, updates) => {
     setSolicitudes(updateSolicitud(id, updates))
     setToast({ tipo: 'asignado', asignadoA: updates.asignadoA })
+  }
+
+  const handleAsignarConductor = (id, updates) => {
+    setSolicitudes(updateSolicitud(id, updates))
+    setToast({ tipo: 'conductor', asignadoA: updates.conductor })
   }
 
   return (
@@ -106,6 +116,7 @@ export default function Administrador() {
             onEstadoClick={(s) => setHistorialSolicitud(s)}
             onAsignarClick={(s) => setAsignarSolicitud(s)}
             onCambiarEstadoClick={(s) => setEditSolicitud(s)}
+            onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
             colorRowsPorEstado
             empty={
               hasFilters
@@ -131,6 +142,8 @@ export default function Administrador() {
         open={editSolicitud !== null}
         onClose={() => setEditSolicitud(null)}
         onUpdate={handleUpdateEstado}
+        onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
+        permitidos={ESTADOS_ADMIN}
       />
 
       <AsignarUsuarioModal
@@ -138,6 +151,13 @@ export default function Administrador() {
         open={asignarSolicitud !== null}
         onClose={() => setAsignarSolicitud(null)}
         onUpdate={handleAsignar}
+      />
+
+      <AsignarConductorModal
+        solicitud={asignarConductorSolicitud}
+        open={asignarConductorSolicitud !== null}
+        onClose={() => setAsignarConductorSolicitud(null)}
+        onUpdate={handleAsignarConductor}
       />
 
       <HistorialModal
