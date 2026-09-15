@@ -4,6 +4,8 @@ import { shortName } from '../../../auth/user.js'
 const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
 
+const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
+
 function currentPersona() {
   const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0]
   return shortName(account)
@@ -61,6 +63,8 @@ const TEXT_FIELDS = [
   'estado',
   'asignadoA',
   'conductor',
+  'vehiculo',
+  'placa',
 ]
 
 export function loadSolicitudes() {
@@ -86,6 +90,9 @@ export function loadSolicitudes() {
           if (typeof hn.nota !== 'string') hn.nota = safeText(hn.nota)
           if (typeof hn.referencia !== 'string') hn.referencia = safeText(hn.referencia)
           if (typeof hn.adjunto !== 'string') hn.adjunto = safeText(hn.adjunto)
+          if (typeof hn.vehiculo !== 'string') hn.vehiculo = safeText(hn.vehiculo)
+          if (typeof hn.placa !== 'string') hn.placa = safeText(hn.placa)
+          if (typeof hn.conductor !== 'string') hn.conductor = safeText(hn.conductor)
           return hn
         })
       }
@@ -147,6 +154,7 @@ export function updateSolicitud(id, updates) {
     const historial = Array.isArray(s.historial) ? s.historial : []
     const campos = []
     if (updates.estado && updates.estado !== (s.estado || 'Abierto')) {
+      const transito = ESTADOS_TRANSITO.includes(updates.estado)
       campos.push({
         campo: 'estado',
         anterior: s.estado || 'Abierto',
@@ -154,10 +162,22 @@ export function updateSolicitud(id, updates) {
         nota: updates.notaEstado || '',
         referencia: updates.numeroReferencia || '',
         adjunto: Array.isArray(updates.adjuntosTramite) ? updates.adjuntosTramite.join(', ') : '',
+        conductor: transito ? s.conductor || '' : '',
+        vehiculo: transito ? s.vehiculo || '' : '',
+        placa: transito ? s.placa || '' : '',
       })
     }
     if ('asignadoA' in updates && updates.asignadoA !== (s.asignadoA || '')) {
       campos.push({ campo: 'asignado', anterior: s.asignadoA || 'Sin asignar', nuevo: updates.asignadoA || 'Sin asignar' })
+    }
+    if ('conductor' in updates && (updates.conductor || '') !== (s.conductor || '')) {
+      campos.push({
+        campo: 'conductor',
+        anterior: s.conductor || 'Sin asignar',
+        nuevo: updates.conductor || 'Sin asignar',
+        vehiculo: updates.vehiculo || '',
+        placa: updates.placa || '',
+      })
     }
     if (campos.length === 0) return { ...s, ...updates, historial }
     const { fecha, hora } = nowStamp()

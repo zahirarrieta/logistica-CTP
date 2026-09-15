@@ -66,7 +66,7 @@ export default function HistorialModal({ solicitud, open, onClose }) {
                 }`}
               >
                 <MdAssignmentInd className="text-base" />
-                Asignación
+                Asignación de usuarios
                 {asignaciones.length > 0 && <span className="rounded-full bg-brand-cyan/15 text-brand-deep px-1.5 py-0.5 text-[10px] font-extrabold">{asignaciones.length}</span>}
               </button>
             </div>
@@ -105,6 +105,10 @@ export default function HistorialModal({ solicitud, open, onClose }) {
                           {esEstado ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">
                               <MdCheckCircle /> Cambio de estado
+                            </span>
+                          ) : h.campo === 'conductor' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-brand-deep/10 text-brand-deep px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">
+                              <MdAssignmentInd /> Asignación de conductor
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full bg-brand-deep/10 text-brand-deep px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">

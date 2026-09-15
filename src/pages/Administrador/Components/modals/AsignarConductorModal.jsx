@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react'
 import { RiSteering2Line } from 'react-icons/ri'
-import { MdClose, MdCheckCircle, MdTag, MdCheck, MdLocalShipping, MdEdit } from 'react-icons/md'
+import { MdClose, MdCheckCircle, MdTag, MdCheck, MdLocalShipping, MdEdit, MdTwoWheeler, MdDirectionsCar, MdMoreHoriz, MdNumbers } from 'react-icons/md'
 import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
 
 const CONDUCTORES = ['Reinel Peña', 'Robert', 'Diego Peña', 'Elite', 'Otro']
 
 const OPCION_OTRO = 'Otro'
+
+const VEHICULOS = ['Moto', 'Carro', 'Camioneta', 'Otro']
+
+const VEHICULO_ICONOS = {
+  Moto: <MdTwoWheeler />,
+  Carro: <MdDirectionsCar />,
+  Camioneta: <MdLocalShipping />,
+  Otro: <MdMoreHoriz />,
+}
 
 function initials(name) {
   return name
@@ -20,10 +29,16 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
   const conductor = nombreDeAsignado(solicitud?.conductor)
   const [seleccion, setSeleccion] = useState('')
   const [otroNombre, setOtroNombre] = useState('')
+  const [vehiculo, setVehiculo] = useState('')
+  const [placa, setPlaca] = useState('')
 
   useEffect(() => {
-    if (open) setSeleccion(conductor)
-  }, [open, conductor])
+    if (open) {
+      setSeleccion(conductor)
+      setVehiculo(solicitud?.vehiculo || '')
+      setPlaca(solicitud?.placa || '')
+    }
+  }, [open, conductor, solicitud])
 
   if (!open || !solicitud) return null
 
@@ -35,16 +50,20 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
   const iconoColor = enTransitoParcial ? 'text-yellow-500' : enTransito ? 'text-purple-500' : 'text-indigo-400'
   const esOtro = seleccion === OPCION_OTRO
   const nombreFinal = esOtro && otroNombre.trim() ? otroNombre.trim() : seleccion
+  const puedeGuardar =
+    !!seleccion &&
+    !(esOtro && !otroNombre.trim()) &&
+    VEHICULOS.includes(vehiculo) &&
+    placa.trim().length > 0
 
   const handleSelect = (n) => {
-    if (n === conductor) return
     setSeleccion(n)
     if (n !== OPCION_OTRO) setOtroNombre('')
   }
 
   const handleSave = () => {
-    if (!seleccion || seleccion === conductor || (esOtro && !otroNombre.trim())) return
-    onUpdate(solicitud.id, { conductor: nombreFinal })
+    if (!puedeGuardar) return
+    onUpdate(solicitud.id, { conductor: nombreFinal, vehiculo: vehiculo, placa: placa.trim().toUpperCase() })
     onClose()
   }
 
@@ -98,14 +117,11 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
                   <button
                     type="button"
                     onClick={() => handleSelect(n)}
-                    disabled={actual}
-                    title={actual ? 'Este conductor ya está asignado' : `Asignar a ${n}`}
+                    title={sel ? 'Conductor seleccionado' : `Asignar a ${n}`}
                     className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-brand-deep transition-all ${
-                      actual
-                        ? 'bg-indigo-100 ring-1 ring-indigo-400/50 cursor-not-allowed'
-                        : sel
-                          ? 'bg-indigo-100 ring-2 ring-indigo-400/60'
-                          : 'bg-brand-mist/40 hover:bg-indigo-100/70 hover:ring-1 hover:ring-indigo-400/40'
+                      sel
+                        ? 'bg-indigo-100 ring-2 ring-indigo-400/60'
+                        : 'bg-brand-mist/40 hover:bg-indigo-100/70 hover:ring-1 hover:ring-indigo-400/40'
                     }`}
                   >
                     <span className="inline-flex items-center gap-2.5 min-w-0">
@@ -140,6 +156,47 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
               )
             })}
           </div>
+
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="block text-[11px] font-extrabold text-indigo-700 uppercase tracking-wide mb-2">
+                Tipo de vehículo
+              </label>
+              <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-white ring-1 ring-indigo-300/60">
+                {VEHICULOS.map((v) => {
+                  const selV = v === vehiculo
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setVehiculo(v)}
+                      className={`inline-flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[11px] font-bold transition-all ${
+                        selV
+                          ? 'bg-indigo-600 text-white shadow'
+                          : 'text-indigo-900/60 hover:bg-indigo-100'
+                      }`}
+                    >
+                      <span className="text-base">{VEHICULO_ICONOS[v]}</span>
+                      {v}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div>
+              <label className="flex items-center gap-1.5 text-[11px] font-extrabold text-indigo-700 uppercase tracking-wide mb-2">
+                <MdNumbers className="text-sm" />
+                Placa del vehículo
+              </label>
+              <input
+                type="text"
+                value={placa}
+                onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                placeholder="Ej. ABC-123"
+                className="w-full rounded-xl border border-indigo-300/60 bg-white px-3 py-2.5 text-sm font-semibold text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Botones */}
@@ -154,7 +211,7 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
           <button
             type="button"
             onClick={handleSave}
-            disabled={!seleccion || seleccion === conductor || (esOtro && !otroNombre.trim())}
+            disabled={!puedeGuardar}
             className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             <span className="grid place-items-center size-6 rounded-full bg-brand-deep/10 text-brand-deep">

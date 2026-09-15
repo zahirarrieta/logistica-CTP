@@ -78,6 +78,7 @@ export default function Solicitudes() {
           <SolicitudesTable
             items={filtered}
             onRowClick={(s) => setDetalleSolicitud(s)}
+            onSeguimientoClick={(s) => setDetalleSolicitud(s)}
             empty={
               hasFilters
                 ? {

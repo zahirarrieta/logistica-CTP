@@ -61,8 +61,12 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
   }
 
   const handleAsignarConductor = (id, updates) => {
-    setSolicitudes(updateSolicitud(id, updates))
+    const siguiente = updateSolicitud(id, updates)
+    setSolicitudes(siguiente)
     setToast({ tipo: 'conductor', asignadoA: updates.conductor })
+    if (editSolicitud && editSolicitud.id === id) {
+      setEditSolicitud(siguiente.find((s) => s.id === id) || null)
+    }
   }
 
   return (

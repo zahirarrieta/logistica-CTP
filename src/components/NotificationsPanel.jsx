@@ -14,6 +14,7 @@ import {
   MdExpandMore,
   MdChevronLeft,
   MdChevronRight,
+  MdLocalShipping,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
 import { safeText } from '../pages/Home/Components/solicitudesStore.js'
@@ -54,8 +55,16 @@ function ItemHeader({ c, i, total, vistas }) {
           </span>
           <MdTag className="text-brand-cyan shrink-0" />
           <span className="truncate">{c.id}</span>
+          <span
+            className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${
+              c.campo === 'estado' ? 'bg-brand-cyan/15 text-brand-deep' : 'bg-brand-deep/10 text-brand-deep'
+            }`}
+          >
+            {c.campo === 'estado' ? <MdCheckCircle /> : c.campo === 'conductor' ? <MdLocalShipping /> : <MdAssignmentInd />}
+            {c.campo === 'estado' ? 'Cambio de estado' : c.campo === 'conductor' ? 'Asignación de conductor' : 'Asignación'}
+          </span>
         </span>
-        <span className="hidden sm:inline max-w-full truncate text-brand-ink/60 font-semibold text-[11px]">
+        <span className="hidden sm:inline max-w-full truncate text-brand-ink font-bold text-sm">
           {changeText(c.cliente) || '—'} · {changeText(c.zona) || '—'}
         </span>
       </span>
@@ -72,6 +81,11 @@ function ItemHeader({ c, i, total, vistas }) {
             <span className="size-1.5 rounded-full bg-red-500 animate-pulse" /> No vista
           </span>
         )}
+        {changeText(c.persona) && (
+          <span className="inline-flex items-center gap-1 text-brand-ink/60 text-[11px] max-w-full truncate">
+            <MdPerson /> {changeText(c.persona)}
+          </span>
+        )}
       </span>
     </div>
   )
@@ -80,16 +94,7 @@ function ItemHeader({ c, i, total, vistas }) {
 function ItemBody({ c }) {
   return (
     <>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {c.campo === 'estado' ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">
-            <MdCheckCircle /> Cambio de estado
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-brand-deep/10 text-brand-deep px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide">
-            <MdAssignmentInd /> Asignación de usuario
-          </span>
-        )}
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         {c.campo === 'estado' ? (
           <>
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${getBadgeColor(changeText(c.anterior))}`}>
@@ -109,9 +114,6 @@ function ItemBody({ c }) {
             <span className="rounded-full bg-brand-deep/10 text-brand-deep px-2.5 py-0.5 text-xs font-bold">{changeText(c.nuevo)}</span>
           </>
         )}
-        <span className="inline-flex items-center gap-1 text-brand-ink/50 text-[11px]">
-          <MdPerson /> {changeText(c.persona) || '—'}
-        </span>
       </div>
 
       {c.campo === 'estado' && changeText(c.nota) && (
@@ -129,20 +131,28 @@ function ItemBody({ c }) {
           Adjunto: {changeText(c.adjunto)}
         </p>
       )}
+      {c.campo === 'conductor' && (changeText(c.vehiculo) || changeText(c.placa)) && (
+        <p className="mt-2 text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-deep px-2.5 py-1.5">
+          Vehículo: {changeText(c.vehiculo) || '—'} · Placa: {changeText(c.placa) || '—'}
+        </p>
+      )}
+      {c.campo === 'estado' && (changeText(c.conductor) || changeText(c.vehiculo) || changeText(c.placa)) && (
+        <p className="mt-2 text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-cyan px-2.5 py-1.5">
+          Conductor: {changeText(c.conductor) || '—'} · Vehículo: {changeText(c.vehiculo) || '—'} · Placa: {changeText(c.placa) || '—'}
+        </p>
+      )}
     </>
   )
 }
 
-export default function NotificationsPanel({ solicitudes, glow = false, solicitudId, paginado = false }) {
+export default function NotificationsPanel({ solicitudes, glow = false, solicitudId, paginado = false, fixed = false }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('estado')
   const [vistas, setVistas] = useState(() => loadVistas())
   const [page, setPage] = useState(0)
-  const [detalleAbierto, setDetalleAbierto] = useState(true)
 
   useEffect(() => {
     setPage(0)
-    setDetalleAbierto(true)
   }, [tab, solicitudId])
 
   const cambios = solicitudes
@@ -174,7 +184,25 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
   const current = paginado ? listado[index] : null
 
   const handleToggle = () => {
-    setOpen(!open)
+    if (open) {
+      setOpen(false)
+      return
+    }
+    const ahora = new Date()
+    const stamp = `${ahora.toLocaleDateString('es-CO')} ${ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+    const actuales = { ...loadVistas() }
+    let changed = false
+    filtradas.forEach((c) => {
+      if (!actuales[c.key]) {
+        actuales[c.key] = stamp
+        changed = true
+      }
+    })
+    if (changed) {
+      persistVistas(actuales)
+      setVistas(actuales)
+    }
+    setOpen(true)
   }
 
   const marcarVista = (key) => {
@@ -212,24 +240,32 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
-          <div className="fixed z-50 inset-x-3 top-20 max-h-[calc(100vh-6rem)] flex flex-col rounded-2xl bg-white border border-brand-ink/10 shadow-2xl overflow-hidden origin-center animate-scaleIn sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(80vh,620px)] sm:w-[min(88vw,560px)] sm:origin-top-right">
+          <div
+className={`${
+  fixed
+    ? 'fixed inset-2 sm:inset-4 z-50 flex flex-col rounded-2xl bg-white border border-brand-ink/10 shadow-2xl overflow-hidden animate-scaleIn'
+    : 'fixed z-50 inset-x-3 top-20 max-h-[calc(100dvh-6rem)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(80vh,620px)] sm:w-[min(88vw,560px)]'
+} flex flex-col rounded-2xl bg-white border border-brand-ink/10 shadow-2xl overflow-hidden origin-center animate-scaleIn`}
+          >
             <div className="flex items-center justify-between px-4 py-3 bg-brand-navy text-white shrink-0">
               <span className="inline-flex items-center gap-2 text-sm font-extrabold">
                 <MdNotificationsActive className="text-brand-cyan" />
                 Notificaciones
                 <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">{total}</span>
               </span>
-              {solicitudId && (
-                <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold">{solicitudId}</span>
-              )}
-              <button
-                type="button"
-                aria-label="Cerrar"
-                onClick={() => setOpen(false)}
-                className="grid place-items-center size-7 rounded-full bg-white/10 hover:bg-white/20 transition"
-              >
-                <MdClose className="text-sm" />
-              </button>
+              <div className="flex items-center gap-2">
+                {solicitudId && (
+                  <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold">{solicitudId}</span>
+                )}
+                <button
+                  type="button"
+                  aria-label="Cerrar"
+                  onClick={() => setOpen(false)}
+                  className="grid place-items-center size-7 rounded-full bg-white/10 hover:bg-white/20 transition"
+                >
+                  <MdClose className="text-sm" />
+                </button>
+              </div>
             </div>
 
             {/* Tabs */}
@@ -253,12 +289,12 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
                 }`}
               >
                 <MdAssignmentInd className="text-base" />
-                Asignación
+                Asignación de usuarios
                 {noVistasAsig > 0 && <span className="min-w-5 h-5 px-1 grid place-items-center rounded-full bg-red-500 text-white text-[10px] font-extrabold">{noVistasAsig > 9 ? '9+' : noVistasAsig}</span>}
               </button>
             </div>
 
-            <div className="flex flex-col overflow-y-auto p-2">
+            <div className={`overflow-y-auto p-2 ${fixed ? 'flex-1 min-h-0' : ''}`}>
               {listado.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
                   <MdHistory className="text-3xl text-brand-ink/20 mb-2" />
@@ -288,26 +324,9 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
                     </button>
                   </div>
 
-                  <div className="rounded-xl border border-brand-ink/10 mt-2 shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDetalleAbierto(!detalleAbierto)
-                        marcarVista(current.key)
-                      }}
-                      className="w-full text-left p-3"
-                      aria-expanded={detalleAbierto}
-                    >
-                      <div className="flex items-center justify-between gap-2 w-full min-w-0">
-                        <ItemHeader c={current} i={index} total={pageCount} vistas={vistas} />
-                        <MdExpandMore className={`shrink-0 text-2xl text-brand-ink/50 transition-transform ${detalleAbierto ? 'rotate-180' : ''}`} />
-                      </div>
-                    </button>
-                    {detalleAbierto && (
-                      <div className="px-3 pb-3 animate-fadeIn">
-                        <ItemBody c={current} />
-                      </div>
-                    )}
+                  <div className="rounded-xl border border-brand-ink/10 mt-2 shadow-sm p-3">
+                    <ItemHeader c={current} i={index} total={pageCount} vistas={vistas} />
+                    <ItemBody c={current} />
                   </div>
                 </>
               ) : (

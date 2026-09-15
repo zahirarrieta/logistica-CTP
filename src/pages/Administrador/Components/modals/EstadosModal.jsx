@@ -1,24 +1,48 @@
-import { useState, useEffect } from 'react'
-import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers, MdCloudUpload } from 'react-icons/md'
+import { useState, useEffect, useRef } from 'react'
+import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers, MdCloudUpload, MdInfoOutline } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../Home/Components/estadoColors.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
+
+function Requisito({ listo, label }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${
+        listo ? 'bg-green-500/15 text-green-700' : 'bg-amber-400/20 text-amber-700'
+      }`}
+    >
+      {listo ? <MdCheckCircle className="text-sm shrink-0" /> : <MdInfoOutline className="text-sm shrink-0" />}
+      <span className="truncate">{label}</span>
+    </span>
+  )
+}
 
 export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsignarConductorClick, permitidos }) {
   const [estado, setEstado] = useState('Abierto')
   const [nota, setNota] = useState('')
   const [numeroRef, setNumeroRef] = useState('')
   const [adjuntoTramite, setAdjuntoTramite] = useState([])
+  const [guardado, setGuardado] = useState(false)
+  const [editarFactura, setEditarFactura] = useState(false)
+  const [editarConductor, setEditarConductor] = useState(false)
+  const abiertoRef = useRef(false)
 
   useEffect(() => {
-    if (solicitud) {
-      setEstado(solicitud.estado || 'Abierto')
-      setNota('')
-      setNumeroRef('')
-      setAdjuntoTramite([])
+    if (!open) {
+      abiertoRef.current = false
+      return
     }
-  }, [solicitud])
+    if (abiertoRef.current || !solicitud) return
+    abiertoRef.current = true
+    setEstado(solicitud.estado || 'Abierto')
+    setNota('')
+    setNumeroRef(solicitud.numeroReferencia || '')
+    setAdjuntoTramite([])
+    setGuardado(false)
+    setEditarFactura(false)
+    setEditarConductor(false)
+  }, [open, solicitud])
 
   if (!open || !solicitud) return null
 
@@ -26,6 +50,17 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
 
   const isCurrent = (e) => e === estado
   const esSeleccionado = estado !== (solicitud.estado || 'Abierto')
+  const esTransitoSeleccionado = ESTADOS_TRANSITO.includes(estado)
+  const esTransitoActual = ESTADOS_TRANSITO.includes(solicitud.estado || 'Abierto') && !esSeleccionado
+  const transporteListo = Boolean(solicitud.conductor && solicitud.vehiculo && solicitud.placa)
+  const bloqueadoCerrar = !guardado
+  const numeroRefValido = numeroRef.trim().length > 0 && adjuntoTramite.length > 0
+  const puedeGuardar =
+    estado === 'En Trámite'
+      ? numeroRefValido
+      : esSeleccionado
+        ? !esTransitoSeleccionado || transporteListo
+        : esTransitoActual && transporteListo
 
   const handleSelect = (e) => {
     if (isCurrent(e)) return
@@ -36,8 +71,10 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   }
 
   const handleSave = () => {
+    if (!puedeGuardar) return
     const updates = { estado, notaEstado: nota.trim() }
     if (estado === 'En Trámite') {
+      if (!numeroRef.trim() || adjuntoTramite.length === 0) return
       updates.numeroReferencia = numeroRef.trim()
       updates.adjuntosTramite = adjuntoTramite.map((f) => f.name)
     }
@@ -45,13 +82,14 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setNota('')
     setNumeroRef('')
     setAdjuntoTramite([])
+    setGuardado(true)
     onClose()
   }
 
   return (
     <div
       className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
+      onClick={bloqueadoCerrar ? () => {} : onClose}
     >
       <div
         className="relative bg-white text-brand-ink w-full max-w-md rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
@@ -76,7 +114,11 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
             <button
               aria-label="Cerrar"
               onClick={onClose}
-              className="grid place-items-center size-8 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+              disabled={bloqueadoCerrar}
+              title={bloqueadoCerrar ? 'Debes guardar el cambio de estado para poder cerrar' : 'Cerrar'}
+              className={`grid place-items-center size-8 rounded-full bg-white/10 text-white transition ${
+                bloqueadoCerrar ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/20'
+              }`}
             >
               <MdClose className="text-lg" />
             </button>
@@ -102,7 +144,11 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
           <div className="space-y-1.5">
             {listaEstados.map((e) => {
               const current = isCurrent(e)
-              const sel = current && esSeleccionado
+              const esTransitoEstado = ESTADOS_TRANSITO.includes(e)
+              const mostrarPanel = e === estado && esSeleccionado
+              const editarTramiteActual = e === 'En Trámite' && current && editarFactura
+              const editarConductorActual = esTransitoEstado && current && editarConductor
+              const abrirPanel = mostrarPanel || editarTramiteActual || editarConductorActual
               return (
                 <div key={e}>
                   <button
@@ -128,7 +174,35 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                       <MdSwapHoriz className="text-brand-cyan/60 shrink-0" />
                     )}
                   </button>
-                  {sel && (
+                  {current && e === 'En Trámite' && (
+                    <button
+                      type="button"
+                      onClick={() => setEditarFactura((v) => !v)}
+                      className={`mt-1 w-full inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                        editarFactura
+                          ? 'bg-brand-deep/10 text-brand-deep'
+                          : 'bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/40 hover:bg-brand-cyan/25'
+                      }`}
+                    >
+                      <MdNumbers className="text-sm" />
+                      {editarFactura ? 'Ocultar campos de factura' : 'Editar factura o remisión'}
+                    </button>
+                  )}
+                  {current && esTransitoEstado && (
+                    <button
+                      type="button"
+                      onClick={() => setEditarConductor((v) => !v)}
+                      className={`mt-1 w-full inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                        editarConductor
+                          ? 'bg-brand-deep/10 text-brand-deep'
+                          : 'bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/40 hover:bg-brand-cyan/25'
+                      }`}
+                    >
+                      <RiSteering2Line className="text-sm" />
+                      {editarConductor ? 'Ocultar datos del conductor' : 'Editar conductor'}
+                    </button>
+                  )}
+                  {abrirPanel && (
                     <div className="mt-1.5 rounded-xl bg-brand-ink/5 border border-brand-cyan/30 p-3 animate-fadeIn">
                       <label className="flex items-center gap-2 text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-2">
                         <MdNotes className="text-base text-brand-cyan" />
@@ -150,9 +224,11 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                             </label>
                             <input
                               type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={numeroRef}
-                              onChange={(ev) => setNumeroRef(ev.target.value)}
-                              placeholder="Ej. 1234-5678"
+                              onChange={(ev) => setNumeroRef(ev.target.value.replace(/\D/g, ''))}
+                              placeholder="Ej. 12345678"
                               className="w-full rounded-xl border border-brand-deep/20 bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
                             />
                           </div>
@@ -178,15 +254,42 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                           </div>
                         </div>
                       )}
-                      {ESTADOS_TRANSITO.includes(e) && onAsignarConductorClick && (
-                        <button
-                          type="button"
-                          onClick={() => onAsignarConductorClick(solicitud)}
-                          className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-full bg-brand-cyan px-4 py-2 text-sm font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] transition-all"
-                        >
-                          <RiSteering2Line className="text-lg" />
-                          Asignar conductor
-                        </button>
+                      {ESTADOS_TRANSITO.includes(e) && (
+                        <div className="mt-2 space-y-2 rounded-xl bg-brand-deep/5 border border-brand-deep/15 p-3 animate-fadeIn">
+                          <p className="text-[11px] font-extrabold text-brand-deep uppercase tracking-wide">
+                            Pasos antes de guardar el estado
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            <Requisito
+                              listo={Boolean(solicitud.conductor)}
+                              label={solicitud.conductor ? `Conductor: ${solicitud.conductor}` : 'Conductor: pendiente'}
+                            />
+                            <Requisito
+                              listo={Boolean(solicitud.vehiculo)}
+                              label={solicitud.vehiculo ? `Vehículo: ${solicitud.vehiculo}` : 'Tipo de vehículo: pendiente'}
+                            />
+                            <Requisito
+                              listo={Boolean(solicitud.placa)}
+                              label={solicitud.placa ? `Placa: ${solicitud.placa}` : 'Placa: pendiente'}
+                            />
+                          </div>
+                          {onAsignarConductorClick && (
+                            <button
+                              type="button"
+                              onClick={() => onAsignarConductorClick(solicitud)}
+                              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-brand-cyan px-4 py-2 text-sm font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] transition-all"
+                            >
+                              <RiSteering2Line className="text-lg" />
+                              {solicitud.conductor ? 'Editar conductor' : 'Asignar conductor'}
+                            </button>
+                          )}
+                          {!transporteListo && (
+                            <p className="text-[11px] font-semibold text-amber-700 inline-flex items-center gap-1">
+                              <MdInfoOutline className="text-sm shrink-0" />
+                              Completa conductor, tipo de vehículo y placa para poder guardar el cambio.
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
@@ -197,18 +300,20 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
         </div>
 
         {/* Botones */}
-        <div className="px-4 sm:px-6 py-4 border-t border-brand-ink/10 shrink-0 flex items-center justify-end gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-2 rounded-full bg-brand-ink/10 px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-semibold text-brand-ink hover:bg-brand-ink/20 transition"
-          >
-            Cancelar
-          </button>
+        <div className="px-4 sm:px-6 py-4 border-t border-brand-ink/10 shrink-0 flex items-center justify-between gap-2 sm:gap-3">
+          {bloqueadoCerrar && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
+              <MdInfoOutline className="text-base shrink-0" />
+              {estado === 'En Trámite' && !numeroRefValido
+                ? 'Completa número de factura o remisión y adjúntala para poder guardar'
+                : 'Debes guardar el cambio de estado para poder cerrar'}
+            </span>
+          )}
           <button
             type="button"
             onClick={handleSave}
-            className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all"
+            disabled={!puedeGuardar}
+            className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-cyanGlow"
           >
             <span className="grid place-items-center size-6 rounded-full bg-brand-deep/10 text-brand-deep">
               <MdCheckCircle className="text-base" />

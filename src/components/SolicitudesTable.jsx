@@ -21,6 +21,7 @@ import {
   MdWarehouse,
   MdPersonAdd,
   MdSwapHoriz,
+  MdLocalShipping,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../pages/Home/Components/estadoColors.js'
 import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
@@ -101,11 +102,11 @@ function HistorialButton({ onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const cardBg = colorRow ? getEstadoBg(s.estado) : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
-  const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick)
+  const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick || onSeguimientoClick)
 
   return (
     <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${cardBg}`}>
@@ -174,7 +175,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
             </span>
           </div>
           {hasCardAcciones && (
-            <div className="grid grid-cols-3 gap-2 pt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
               {onAsignarClick && (
                 <button
                   type="button"
@@ -222,6 +223,21 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Historial
                 </button>
               )}
+              {onSeguimientoClick && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSeguimientoClick(s)
+                  }}
+                  title="Seguimiento"
+                  aria-label="Ver seguimiento"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdLocalShipping className="text-lg" />
+                  Seguimiento
+                </button>
+              )}
             </div>
           )}
           {action}
@@ -231,7 +247,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
   )
 }
 
-export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, cardActions, empty, colorRowsPorEstado }) {
+export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, cardActions, empty, colorRowsPorEstado }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [obsSolicitud, setObsSolicitud] = useState(null)
@@ -279,6 +295,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
             onEstadoClick={onEstadoClick}
             onAsignarClick={onAsignarClick}
             onCambiarEstadoClick={onCambiarEstadoClick}
+            onSeguimientoClick={onSeguimientoClick}
             onClickObs={openObs}
             colorRow={colorRowsPorEstado}
           />
