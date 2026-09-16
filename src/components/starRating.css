@@ -1,0 +1,55 @@
+.sr-wrap {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-direction: row-reverse;
+}
+
+.sr-wrap > .sr-input {
+  position: absolute;
+  appearance: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sr-wrap > .sr-label {
+  cursor: pointer;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.sr-wrap > .sr-label > svg {
+  fill: #666;
+  transition: fill 0.3s ease;
+}
+
+.sr-wrap > .sr-label:hover > svg,
+.sr-wrap > .sr-label:hover ~ .sr-label > svg {
+  fill: #ff9e0b;
+}
+
+.sr-wrap > .sr-input:checked ~ .sr-label > svg,
+.sr-wrap > .sr-label:hover ~ .sr-input:checked ~ .sr-label > svg {
+  fill: #ffa723;
+}
+
+.sr-wrap > .sr-input:checked + .sr-label:hover > svg,
+.sr-wrap > .sr-input:checked + .sr-label:hover ~ .sr-label > svg,
+.sr-wrap > .sr-input:checked ~ .sr-label:hover > svg,
+.sr-wrap > .sr-input:checked ~ .sr-label:hover ~ .sr-label > svg {
+  fill: #e58e09;
+}
+
+.sr-wrap.sr-disabled > .sr-input {
+  pointer-events: none;
+}
+
+.sr-wrap.sr-disabled > .sr-label {
+  cursor: default;
+  pointer-events: none;
+}
+
+.sr-wrap.sr-disabled > .sr-label:hover > svg,
+.sr-wrap.sr-disabled > .sr-label:hover ~ .sr-label > svg {
+  fill: #666;
+}

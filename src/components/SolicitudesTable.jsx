@@ -22,6 +22,8 @@ import {
   MdPersonAdd,
   MdSwapHoriz,
   MdLocalShipping,
+  MdMap,
+  MdDescription,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../pages/Home/Components/estadoColors.js'
 import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
@@ -33,6 +35,7 @@ const ITEMS_PER_PAGE = 10
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const enTransito = (s) => ESTADOS_TRANSITO.includes(s.estado)
+const esEntregado = (s) => ['Entregado', 'Entregado Parcial'].includes(s.estado)
 const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !== '')
 
 function Row({ icon, label, value }) {
@@ -78,7 +81,7 @@ export function ConductorBadge({ conductor, estado }) {
   const cls =
     {
       'En Tránsito': 'bg-purple-100 text-purple-700',
-      'En Tránsito Parcial': 'bg-yellow-100 text-yellow-800',
+      'En Tránsito Parcial': 'bg-amber-100 text-amber-900',
     }[estado] || 'bg-brand-cyan/15 text-brand-deep'
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap ${cls}`}>
@@ -102,7 +105,7 @@ function HistorialButton({ onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const cardBg = colorRow ? getEstadoBg(s.estado) : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
@@ -175,8 +178,8 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
             </span>
           </div>
           {hasCardAcciones && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
-              {onAsignarClick && (
+            <div className="flex flex-col items-stretch sm:grid sm:grid-cols-4 gap-2 pt-2">
+              {onAsignarClick && !esEntregado(s) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -192,7 +195,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Asignar
                 </button>
               )}
-              {onCambiarEstadoClick && (
+              {onCambiarEstadoClick && !esEntregado(s) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -223,6 +226,21 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Historial
                 </button>
               )}
+              {onEntregaDetallesClick && esEntregado(s) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEntregaDetallesClick(s)
+                  }}
+                  title="Detalles de entrega"
+                  aria-label="Ver detalles de la entrega"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-green-100/80 text-green-700 hover:bg-green-500 hover:text-white transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdDescription className="text-lg" />
+                  Detalles
+                </button>
+              )}
               {onSeguimientoClick && (
                 <button
                   type="button"
@@ -234,7 +252,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   aria-label="Ver seguimiento"
                   className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-2 py-2 text-xs font-bold"
                 >
-                  <MdLocalShipping className="text-lg" />
+                  <MdMap className="text-lg" />
                   Seguimiento
                 </button>
               )}
@@ -247,7 +265,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
   )
 }
 
-export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, cardActions, empty, colorRowsPorEstado }) {
+export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, cardActions, empty, colorRowsPorEstado }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [obsSolicitud, setObsSolicitud] = useState(null)
@@ -281,8 +299,8 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
 
   return (
     <>
-      {/* Cards — visible solo en móvil */}
-      <div className="md:hidden space-y-3">
+      {/* Cards — visible en móvil y tablet */}
+      <div className="lg:hidden space-y-3">
         {currentItems.map((s, i) => (
           <SolicitudCard
             key={s.id}
@@ -296,6 +314,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
             onAsignarClick={onAsignarClick}
             onCambiarEstadoClick={onCambiarEstadoClick}
             onSeguimientoClick={onSeguimientoClick}
+            onEntregaDetallesClick={onEntregaDetallesClick}
             onClickObs={openObs}
             colorRow={colorRowsPorEstado}
           />
@@ -303,7 +322,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
       </div>
 
       {/* Tabla — visible solo en desktop */}
-      <div className="hidden md:block overflow-x-auto">
+      <div className="hidden lg:block overflow-x-auto">
         <div className="overflow-hidden rounded-2xl border border-brand-ink/15 shadow-sm">
           <table className="w-full text-left text-sm border-separate border-spacing-0">
             <thead>
@@ -353,7 +372,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
               {currentItems.map((s, i) => (
                 <tr
                   key={s.id}
-                  onClick={onRowClick ? () => onRowClick(s) : undefined}
+                  onClick={() => onRowClick?.(s)}
                   className={`group ${onRowClick ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${colorRowsPorEstado ? getEstadoBg(s.estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')}`}
                 >
                   <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
@@ -417,7 +436,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                   {hasAcciones && (
                     <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${colorRowsPorEstado ? getEstadoBg(s.estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')}`}>
                       <div className="flex items-center justify-center gap-1.5">
-                        {onAsignarClick && (
+                        {onAsignarClick && !esEntregado(s) && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -433,7 +452,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                             <MdPersonAdd className="text-xl" />
                           </button>
                         )}
-                        {onCambiarEstadoClick && (
+                        {onCambiarEstadoClick && !esEntregado(s) && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -456,6 +475,20 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                               onEstadoClick(s)
                             }}
                           />
+                        )}
+                        {onEntregaDetallesClick && esEntregado(s) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEntregaDetallesClick(s)
+                            }}
+                            title="Detalles de entrega"
+                            aria-label="Ver detalles de la entrega"
+                            className="grid place-items-center size-9 rounded-full bg-green-100/80 text-green-700 hover:bg-green-500 hover:text-white transition-colors"
+                          >
+                            <MdDescription className="text-xl" />
+                          </button>
                         )}
                       </div>
                     </td>

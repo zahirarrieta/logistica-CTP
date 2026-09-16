@@ -17,7 +17,7 @@ export const BADGE_COLORS = {
   'Retenido por Cartera': 'bg-red-100 text-red-700',
   'En Trámite': 'bg-blue-100 text-blue-700',
   'En Tránsito': 'bg-purple-100 text-purple-700',
-  'En Tránsito Parcial': 'bg-yellow-200 text-yellow-800',
+  'En Tránsito Parcial': 'bg-amber-200 text-amber-900',
   'Entregado Parcial': 'bg-yellow-200 text-yellow-800',
   'Entregado': 'bg-green-100 text-green-700',
 }
@@ -29,7 +29,7 @@ export const DOT_COLORS = {
   'Retenido por Cartera': 'bg-red-500',
   'En Trámite': 'bg-blue-500',
   'En Tránsito': 'bg-purple-500',
-  'En Tránsito Parcial': 'bg-yellow-500',
+  'En Tránsito Parcial': 'bg-amber-600',
   'Entregado Parcial': 'bg-yellow-500',
   'Entregado': 'bg-green-500',
 }
@@ -41,7 +41,7 @@ export const SOFT_COLORS = {
   'Retenido por Cartera': 'bg-white ring-1 ring-red-400/60 text-red-700',
   'En Trámite': 'bg-white ring-1 ring-blue-400/60 text-blue-700',
   'En Tránsito': 'bg-white ring-1 ring-purple-400/60 text-purple-700',
-  'En Tránsito Parcial': 'bg-white ring-1 ring-yellow-400/60 text-yellow-700',
+  'En Tránsito Parcial': 'bg-white ring-1 ring-amber-500/70 text-amber-800',
   'Entregado Parcial': 'bg-white ring-1 ring-yellow-400/60 text-yellow-700',
   'Entregado': 'bg-white ring-1 ring-green-400/60 text-green-700',
 }
@@ -53,7 +53,7 @@ export const PASTEL_BG = {
   'Retenido por Cartera': 'bg-red-100',
   'En Trámite': 'bg-blue-100',
   'En Tránsito': 'bg-purple-100',
-  'En Tránsito Parcial': 'bg-yellow-100',
+  'En Tránsito Parcial': 'bg-amber-100',
   'Entregado Parcial': 'bg-yellow-100',
   'Entregado': 'bg-green-100',
 }

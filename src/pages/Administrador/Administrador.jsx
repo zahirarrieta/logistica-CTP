@@ -12,6 +12,7 @@ import { ESTADOS } from '../Home/Components/estadoColors.js'
 import AsignarUsuarioModal from './Components/modals/AsignarUsuarioModal.jsx'
 import AsignarConductorModal from './Components/modals/AsignarConductorModal.jsx'
 import HistorialModal from './Components/modals/HistorialModal.jsx'
+import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import { loadSolicitudes, updateSolicitud, clearSolicitudes } from '../Home/Components/solicitudesStore.js'
 
 export default function Administrador() {
@@ -20,6 +21,7 @@ export default function Administrador() {
   const [asignarSolicitud, setAsignarSolicitud] = useState(null)
   const [asignarConductorSolicitud, setAsignarConductorSolicitud] = useState(null)
   const [historialSolicitud, setHistorialSolicitud] = useState(null)
+  const [entregaDetallesSolicitud, setEntregaDetallesSolicitud] = useState(null)
   const [toast, setToast] = useState(null)
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroAsignado, setFiltroAsignado] = useState(null)
@@ -121,6 +123,7 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
             onAsignarClick={(s) => setAsignarSolicitud(s)}
             onCambiarEstadoClick={(s) => setEditSolicitud(s)}
             onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
+            onEntregaDetallesClick={(s) => setEntregaDetallesSolicitud(s)}
             colorRowsPorEstado
             empty={
               hasFilters
@@ -168,6 +171,12 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
         solicitud={historialSolicitud}
         open={historialSolicitud !== null}
         onClose={() => setHistorialSolicitud(null)}
+      />
+
+      <EntregaDetallesModal
+        solicitud={entregaDetallesSolicitud}
+        open={entregaDetallesSolicitud !== null}
+        onClose={() => setEntregaDetallesSolicitud(null)}
       />
 
       {toast && (

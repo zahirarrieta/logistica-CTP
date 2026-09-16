@@ -10,6 +10,7 @@ import {
   MdTwoWheeler,
   MdDoneAll,
   MdVerified,
+  MdMap,
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../estadoColors.js'
@@ -22,6 +23,7 @@ import imgCartera from '../EstadoI/Cartera.png'
 import imgRemision from '../EstadoI/Remision.png'
 import imgTransitoCarro from '../EstadoI/TransitoCarro.png'
 import imgTransitoMoto from '../EstadoI/TransitoMoto.png'
+import imgTransitoElite from '../EstadoI/TransitoElite.png'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
@@ -52,15 +54,18 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
 
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
   const conductor = nombreDeAsignado(solicitud.conductor)
+  const esElite = conductor.toLowerCase() === 'elite'
   const estado = solicitud.estado || 'Abierto'
   const imagen =
-    enTransito && solicitud.vehiculo === 'Moto'
-      ? imgTransitoMoto
-      : enTransito
-        ? imgTransitoCarro
-        : IMAGENES_POR_ESTADO[estado]
+    enTransito && esElite
+      ? imgTransitoElite
+      : enTransito && solicitud.vehiculo === 'Moto'
+        ? imgTransitoMoto
+        : enTransito
+          ? imgTransitoCarro
+          : IMAGENES_POR_ESTADO[estado]
   const IconoEstado =
-    (enTransito && solicitud.vehiculo === 'Moto' ? MdTwoWheeler : ICONOS_POR_ESTADO[estado]) || MdDirectionsCar
+    (enTransito && !esElite && solicitud.vehiculo === 'Moto' ? MdTwoWheeler : ICONOS_POR_ESTADO[estado]) || MdDirectionsCar
 
   return (
     <div
@@ -78,7 +83,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
         <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-brand-navy to-brand-deep flex items-center gap-3 shrink-0">
           <h3 className="text-white font-extrabold text-base sm:text-lg inline-flex items-center gap-2 shrink-0">
             <span className="grid place-items-center size-9 rounded-xl bg-brand-cyan/20 ring-1 ring-brand-cyan/40 shadow-cyanGlow">
-              <IconoEstado className="text-brand-cyan text-lg" />
+              <MdMap className="text-brand-cyan text-lg" />
             </span>
             SEGUIMIENTO
           </h3>

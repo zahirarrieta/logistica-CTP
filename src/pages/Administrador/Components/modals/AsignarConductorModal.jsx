@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react'
 import { RiSteering2Line } from 'react-icons/ri'
-import { MdClose, MdCheckCircle, MdTag, MdCheck, MdLocalShipping, MdEdit, MdTwoWheeler, MdDirectionsCar, MdMoreHoriz, MdNumbers } from 'react-icons/md'
+import { MdClose, MdCheckCircle, MdTag, MdCheck, MdLocalShipping, MdEdit, MdTwoWheeler, MdDirectionsCar, MdNumbers, MdDirectionsBus } from 'react-icons/md'
 import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
 
 const CONDUCTORES = ['Reinel Peña', 'Robert', 'Diego Peña', 'Elite', 'Otro']
 
 const OPCION_OTRO = 'Otro'
 
-const VEHICULOS = ['Moto', 'Carro', 'Camioneta', 'Otro']
+const VEHICULOS = ['Moto', 'Carro', 'Camioneta']
 
 const VEHICULO_ICONOS = {
   Moto: <MdTwoWheeler />,
   Carro: <MdDirectionsCar />,
-  Camioneta: <MdLocalShipping />,
-  Otro: <MdMoreHoriz />,
+  Camioneta: <MdDirectionsBus />,
 }
 
 function initials(name) {
@@ -35,7 +34,7 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
   useEffect(() => {
     if (open) {
       setSeleccion(conductor)
-      setVehiculo(solicitud?.vehiculo || '')
+      setVehiculo(conductor === 'Elite' ? 'Camioneta' : solicitud?.vehiculo || '')
       setPlaca(solicitud?.placa || '')
     }
   }, [open, conductor, solicitud])
@@ -46,9 +45,10 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
   const isSeleccion = (n) => n === seleccion
   const enTransitoParcial = solicitud.estado === 'En Tránsito Parcial'
   const enTransito = solicitud.estado === 'En Tránsito'
-  const nombreColor = enTransitoParcial ? 'bg-yellow-500 text-yellow-900' : enTransito ? 'bg-purple-600 text-white' : 'bg-indigo-600 text-white'
-  const iconoColor = enTransitoParcial ? 'text-yellow-500' : enTransito ? 'text-purple-500' : 'text-indigo-400'
+  const nombreColor = enTransitoParcial ? 'bg-amber-500 text-amber-950' : enTransito ? 'bg-purple-600 text-white' : 'bg-indigo-600 text-white'
+  const iconoColor = enTransitoParcial ? 'text-amber-500' : enTransito ? 'text-purple-500' : 'text-indigo-400'
   const esOtro = seleccion === OPCION_OTRO
+  const esElite = seleccion === 'Elite'
   const nombreFinal = esOtro && otroNombre.trim() ? otroNombre.trim() : seleccion
   const puedeGuardar =
     !!seleccion &&
@@ -58,6 +58,7 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
 
   const handleSelect = (n) => {
     setSeleccion(n)
+    if (n === 'Elite') setVehiculo('Camioneta')
     if (n !== OPCION_OTRO) setOtroNombre('')
   }
 
@@ -162,26 +163,33 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
               <label className="block text-[11px] font-extrabold text-indigo-700 uppercase tracking-wide mb-2">
                 Tipo de vehículo
               </label>
-              <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-white ring-1 ring-indigo-300/60">
-                {VEHICULOS.map((v) => {
-                  const selV = v === vehiculo
-                  return (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setVehiculo(v)}
-                      className={`inline-flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[11px] font-bold transition-all ${
-                        selV
-                          ? 'bg-indigo-600 text-white shadow'
-                          : 'text-indigo-900/60 hover:bg-indigo-100'
-                      }`}
-                    >
-                      <span className="text-base">{VEHICULO_ICONOS[v]}</span>
-                      {v}
-                    </button>
-                  )
-                })}
-              </div>
+              {esElite ? (
+                <div className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm font-bold shadow">
+                  <span className="text-lg">{VEHICULO_ICONOS['Camioneta']}</span>
+                  Camioneta
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white ring-1 ring-indigo-300/60">
+                  {VEHICULOS.map((v) => {
+                    const selV = v === vehiculo
+                    return (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setVehiculo(v)}
+                        className={`inline-flex flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-[11px] font-bold transition-all ${
+                          selV
+                            ? 'bg-indigo-600 text-white shadow'
+                            : 'text-indigo-900/60 hover:bg-indigo-100'
+                        }`}
+                      >
+                        <span className="text-base">{VEHICULO_ICONOS[v]}</span>
+                        {v}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
             <div>
               <label className="flex items-center gap-1.5 text-[11px] font-extrabold text-indigo-700 uppercase tracking-wide mb-2">

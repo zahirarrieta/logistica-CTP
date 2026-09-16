@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   MdNotificationsNone,
   MdNotificationsActive,
@@ -41,13 +42,18 @@ function notifKey(c) {
   return `${c.id}|${c.fecha}|${c.hora}|${c.campo}|${c.nuevo}`
 }
 
+function stampAhora() {
+  const ahora = new Date()
+  return `${ahora.toLocaleDateString('es-CO')} ${ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+}
+
 function changeText(value) {
   return safeText(value)
 }
 
 function ItemHeader({ c, i, total, vistas }) {
   return (
-    <div className="flex items-start justify-between gap-2 w-full min-w-0">
+    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 w-full min-w-0">
       <span className="flex min-w-0 flex-col items-start gap-0.5">
         <span className="flex min-w-0 items-center gap-1.5 font-bold text-brand-deep text-sm">
           <span className="shrink-0 grid place-items-center size-6 rounded-full bg-brand-navy text-white text-[11px] font-extrabold">
@@ -64,11 +70,11 @@ function ItemHeader({ c, i, total, vistas }) {
             {c.campo === 'estado' ? 'Cambio de estado' : c.campo === 'conductor' ? 'Asignación de conductor' : 'Asignación'}
           </span>
         </span>
-        <span className="hidden sm:inline max-w-full truncate text-brand-ink font-bold text-sm">
+        <span className="max-w-full truncate text-brand-ink font-bold text-xs sm:text-sm">
           {changeText(c.cliente) || '—'} · {changeText(c.zona) || '—'}
         </span>
       </span>
-      <span className="shrink-0 flex flex-col items-end gap-1">
+      <span className="shrink-0 flex flex-row flex-wrap items-center gap-x-2 gap-y-1 sm:flex-col sm:items-end">
         <span className="inline-flex items-center gap-1 text-brand-ink/50 text-[11px] whitespace-nowrap">
           <MdAccessTime /> {changeText(c.fecha)} · {changeText(c.hora)}
         </span>
@@ -183,15 +189,17 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
   const index = paginado ? Math.min(page, Math.max(pageCount - 1, 0)) : 0
   const current = paginado ? listado[index] : null
 
-  const handleToggle = () => {
-    if (open) {
-      setOpen(false)
-      return
-    }
-    const ahora = new Date()
-    const stamp = `${ahora.toLocaleDateString('es-CO')} ${ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+  const marcarVista = (key) => {
+    if (vistas[key]) return
+    const actuales = { ...loadVistas(), [key]: stampAhora() }
+    persistVistas(actuales)
+    setVistas(actuales)
+  }
+
+  const marcarTodasVistas = () => {
     const actuales = { ...loadVistas() }
     let changed = false
+    const stamp = stampAhora()
     filtradas.forEach((c) => {
       if (!actuales[c.key]) {
         actuales[c.key] = stamp
@@ -202,16 +210,19 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
       persistVistas(actuales)
       setVistas(actuales)
     }
-    setOpen(true)
   }
 
-  const marcarVista = (key) => {
-    if (vistas[key]) return
-    const ahora = new Date()
-    const stamp = `${ahora.toLocaleDateString('es-CO')} ${ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-    const actuales = { ...loadVistas(), [key]: stamp }
-    persistVistas(actuales)
-    setVistas(actuales)
+  const cerrarYMarcar = () => {
+    marcarTodasVistas()
+    setOpen(false)
+  }
+
+  const handleToggle = () => {
+    if (open) {
+      cerrarYMarcar()
+      return
+    }
+    setOpen(true)
   }
 
   return (
@@ -222,7 +233,7 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
         aria-label="Notificaciones"
         className="relative grid place-items-center size-11 rounded-full bg-brand-navy text-white hover:bg-brand-deep transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70"
       >
-        {glow && (
+        {glow && noVistas > 0 && (
           <span aria-hidden="true" className="absolute -inset-1.5 rounded-full ring-2 ring-white/80 animate-pulse" />
         )}
         {open ? <MdNotificationsActive className="text-xl text-brand-cyan" /> : <MdNotificationsNone className="text-xl" />}
@@ -233,20 +244,28 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
         )}
       </button>
 
-      {open && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm sm:bg-transparent sm:backdrop-blur-none"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-          <div
-className={`${
-  fixed
-    ? 'fixed inset-2 sm:inset-4 z-50 flex flex-col rounded-2xl bg-white border border-brand-ink/10 shadow-2xl overflow-hidden animate-scaleIn'
-    : 'fixed z-50 inset-x-3 top-20 max-h-[calc(100dvh-6rem)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(80vh,620px)] sm:w-[min(88vw,560px)]'
-} flex flex-col rounded-2xl bg-white border border-brand-ink/10 shadow-2xl overflow-hidden origin-center animate-scaleIn`}
-          >
+      {open &&
+        createPortal(
+          <>
+            <div
+              className={`fixed inset-0 z-40 ${fixed ? 'z-[1090]' : ''} bg-black/60 backdrop-blur-sm sm:bg-transparent sm:backdrop-blur-none`}
+              onClick={cerrarYMarcar}
+              aria-hidden="true"
+            />
+            <div
+              className={`${
+                fixed
+                  ? 'fixed inset-0 z-[1100] flex items-center justify-center p-2 sm:p-4 pointer-events-none'
+                  : 'fixed inset-x-0 top-10 z-[1100] flex justify-center px-3 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:px-0 pointer-events-none'
+              }`}
+            >
+              <div
+                className={`${
+                  fixed
+                    ? 'w-full max-w-[560px] max-h-[min(90dvh,680px)]'
+                    : 'w-[min(92vw,520px)] max-h-[calc(100dvh-5rem)] sm:w-[min(88vw,560px)] sm:max-h-[min(80vh,620px)]'
+                } font-sans pointer-events-auto flex flex-col rounded-2xl bg-white border border-brand-ink/10 shadow-2xl overflow-hidden origin-center animate-scaleIn`}
+              >
             <div className="flex items-center justify-between px-4 py-3 bg-brand-navy text-white shrink-0">
               <span className="inline-flex items-center gap-2 text-sm font-extrabold">
                 <MdNotificationsActive className="text-brand-cyan" />
@@ -257,12 +276,12 @@ className={`${
                 {solicitudId && (
                   <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold">{solicitudId}</span>
                 )}
-                <button
-                  type="button"
-                  aria-label="Cerrar"
-                  onClick={() => setOpen(false)}
-                  className="grid place-items-center size-7 rounded-full bg-white/10 hover:bg-white/20 transition"
-                >
+<button
+                    type="button"
+                    aria-label="Cerrar"
+                    onClick={cerrarYMarcar}
+                    className="grid place-items-center size-7 rounded-full bg-white/10 hover:bg-white/20 transition"
+                  >
                   <MdClose className="text-sm" />
                 </button>
               </div>
@@ -346,9 +365,12 @@ className={`${
                   </button>
                 ))
               )}
+</div>
             </div>
           </div>
         </>
+        ,
+        document.body
       )}
     </div>
   )

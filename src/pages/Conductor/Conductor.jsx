@@ -5,16 +5,13 @@ import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import Toast from '../../components/Toast.jsx'
-import EstadosModal from '../Administrador/Components/modals/EstadosModal.jsx'
+import EntregaConductor from './Components/modals/EntregaConductor.jsx'
 import { loadSolicitudes, updateSolicitud } from '../Home/Components/solicitudesStore.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
-function estadosConductor(s) {
-  const actual = s.estado || 'Abierto'
-  if (actual === 'En Tránsito') return ['Entregado']
-  if (actual === 'En Tránsito Parcial') return ['Entregado Parcial']
-  return ['Entregado', 'Entregado Parcial']
+function destinoEntrega(s) {
+  return s?.estado === 'En Tránsito Parcial' ? 'Entregado Parcial' : 'Entregado'
 }
 
 export default function Conductor() {
@@ -58,7 +55,17 @@ export default function Conductor() {
 
           <SolicitudesTable
             items={enTransito}
-            onCambiarEstadoClick={(s) => setEditarSolicitud(s)}
+            onRowClick={(s) => setEditarSolicitud(s)}
+            cardActions={(s) => (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setEditarSolicitud(s) }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-2 text-xs font-bold w-full"
+              >
+                <MdLocalShipping className="text-lg" />
+                Entregar pedido
+              </button>
+            )}
             colorRowsPorEstado
             empty={{
               icon: <MdLocalShipping />,
@@ -71,12 +78,12 @@ export default function Conductor() {
 
       <Footer />
 
-      <EstadosModal
+      <EntregaConductor
         solicitud={editarSolicitud}
         open={editarSolicitud !== null}
         onClose={() => setEditarSolicitud(null)}
         onUpdate={handleUpdateEstado}
-        permitidos={editarSolicitud ? estadosConductor(editarSolicitud) : undefined}
+        destino={editarSolicitud ? destinoEntrega(editarSolicitud) : undefined}
       />
 
       {toast && (

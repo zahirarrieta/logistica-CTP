@@ -65,6 +65,7 @@ const TEXT_FIELDS = [
   'conductor',
   'vehiculo',
   'placa',
+  'evidencia',
 ]
 
 export function loadSolicitudes() {
@@ -92,8 +93,10 @@ export function loadSolicitudes() {
           if (typeof hn.adjunto !== 'string') hn.adjunto = safeText(hn.adjunto)
           if (typeof hn.vehiculo !== 'string') hn.vehiculo = safeText(hn.vehiculo)
           if (typeof hn.placa !== 'string') hn.placa = safeText(hn.placa)
-          if (typeof hn.conductor !== 'string') hn.conductor = safeText(hn.conductor)
-          return hn
+if (typeof hn.conductor !== 'string') hn.conductor = safeText(hn.conductor)
+        if (typeof hn.evidencia !== 'string') hn.evidencia = safeText(hn.evidencia)
+        if (hn.encuesta && typeof hn.encuesta !== 'object') hn.encuesta = null
+        return hn
         })
       }
       return normal
@@ -165,6 +168,8 @@ export function updateSolicitud(id, updates) {
         conductor: transito ? s.conductor || '' : '',
         vehiculo: transito ? s.vehiculo || '' : '',
         placa: transito ? s.placa || '' : '',
+        evidencia: updates.evidencia || '',
+        encuesta: updates.encuesta || null,
       })
     }
     if ('asignadoA' in updates && updates.asignadoA !== (s.asignadoA || '')) {
