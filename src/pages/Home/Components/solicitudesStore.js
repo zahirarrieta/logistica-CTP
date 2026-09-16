@@ -6,6 +6,17 @@ const COUNTER_KEY = 'ctp_solicitudes_counter'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
+export const ESTADOS_ENTREGA = ['Entregado', 'Entregado Parcial']
+
+export function buscarEntrega(solicitud) {
+  const historial = Array.isArray(solicitud?.historial) ? solicitud.historial : []
+  return (
+    [...historial]
+      .reverse()
+      .find((h) => h.campo === 'estado' && ESTADOS_ENTREGA.includes(h.nuevo)) || null
+  )
+}
+
 function currentPersona() {
   const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0]
   return shortName(account)

@@ -14,8 +14,9 @@ import {
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../estadoColors.js'
-import { nombreDeAsignado } from '../solicitudesStore.js'
+import { nombreDeAsignado, buscarEntrega } from '../solicitudesStore.js'
 import NotificationsPanel from '../../../../components/NotificationsPanel.jsx'
+import EntregaInfo from '../../../../components/EntregaInfo.jsx'
 import imgAbierto from '../EstadoI/Abierto.png'
 import imgPdAuto from '../EstadoI/PdAuto.png'
 import imgDevoSol from '../EstadoI/DevoSol.png'
@@ -56,6 +57,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const conductor = nombreDeAsignado(solicitud.conductor)
   const esElite = conductor.toLowerCase() === 'elite'
   const estado = solicitud.estado || 'Abierto'
+  const entrega = buscarEntrega(solicitud)
   const imagen =
     enTransito && esElite
       ? imgTransitoElite
@@ -73,7 +75,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
       onClick={onClose}
     >
       <div
-        className="relative bg-white text-brand-ink w-full max-w-lg sm:max-w-2xl rounded-2xl shadow-2xl animate-scaleIn flex flex-col overflow-hidden"
+        className="relative bg-white text-brand-ink w-full max-w-lg sm:max-w-2xl max-h-[92vh] rounded-2xl shadow-2xl animate-scaleIn flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -105,49 +107,61 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
           </div>
         </div>
 
-        {/* Cuerpo: pista animada compacta */}
-        <div className="relative bg-brand-mist h-52 sm:h-64 lg:h-72 overflow-hidden">
-          <div className="absolute inset-0">
-            <div className="absolute left-4 right-4 sm:left-8 sm:right-8 top-1/2 h-2.5 sm:h-3 -translate-y-1/2 rounded-full bg-brand-deep/70 overflow-hidden">
-              <div
-                className="absolute inset-0 animate-roadStripes"
-                style={{ backgroundImage: 'repeating-linear-gradient(90deg, rgba(0,229,255,0.9) 0 18px, transparent 18px 36px)' }}
-              />
+        {entrega ? (
+          /* Detalles de la entrega: sin pista animada ni encuesta */
+          <div className="relative">
+            <div className="absolute right-3 sm:right-4 top-3 sm:top-4 z-30">
+              <NotificationsPanel solicitudes={solicitudes || []} glow solicitudId={solicitud.id} paginado fixed />
             </div>
-            <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 -mt-10 border-t-2 border-dashed border-brand-deep/15" />
-            <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 mt-10 border-t-2 border-dashed border-brand-deep/15" />
-            {imagen ? (
-              <img
-                src={imagen}
-                alt={estado}
-                className="absolute top-1/2 -translate-y-1/2 h-24 sm:h-32 lg:h-36 w-auto object-contain animate-truckRide"
-              />
-            ) : (
-              <IconoEstado className="absolute top-1/2 -translate-y-1/2 left-0 text-6xl sm:text-7xl text-brand-cyan/80 animate-truckRide" />
-            )}
+            <div className="overflow-y-auto p-4 sm:p-6 pt-14 sm:pt-14 max-h-[calc(92vh-4.5rem)]">
+              <EntregaInfo solicitud={solicitud} entrega={entrega} mostrarEncuesta={false} />
+            </div>
           </div>
+        ) : (
+          /* Cuerpo: pista animada compacta */
+          <div className="relative bg-brand-mist h-52 sm:h-64 lg:h-72 overflow-hidden">
+            <div className="absolute inset-0">
+              <div className="absolute left-4 right-4 sm:left-8 sm:right-8 top-1/2 h-2.5 sm:h-3 -translate-y-1/2 rounded-full bg-brand-deep/70 overflow-hidden">
+                <div
+                  className="absolute inset-0 animate-roadStripes"
+                  style={{ backgroundImage: 'repeating-linear-gradient(90deg, rgba(0,229,255,0.9) 0 18px, transparent 18px 36px)' }}
+                />
+              </div>
+              <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 -mt-10 border-t-2 border-dashed border-brand-deep/15" />
+              <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 mt-10 border-t-2 border-dashed border-brand-deep/15" />
+              {imagen ? (
+                <img
+                  src={imagen}
+                  alt={estado}
+                  className="absolute top-1/2 -translate-y-1/2 h-24 sm:h-32 lg:h-36 w-auto object-contain animate-truckRide"
+                />
+              ) : (
+                <IconoEstado className="absolute top-1/2 -translate-y-1/2 left-0 text-6xl sm:text-7xl text-brand-cyan/80 animate-truckRide" />
+              )}
+            </div>
 
-          {/* Estado como badge */}
-          <div className="absolute bottom-2.5 sm:bottom-3 inset-x-0 flex flex-col items-center gap-1 px-4">
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] sm:text-xs font-bold shadow-md ring-1 ring-white/40 ${getBadgeColor(estado)}`}>
-              <IconoEstado className="text-sm" />
-              {estado}
-            </span>
-            {enTransito && (conductor || solicitud.vehiculo || solicitud.placa) && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 text-brand-deep px-3 py-1 text-[10px] sm:text-xs font-bold shadow-md ring-1 ring-white/40 max-w-full">
-                <RiSteering2Line className="text-xs sm:text-sm shrink-0" />
-                <span className="truncate">
-                  {conductor} · {solicitud.vehiculo || '—'} · {solicitud.placa || '—'}
-                </span>
+            {/* Estado como badge */}
+            <div className="absolute bottom-2.5 sm:bottom-3 inset-x-0 flex flex-col items-center gap-1 px-4">
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] sm:text-xs font-bold shadow-md ring-1 ring-white/40 ${getBadgeColor(estado)}`}>
+                <IconoEstado className="text-sm" />
+                {estado}
               </span>
-            )}
-          </div>
+              {enTransito && (conductor || solicitud.vehiculo || solicitud.placa) && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/90 text-brand-deep px-3 py-1 text-[10px] sm:text-xs font-bold shadow-md ring-1 ring-white/40 max-w-full">
+                  <RiSteering2Line className="text-xs sm:text-sm shrink-0" />
+                  <span className="truncate">
+                    {conductor} · {solicitud.vehiculo || '—'} · {solicitud.placa || '—'}
+                  </span>
+                </span>
+              )}
+            </div>
 
-          {/* Notificaciones */}
-          <div className="absolute right-3 sm:right-4 top-3 sm:top-4 z-30">
-            <NotificationsPanel solicitudes={solicitudes || []} glow solicitudId={solicitud.id} paginado fixed />
+            {/* Notificaciones */}
+            <div className="absolute right-3 sm:right-4 top-3 sm:top-4 z-30">
+              <NotificationsPanel solicitudes={solicitudes || []} glow solicitudId={solicitud.id} paginado fixed />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
