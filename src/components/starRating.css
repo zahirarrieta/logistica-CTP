@@ -18,6 +18,14 @@
   line-height: 1;
 }
 
+.sr-wrap.sr-compact {
+  gap: 3px;
+}
+
+.sr-wrap.sr-compact > .sr-label {
+  font-size: 16px;
+}
+
 .sr-wrap > .sr-label > svg {
   fill: #666;
   transition: fill 0.3s ease;
