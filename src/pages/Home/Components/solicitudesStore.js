@@ -227,3 +227,53 @@ export function clearSolicitudes() {
   }
   return []
 }
+
+const BORRADOR_KEY = 'ctp_entrega_borrador_'
+
+export function guardarBorradorEntrega(id, datos) {
+  try {
+    localStorage.setItem(BORRADOR_KEY + id, JSON.stringify({ ...datos, guardadoEn: Date.now() }))
+  } catch {
+    // ignorar
+  }
+}
+
+export function cargarBorradorEntrega(id) {
+  try {
+    const raw = localStorage.getItem(BORRADOR_KEY + id)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export function eliminarBorradorEntrega(id) {
+  try {
+    localStorage.removeItem(BORRADOR_KEY + id)
+  } catch {
+    // ignorar
+  }
+}
+
+export function marcarPendienteSync(id) {
+  const next = loadSolicitudes().map((s) => (s.id === id ? { ...s, pendienteSync: true } : s))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // ignorar
+  }
+  return next
+}
+
+export function sincronizarPendientes() {
+  const list = loadSolicitudes()
+  const cantidad = list.filter((s) => s.pendienteSync).length
+  if (cantidad === 0) return 0
+  const next = list.map((s) => (s.pendienteSync ? { ...s, pendienteSync: false } : s))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // ignorar
+  }
+  return cantidad
+}

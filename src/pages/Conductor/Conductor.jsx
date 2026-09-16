@@ -1,14 +1,36 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { RiSteering2Line } from 'react-icons/ri'
 import { MdLocalShipping } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import Toast from '../../components/Toast.jsx'
+import IndicadorSinConexion from '../../components/IndicadorSinConexion.jsx'
 import EntregaConductor from './Components/modals/EntregaConductor.jsx'
-import { loadSolicitudes, updateSolicitud } from '../Home/Components/solicitudesStore.js'
+import {
+  loadSolicitudes,
+  updateSolicitud,
+  marcarPendienteSync,
+  sincronizarPendientes,
+} from '../Home/Components/solicitudesStore.js'
+import { procesarCola, registrarCambio } from '../../services/excelSync.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
+
+function useOnline() {
+  const [online, setOnline] = useState(() => navigator.onLine)
+  useEffect(() => {
+    const conectar = () => setOnline(true)
+    const desconectar = () => setOnline(false)
+    window.addEventListener('online', conectar)
+    window.addEventListener('offline', desconectar)
+    return () => {
+      window.removeEventListener('online', conectar)
+      window.removeEventListener('offline', desconectar)
+    }
+  }, [])
+  return online
+}
 
 function destinoEntrega(s) {
   return s?.estado === 'En Tránsito Parcial' ? 'Entregado Parcial' : 'Entregado'
@@ -18,10 +40,23 @@ export default function Conductor() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [editarSolicitud, setEditarSolicitud] = useState(null)
   const [toast, setToast] = useState(null)
+  const online = useOnline()
   const enTransito = solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || 'Abierto'))
 
+  useEffect(() => {
+    if (!online) return
+    const cantidad = sincronizarPendientes()
+    procesarCola().then((subidas) => {
+      const total = cantidad + subidas
+      if (total > 0) setToast({ tipo: 'sync', cantidad: total })
+    })
+  }, [online])
+
   const handleUpdateEstado = (id, updates) => {
-    setSolicitudes(updateSolicitud(id, updates))
+    let siguiente = updateSolicitud(id, updates)
+    if (!navigator.onLine) siguiente = marcarPendienteSync(id)
+    setSolicitudes(siguiente)
+    registrarCambio(id)
     setToast({ tipo: 'estado', estado: updates.estado })
   }
 
@@ -90,9 +125,12 @@ export default function Conductor() {
         <Toast
           tipo={toast.tipo}
           estado={toast.estado}
+          cantidad={toast.cantidad}
           onClose={() => setToast(null)}
         />
       )}
+
+      <IndicadorSinConexion />
     </div>
   )
 }

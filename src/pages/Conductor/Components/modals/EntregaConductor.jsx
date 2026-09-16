@@ -3,6 +3,11 @@ import { MdClose, MdCheckCircle, MdNotes, MdPhotoCamera, MdPerson, MdWorkOutline
 import { RiSteering2Line } from 'react-icons/ri'
 import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
+import {
+  guardarBorradorEntrega,
+  cargarBorradorEntrega,
+  eliminarBorradorEntrega,
+} from '../../../Home/Components/solicitudesStore.js'
 
 const PREGUNTAS = [
   'Atención recibida en la entrega',
@@ -34,13 +39,29 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     }
     if (abiertoRef.current) return
     abiertoRef.current = true
-    setObservaciones('')
-    setEvidencia('')
-    setNombreEncuestado('')
-    setCargo('')
-    setCorreo('')
-    setPuntuaciones({})
-  }, [open])
+    const borrador = solicitud ? cargarBorradorEntrega(solicitud.id) : null
+    setObservaciones(borrador?.observaciones || '')
+    setEvidencia(borrador?.evidencia || '')
+    setNombreEncuestado(borrador?.nombreEncuestado || '')
+    setCargo(borrador?.cargo || '')
+    setCorreo(borrador?.correo || '')
+    setPuntuaciones(borrador?.puntuaciones || {})
+  }, [open, solicitud])
+
+  useEffect(() => {
+    if (!open || !solicitud) return
+    const timer = setTimeout(() => {
+      guardarBorradorEntrega(solicitud.id, {
+        observaciones,
+        evidencia,
+        nombreEncuestado,
+        cargo,
+        correo,
+        puntuaciones,
+      })
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [open, solicitud, observaciones, evidencia, nombreEncuestado, cargo, correo, puntuaciones])
 
   if (!open || !solicitud) return null
 
@@ -84,6 +105,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
 
   const handleSave = () => {
     if (!puedeGuardar) return
+    eliminarBorradorEntrega(solicitud.id)
     const preguntas = PREGUNTAS.map((p) => ({ pregunta: p, puntuacion: puntuaciones[p] || 0 }))
     onUpdate(solicitud.id, {
       estado: estadoEntrega,

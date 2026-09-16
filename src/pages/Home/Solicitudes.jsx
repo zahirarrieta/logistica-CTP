@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MdAdd, MdAssignmentAdd, MdInbox, MdFilterList } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -8,6 +8,7 @@ import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import { loadSolicitudes, saveSolicitud } from './Components/solicitudesStore.js'
+import { primeraCargaEnExcel, registrarCambio } from '../../services/excelSync.js'
 
 export default function Solicitudes() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
@@ -16,6 +17,10 @@ export default function Solicitudes() {
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
+
+  useEffect(() => {
+    primeraCargaEnExcel()
+  }, [])
 
   const filtered = solicitudes.filter((s) => {
     const e = s.estado || 'Abierto'
@@ -28,7 +33,9 @@ export default function Solicitudes() {
   const hasFilters = Boolean(filterEstado || filtroCliente || filtroZona)
 
   const handleNewSolicitud = (data) => {
-    setSolicitudes(saveSolicitud(data))
+    const siguiente = saveSolicitud(data)
+    setSolicitudes(siguiente)
+    registrarCambio(siguiente[0]?.id)
     setModalOpen(false)
   }
 

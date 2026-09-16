@@ -14,6 +14,7 @@ import AsignarConductorModal from './Components/modals/AsignarConductorModal.jsx
 import HistorialModal from './Components/modals/HistorialModal.jsx'
 import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import { loadSolicitudes, updateSolicitud, clearSolicitudes } from '../Home/Components/solicitudesStore.js'
+import { registrarCambio } from '../../services/excelSync.js'
 
 export default function Administrador() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
@@ -54,17 +55,20 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
 
   const handleUpdateEstado = (id, updates) => {
     setSolicitudes(updateSolicitud(id, updates))
+    registrarCambio(id)
     setToast({ tipo: 'estado', estado: updates.estado })
   }
 
   const handleAsignar = (id, updates) => {
     setSolicitudes(updateSolicitud(id, updates))
+    registrarCambio(id)
     setToast({ tipo: 'asignado', asignadoA: updates.asignadoA })
   }
 
   const handleAsignarConductor = (id, updates) => {
     const siguiente = updateSolicitud(id, updates)
     setSolicitudes(siguiente)
+    registrarCambio(id)
     setToast({ tipo: 'conductor', asignadoA: updates.conductor })
     if (editSolicitud && editSolicitud.id === id) {
       setEditSolicitud(siguiente.find((s) => s.id === id) || null)
