@@ -13,7 +13,6 @@ import {
   marcarPendienteSync,
   sincronizarPendientes,
 } from '../Home/Components/solicitudesStore.js'
-import { procesarCola, registrarCambio } from '../../services/excelSync.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
@@ -46,17 +45,13 @@ export default function Conductor() {
   useEffect(() => {
     if (!online) return
     const cantidad = sincronizarPendientes()
-    procesarCola().then((subidas) => {
-      const total = cantidad + subidas
-      if (total > 0) setToast({ tipo: 'sync', cantidad: total })
-    })
+    if (cantidad > 0) setToast({ tipo: 'sync', cantidad })
   }, [online])
 
   const handleUpdateEstado = (id, updates) => {
     let siguiente = updateSolicitud(id, updates)
     if (!navigator.onLine) siguiente = marcarPendienteSync(id)
     setSolicitudes(siguiente)
-    registrarCambio(id)
     setToast({ tipo: 'estado', estado: updates.estado })
   }
 
