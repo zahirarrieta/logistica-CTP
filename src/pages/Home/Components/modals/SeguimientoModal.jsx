@@ -70,6 +70,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
     (enTransito && !esElite && solicitud.vehiculo === 'Moto' ? MdTwoWheeler : ICONOS_POR_ESTADO[estado]) || MdDirectionsCar
 
   return (
+    <>
     <div
       className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
       onClick={onClose}
@@ -119,7 +120,8 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
           </div>
         ) : (
           /* Cuerpo: pista animada compacta */
-          <div className="relative bg-brand-mist h-52 sm:h-64 lg:h-72 overflow-hidden">
+          <div className="overflow-y-auto max-h-[calc(92vh-4.5rem)]">
+            <div className="relative bg-brand-mist h-52 sm:h-64 lg:h-72 overflow-hidden">
             <div className="absolute inset-0">
               <div className="absolute left-4 right-4 sm:left-8 sm:right-8 top-1/2 h-2.5 sm:h-3 -translate-y-1/2 rounded-full bg-brand-deep/70 overflow-hidden">
                 <div
@@ -160,9 +162,11 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
             <div className="absolute right-3 sm:right-4 top-3 sm:top-4 z-30">
               <NotificationsPanel solicitudes={solicitudes || []} glow solicitudId={solicitud.id} paginado fixed />
             </div>
+            </div>
           </div>
         )}
       </div>
     </div>
+    </>
   )
 }

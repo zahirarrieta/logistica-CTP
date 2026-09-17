@@ -97,7 +97,7 @@ function Login() {
                       <span className="relative z-10 flex w-full items-center justify-center gap-3 tracking-wide text-brand-ink">
                         <MdLogin className="login-lock text-2xl" />
                         <span className="flex flex-col items-center tracking-wide text-brand-ink">
-                          INICIAR SESION
+                          INICIAR SESIÓN
                           <span className="mt-1 h-[3px] w-0 rounded-full bg-brand-ink/50 transition-all duration-300 group-hover:w-full group-hover:bg-brand-ink" />
                         </span>
                       </span>

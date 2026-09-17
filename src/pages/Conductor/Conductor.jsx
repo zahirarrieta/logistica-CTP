@@ -105,7 +105,7 @@ export default function Conductor() {
             empty={{
               icon: <MdLocalShipping />,
               title: 'No hay solicitudes en tránsito',
-              text: 'Cuando una solicitud cambie a estado «En Transto» aparecerá aquí.',
+              text: 'Cuando una solicitud cambie a estado «En Tránsito» aparecerá aquí.',
             }}
           />
         </div>

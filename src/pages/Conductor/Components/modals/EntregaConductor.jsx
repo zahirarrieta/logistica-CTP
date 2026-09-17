@@ -3,11 +3,21 @@ import { MdClose, MdCheckCircle, MdNotes, MdPhotoCamera, MdPerson, MdWorkOutline
 import { RiSteering2Line } from 'react-icons/ri'
 import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
+import { subirDocEntregaOneDrive } from '../../../../services/oneDriveApi.js'
 import {
   guardarBorradorEntrega,
   cargarBorradorEntrega,
   eliminarBorradorEntrega,
 } from '../../../Home/Components/solicitudesStore.js'
+
+function dataUrlABlob(dataUrl) {
+  const [cabecera, contenido] = dataUrl.split(',')
+  const mime = /data:(.*?)(;|,)/.exec(cabecera)?.[1] || 'image/jpeg'
+  const bin = atob(contenido)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i)
+  return new Blob([bytes], { type: mime })
+}
 
 const PREGUNTAS = [
   'Atención recibida en la entrega',
@@ -26,6 +36,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
   const [cargo, setCargo] = useState('')
   const [correo, setCorreo] = useState('')
   const [puntuaciones, setPuntuaciones] = useState({})
+  const [guardando, setGuardando] = useState(false)
   const fileRef = useRef(null)
   const abiertoRef = useRef(false)
 
@@ -39,6 +50,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     }
     if (abiertoRef.current) return
     abiertoRef.current = true
+    setGuardando(false)
     const borrador = solicitud ? cargarBorradorEntrega(solicitud.id) : null
     setObservaciones(borrador?.observaciones || '')
     setEvidencia(borrador?.evidencia || '')
@@ -103,14 +115,28 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     reader.readAsDataURL(file)
   }
 
-  const handleSave = () => {
-    if (!puedeGuardar) return
+  const handleSave = async () => {
+    if (!puedeGuardar || guardando) return
+    setGuardando(true)
+    let evidenciaFinal = evidencia
+    if (evidencia.startsWith('data:')) {
+      try {
+        const subida = await subirDocEntregaOneDrive(
+          dataUrlABlob(evidencia),
+          solicitud.numeroReferencia || solicitud.id
+        )
+        if (subida?.url) evidenciaFinal = subida.url
+        else throw new Error('OneDrive no devolvió el enlace del archivo')
+      } catch (err) {
+        console.warn('[OneDrive] no se pudo subir la evidencia, se guardará localmente:', err)
+      }
+    }
     eliminarBorradorEntrega(solicitud.id)
     const preguntas = PREGUNTAS.map((p) => ({ pregunta: p, puntuacion: puntuaciones[p] || 0 }))
     onUpdate(solicitud.id, {
       estado: estadoEntrega,
       notaEstado: observaciones.trim(),
-      evidencia,
+      evidencia: evidenciaFinal,
       encuesta: {
         nombreEncuestado: nombreEncuestado.trim(),
         cargo: cargo.trim(),
@@ -316,11 +342,11 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
             <button
               type="button"
               onClick={handleSave}
-              disabled={!puedeGuardar}
+              disabled={!puedeGuardar || guardando}
               className="inline-flex items-center gap-2 rounded-full bg-brand-cyan text-brand-ink px-5 py-2 text-sm font-bold shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
             >
               <MdCheckCircle className="text-lg" />
-              Finalizar entrega
+              {guardando ? 'Subiendo evidencia…' : 'Finalizar entrega'}
             </button>
           </div>
         </div>

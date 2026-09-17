@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers, MdCloudUpload, MdInfoOutline } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../Home/Components/estadoColors.js'
+import { subirFacturaRemisionOneDrive } from '../../../../services/oneDriveApi.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
@@ -26,6 +27,8 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const [guardado, setGuardado] = useState(false)
   const [editarFactura, setEditarFactura] = useState(false)
   const [editarConductor, setEditarConductor] = useState(false)
+  const [subiendo, setSubiendo] = useState(false)
+  const [errorSubida, setErrorSubida] = useState('')
   const abiertoRef = useRef(false)
 
   useEffect(() => {
@@ -42,6 +45,8 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setGuardado(false)
     setEditarFactura(false)
     setEditarConductor(false)
+    setSubiendo(false)
+    setErrorSubida('')
   }, [open, solicitud])
 
   if (!open || !solicitud) return null
@@ -56,11 +61,12 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const bloqueadoCerrar = !guardado
   const numeroRefValido = numeroRef.trim().length > 0 && adjuntoTramite.length > 0
   const puedeGuardar =
-    estado === 'En Trámite'
+    !subiendo &&
+    (estado === 'En Trámite'
       ? numeroRefValido
       : esSeleccionado
         ? !esTransitoSeleccionado || transporteListo
-        : esTransitoActual && transporteListo
+        : esTransitoActual && transporteListo)
 
   const handleSelect = (e) => {
     if (isCurrent(e)) return
@@ -68,15 +74,32 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setNota('')
     setNumeroRef('')
     setAdjuntoTramite([])
+    setErrorSubida('')
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!puedeGuardar) return
+    setErrorSubida('')
     const updates = { estado, notaEstado: nota.trim() }
     if (estado === 'En Trámite') {
       if (!numeroRef.trim() || adjuntoTramite.length === 0) return
-      updates.numeroReferencia = numeroRef.trim()
-      updates.adjuntosTramite = adjuntoTramite.map((f) => f.name)
+      setSubiendo(true)
+      try {
+        const subidos = await subirFacturaRemisionOneDrive(adjuntoTramite, numeroRef.trim())
+        updates.numeroReferencia = numeroRef.trim()
+        updates.adjuntosTramite = adjuntoTramite.map((f) => f.name)
+        const urls = subidos.map((s) => s.url).filter(Boolean)
+        if (urls.length === 0) {
+          throw new Error('OneDrive no devolvió una URL del documento subido')
+        }
+        updates.nuevaFacturaUrls = urls
+      } catch (err) {
+        console.error('[EstadosModal] error subiendo factura a OneDrive:', err)
+        setErrorSubida(`No se pudo guardar el documento en OneDrive: ${err.message}`)
+        setSubiendo(false)
+        return
+      }
+      setSubiendo(false)
     }
     onUpdate(solicitud.id, updates)
     setNota('')
@@ -244,12 +267,13 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                                   ? `${adjuntoTramite.length} archivo(s) seleccionado(s)`
                                   : 'Haz clic para adjuntar el documento'}
                               </span>
-                              <input
-                                type="file"
-                                multiple
-                                onChange={(ev) => setAdjuntoTramite(Array.from(ev.target.files || []))}
-                                className="hidden"
-                              />
+<input
+  type="file"
+  multiple
+  accept=".pdf,application/pdf"
+  onChange={(ev) => setAdjuntoTramite(Array.from(ev.target.files || []))}
+  className="hidden"
+/>
                             </label>
                           </div>
                         </div>
@@ -300,26 +324,34 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
         </div>
 
         {/* Botones */}
-        <div className="px-4 sm:px-6 py-4 border-t border-brand-ink/10 shrink-0 flex items-center justify-between gap-2 sm:gap-3">
-          {bloqueadoCerrar && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
+        <div className="px-4 sm:px-6 py-4 border-t border-brand-ink/10 shrink-0 space-y-2">
+          {errorSubida && (
+            <p className="inline-flex items-start gap-1.5 text-xs font-bold text-red-600">
               <MdInfoOutline className="text-base shrink-0" />
-              {estado === 'En Trámite' && !numeroRefValido
-                ? 'Completa número de factura o remisión y adjúntala para poder guardar'
-                : 'Debes guardar el cambio de estado para poder cerrar'}
-            </span>
+              {errorSubida}
+            </p>
           )}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!puedeGuardar}
-            className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-cyanGlow"
-          >
-            <span className="grid place-items-center size-6 rounded-full bg-brand-deep/10 text-brand-deep">
-              <MdCheckCircle className="text-base" />
-            </span>
-            Guardar
-          </button>
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            {bloqueadoCerrar && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
+                <MdInfoOutline className="text-base shrink-0" />
+                {estado === 'En Trámite' && !numeroRefValido
+                  ? 'Completa número de factura o remisión y adjúntala para poder guardar'
+                  : 'Debes guardar el cambio de estado para poder cerrar'}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!puedeGuardar}
+              className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-cyanGlow"
+            >
+              <span className="grid place-items-center size-6 rounded-full bg-brand-deep/10 text-brand-deep">
+                {subiendo ? <MdCloudUpload className="text-base animate-pulse" /> : <MdCheckCircle className="text-base" />}
+              </span>
+              {subiendo ? 'Subiendo a OneDrive…' : 'Guardar'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

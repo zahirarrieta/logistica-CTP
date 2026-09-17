@@ -6,7 +6,6 @@ import {
   MdEmail,
   MdNotes,
   MdPhotoCamera,
-  MdPictureAsPdf,
   MdLocalShipping,
   MdDirectionsCar,
   MdReceipt,
@@ -16,6 +15,7 @@ import {
 } from 'react-icons/md'
 import { FiStar } from 'react-icons/fi'
 import StarRating from './StarRating.jsx'
+import EvidenciaVisor from './EvidenciaVisor.jsx'
 import { safeText } from '../pages/Home/Components/solicitudesStore.js'
 
 const CALIFICACIONES = ['Muy malo', 'Malo', 'Regular', 'Bueno', 'Muy bueno']
@@ -71,7 +71,6 @@ export default function EntregaInfo({ solicitud, entrega, mostrarEncuesta = true
   const cargo = safeText(encuesta?.cargo)
   const correo = safeText(encuesta?.correo)
   const evidencia = safeText(entrega?.evidencia)
-  const esPdf = evidencia.startsWith('data:application/pdf')
 
   const datos = [
     { icon: <MdLocalShipping className="text-xs" />, label: 'Conductor', value: safeText(entrega?.conductor) || safeText(solicitud.conductor) },
@@ -149,37 +148,7 @@ export default function EntregaInfo({ solicitud, entrega, mostrarEncuesta = true
       {evidencia && (
         <div className="space-y-2">
           <Seccion icon={<MdPhotoCamera className="text-sm" />}>Evidencia</Seccion>
-          {esPdf ? (
-            <a
-              href={evidencia}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-xl border border-brand-ink/10 bg-brand-mist/40 px-4 py-3.5 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors"
-            >
-              <MdPictureAsPdf className="text-3xl text-red-600 shrink-0" />
-              <span className="min-w-0">
-                <span className="block text-sm font-extrabold text-brand-deep">Documento PDF de la entrega</span>
-                <span className="block text-xs text-brand-ink/60">Clic para abrir en una nueva pestaña</span>
-              </span>
-            </a>
-          ) : (
-            <a
-              href={evidencia}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Abrir en tamaño completo"
-              className="group relative block rounded-xl overflow-hidden border border-brand-ink/10 bg-brand-ink/5"
-            >
-              <img
-                src={evidencia}
-                alt="Evidencia de la entrega"
-                className="w-full max-h-72 object-contain transition-transform duration-300 group-hover:scale-[1.02]"
-              />
-              <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/60 text-white px-3 py-1 text-[11px] font-bold">
-                <MdVerified className="text-sm text-green-400" /> Foto de la entrega
-              </span>
-            </a>
-          )}
+          <EvidenciaVisor url={evidencia} />
         </div>
       )}
 

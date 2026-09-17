@@ -1,4 +1,5 @@
 import { supabase, iniciarSesion, datosUsuario, backendActivo } from './supabaseClient.js'
+import { soloAdjuntosSolicitud } from '../components/pdfUtils.js'
 
 const EXPIRA_EVIDENCIA = 60 * 60 * 24 // 24 h
 
@@ -28,7 +29,7 @@ function filaDe(s) {
     bodega: s.bodega || '',
     zona: s.zona || '',
     observaciones: s.observaciones || '',
-    adjuntos: Array.isArray(s.adjuntos) ? s.adjuntos.filter((a) => typeof a === 'string') : [],
+    adjuntos: soloAdjuntosSolicitud(s.adjuntos),
     solicitante_nombre: s.nombreCompleto || '',
     solicitante_correo: (s.correo || '').toLowerCase(),
     estado: s.estado || 'Abierto',
@@ -55,7 +56,7 @@ function aLocal(fila, historial) {
     nit: fila.nit,
     zona: fila.zona,
     observaciones: fila.observaciones,
-    adjuntos: fila.adjuntos || [],
+    adjuntos: soloAdjuntosSolicitud(fila.adjuntos),
     estado: fila.estado,
     asignadoA: fila.asignado_a,
     conductor: fila.conductor,
@@ -131,7 +132,13 @@ export async function descargarSolicitudes() {
     registros = data || []
   }
 
-  const rutas = [...new Set(registros.map((h) => h.evidencia_url).filter(Boolean))]
+  const rutas = [
+    ...new Set(
+      registros
+        .map((h) => h.evidencia_url)
+        .filter((u) => u && !/^https?:\/\//i.test(u))
+    ),
+  ]
   const firmadas = {}
   if (rutas.length > 0) {
     const { data, error: errorUrl } = await supabase.storage

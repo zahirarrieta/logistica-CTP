@@ -2,6 +2,7 @@ import { msalInstance } from '../../../auth/msal.js'
 import { shortName } from '../../../auth/user.js'
 import { backendActivo } from '../../../services/supabaseClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud } from '../../../services/solicitudesApi.js'
+import { soloAdjuntosSolicitud } from '../../../components/pdfUtils.js'
 
 const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
@@ -129,6 +130,7 @@ export function loadSolicitudes() {
       for (const key of TEXT_FIELDS) {
         if (typeof normal[key] !== 'string') normal[key] = safeText(normal[key])
       }
+      normal.adjuntos = soloAdjuntosSolicitud(normal.adjuntos)
       if (Array.isArray(normal.historial)) {
         normal.historial = normal.historial.map((h) => {
           if (!h || typeof h !== 'object') return {}
@@ -204,6 +206,8 @@ export function updateSolicitud(id, updates) {
   const next = list.map((s) => {
     if (s.id !== id) return s
     const historial = Array.isArray(s.historial) ? s.historial : []
+    const pdfUrls = Array.isArray(updates.nuevaFacturaUrls) ? updates.nuevaFacturaUrls : []
+    const adjuntoTramite = Array.isArray(updates.adjuntosTramite) ? updates.adjuntosTramite.join(', ') : ''
     const campos = []
     if (updates.estado && updates.estado !== (s.estado || 'Abierto')) {
       const transito = ESTADOS_TRANSITO.includes(updates.estado)
@@ -212,8 +216,8 @@ export function updateSolicitud(id, updates) {
         anterior: s.estado || 'Abierto',
         nuevo: updates.estado,
         nota: updates.notaEstado || '',
-        referencia: updates.numeroReferencia || '',
-        adjunto: Array.isArray(updates.adjuntosTramite) ? updates.adjuntosTramite.join(', ') : '',
+        referencia: updates.numeroReferencia || s.numeroReferencia || '',
+        adjunto: pdfUrls.length > 0 ? pdfUrls.join(', ') : adjuntoTramite,
         conductor: transito ? s.conductor || '' : '',
         vehiculo: transito ? s.vehiculo || '' : '',
         placa: transito ? s.placa || '' : '',
@@ -233,10 +237,41 @@ export function updateSolicitud(id, updates) {
         placa: updates.placa || '',
       })
     }
-    if (campos.length === 0) return { ...s, ...updates, historial }
+    const adicionales = { ...updates }
+    delete adicionales.nuevaFacturaUrls
+    delete adicionales.adjuntosTramite
+
+    let historialFinal = historial
+    if (campos.length === 0 && pdfUrls.length > 0) {
+      // Sin cambio de estado: se actualiza el adjunto del trámite en el historial
+      historialFinal = [...historial]
+      const idx = historialFinal.findIndex((h) => h.campo === 'estado' && h.nuevo === 'En Trámite')
+      if (idx >= 0) {
+        historialFinal[idx] = { ...historialFinal[idx], adjunto: pdfUrls.join(', ') }
+      } else {
+        const { fecha, hora } = nowStamp()
+        historialFinal = [
+          {
+            id: generarId(),
+            campo: 'estado',
+            anterior: s.estado || 'Abierto',
+            nuevo: s.estado || 'Abierto',
+            nota: '',
+            referencia: updates.numeroReferencia || s.numeroReferencia || '',
+            adjunto: pdfUrls.join(', '),
+            persona: currentPersona(),
+            fecha,
+            hora,
+          },
+          ...historialFinal,
+        ].slice(0, 30)
+      }
+    }
+
+    if (campos.length === 0) return { ...s, ...adicionales, historial: historialFinal }
     const { fecha, hora } = nowStamp()
     const nuevos = campos.map((c) => ({ ...c, id: generarId(), fecha, hora, persona: currentPersona() }))
-    return { ...s, ...updates, historial: [...nuevos, ...historial].slice(0, 30) }
+    return { ...s, ...adicionales, historial: [...nuevos, ...historialFinal].slice(0, 30) }
   })
   escribir(next)
   empujar({ id })

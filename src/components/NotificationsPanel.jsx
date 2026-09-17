@@ -19,6 +19,9 @@ import {
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
 import { safeText } from '../pages/Home/Components/solicitudesStore.js'
+import { esPdfUrl } from './pdfUtils.js'
+import AdjuntoFileCard from './AdjuntoFileCard.jsx'
+import VisorPdfModal from './VisorPdfModal.jsx'
 
 const VISTAS_KEY = 'ctp_notif_vistas'
 
@@ -97,7 +100,7 @@ function ItemHeader({ c, i, total, vistas }) {
   )
 }
 
-function ItemBody({ c }) {
+function ItemBody({ c, interactivo = false, onVerPdf }) {
   return (
     <>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
@@ -133,9 +136,26 @@ function ItemBody({ c }) {
         </p>
       )}
       {c.campo === 'estado' && changeText(c.adjunto) && (
-        <p className="mt-2 text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-cyan px-2.5 py-1.5">
-          Adjunto: {changeText(c.adjunto)}
-        </p>
+        <div className="mt-2 space-y-2">
+          {String(c.adjunto)
+            .split(',')
+            .map((u) => u.trim())
+            .filter(Boolean)
+            .map((u, i) =>
+              esPdfUrl(u) ? (
+                <AdjuntoFileCard
+                  key={i}
+                  url={u}
+                  index={i}
+                  onVerPdf={interactivo ? onVerPdf : undefined}
+                />
+              ) : (
+                <p key={i} className="text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-cyan px-2.5 py-1.5 break-all">
+                  Adjunto: {u}
+                </p>
+              )
+            )}
+        </div>
       )}
       {c.campo === 'conductor' && (changeText(c.vehiculo) || changeText(c.placa)) && (
         <p className="mt-2 text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-deep px-2.5 py-1.5">
@@ -156,6 +176,7 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
   const [tab, setTab] = useState('estado')
   const [vistas, setVistas] = useState(() => loadVistas())
   const [page, setPage] = useState(0)
+  const [pdfUrl, setPdfUrl] = useState(null)
 
   useEffect(() => {
     setPage(0)
@@ -345,7 +366,7 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
 
                   <div className="rounded-xl border border-brand-ink/10 mt-2 shadow-sm p-3">
                     <ItemHeader c={current} i={index} total={pageCount} vistas={vistas} />
-                    <ItemBody c={current} />
+                    <ItemBody c={current} interactivo onVerPdf={setPdfUrl} />
                   </div>
                 </>
               ) : (
@@ -365,9 +386,16 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
                   </button>
                 ))
               )}
-</div>
             </div>
-          </div>
+            </div>
+            </div>
+
+          <VisorPdfModal
+            open={Boolean(pdfUrl)}
+            url={pdfUrl}
+            onClose={() => setPdfUrl(null)}
+            titulo="VISTA PREVIA PDF"
+          />
         </>
         ,
         document.body

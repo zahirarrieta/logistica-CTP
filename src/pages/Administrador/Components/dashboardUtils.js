@@ -21,8 +21,9 @@ export function parseStamp(fecha, hora) {
   if (partes.length !== 3) return null
   const d = Number(partes[0])
   const m = Number(partes[1])
-  const y = Number(partes[2])
+  let y = Number(partes[2])
   if (!d || !m || !y) return null
+  if (y < 100) y = y >= 50 ? 1900 + y : 2000 + y
 
   let h = 0
   let mi = 0
