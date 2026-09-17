@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { MdAdminPanelSettings, MdInbox, MdFilterList, MdInsights } from 'react-icons/md'
+import { MdAdminPanelSettings, MdInbox, MdFilterList, MdInsights, MdRestartAlt, MdDescription } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
@@ -14,11 +14,13 @@ import HistorialModal from './Components/modals/HistorialModal.jsx'
 import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
 import DashboardTab from './Components/DashboardTab.jsx'
-import { loadSolicitudes, updateSolicitud, removeSolicitud } from '../Home/Components/solicitudesStore.js'
-import { estadoActualizado, solicitudAsignada, conductorAsignado } from '../../services/notificaciones.jsx'
+import PlanillasTab from './Components/PlanillasTab.jsx'
+import { loadSolicitudes, updateSolicitud, removeSolicitud, resetSolicitudes } from '../Home/Components/solicitudesStore.js'
+import { estadoActualizado, solicitudAsignada, conductorAsignado, datosReiniciados } from '../../services/notificaciones.jsx'
 
 const TABS = [
   { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
+  { id: 'planillas', label: 'Planillas', Icon: MdDescription },
   { id: 'dashboard', label: 'Dashboard', Icon: MdInsights },
 ]
 
@@ -67,6 +69,26 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
     if (entregaDetallesSolicitud?.id === solicitud.id) setEntregaDetallesSolicitud(null)
   }
 
+  const handleResetDatos = async () => {
+    const confirmado = window.confirm(
+      'Vas a eliminar TODAS las solicitudes y reiniciar el contador de IDs. Esta acción no se puede deshacer. ¿Continuar?'
+    )
+    if (!confirmado) return
+    await resetSolicitudes()
+    setSolicitudes([])
+    setEditSolicitud(null)
+    setAsignarSolicitud(null)
+    setAsignarConductorSolicitud(null)
+    setHistorialSolicitud(null)
+    setEntregaDetallesSolicitud(null)
+    setEliminarSolicitud(null)
+    setFilterEstado(null)
+    setFiltroAsignado(null)
+    setFiltroCliente('')
+    setFiltroZona('')
+    datosReiniciados()
+  }
+
   const handleUpdateEstado = (id, updates) => {
     setSolicitudes(updateSolicitud(id, updates))
     estadoActualizado(id, updates.estado)
@@ -105,6 +127,15 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                 Listado de todas las solicitudes registradas
               </p>
             </div>
+            <button
+              type="button"
+              onClick={handleResetDatos}
+              className="inline-flex items-center gap-2 self-start rounded-full border border-red-300 bg-red-50 px-4 py-2 text-xs sm:text-sm font-bold text-red-700 hover:bg-red-100 hover:border-red-400 transition"
+              title="Elimina todas las solicitudes y reinicia el contador (solo pruebas)"
+            >
+              <MdRestartAlt className="text-base" />
+              Restablecer datos de prueba
+            </button>
           </div>
 
           {/* Tabs */}
@@ -137,6 +168,8 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
 
           {tab === 'dashboard' ? (
             <DashboardTab solicitudes={solicitudes} />
+          ) : tab === 'planillas' ? (
+            <PlanillasTab solicitudes={solicitudes} />
           ) : (
             <>
               {solicitudes.length > 0 && (

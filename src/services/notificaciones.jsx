@@ -4,6 +4,7 @@ import {
   MdCloudDone,
   MdCloudUpload,
   MdErrorOutline,
+  MdRestartAlt,
   MdSend,
   MdSwapHoriz,
 } from 'react-icons/md'
@@ -109,6 +110,15 @@ export function syncRestablecida(cantidad) {
     title: 'Conexión restablecida',
     icon: <MdCloudDone />,
     description: linea(`${cantidad} entrega(s) sincronizada(s) con el servidor.`),
+  })
+}
+
+export function datosReiniciados() {
+  sileo.success({
+    ...BASE,
+    title: 'Datos restablecidos',
+    icon: <MdRestartAlt />,
+    description: linea('Solicitudes eliminadas y contador reiniciado en CTPLOG-00001.'),
   })
 }
 

@@ -243,6 +243,15 @@ export async function borrarSolicitud(codigo) {
   return true
 }
 
+export async function borrarTodasSolicitudes() {
+  if (!backendActivo) return false
+  await preparar()
+  const { error } = await supabase.from('solicitudes').delete().neq('codigo', '')
+  if (error) throw error
+  console.info('[Supabase] borradas todas las solicitudes')
+  return true
+}
+
 export async function cargarClientes() {
   if (!backendActivo) return null
   await iniciarSesion()

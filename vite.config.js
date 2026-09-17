@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => {
             if (id.includes('@azure') || id.includes('msal')) return 'msal'
             if (id.includes('@supabase')) return 'supabase'
             if (id.includes('react-icons')) return 'icons'
+            if (id.includes('jspdf')) return 'pdf'
             if (id.includes('animejs') || /node_modules[\\/]anime[\\/]/.test(id)) return 'anime'
             if (id.includes('react-router')) return 'router'
             if (

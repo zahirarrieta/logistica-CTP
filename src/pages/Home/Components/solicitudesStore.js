@@ -1,7 +1,7 @@
 import { msalInstance } from '../../../auth/msal.js'
 import { shortName } from '../../../auth/user.js'
 import { backendActivo } from '../../../services/supabaseClient.js'
-import { descargarSolicitudes, empujarSolicitud, borrarSolicitud } from '../../../services/solicitudesApi.js'
+import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../../../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud } from '../../../components/pdfUtils.js'
 
 const STORAGE_KEY = 'ctp_solicitudes'
@@ -313,6 +313,19 @@ export function clearSolicitudes() {
   cache = []
   cacheRaw = ''
   return cache
+}
+
+// Borra todo (local y, si hay backend, en Supabase) y reinicia el contador.
+// Pensado para pruebas: el siguiente pedido vuelve a CTPLOG-00001.
+export async function resetSolicitudes() {
+  if (backendActivo) {
+    try {
+      await borrarTodasSolicitudes()
+    } catch (error) {
+      console.warn('[Supabase] no se pudo limpiar en la base, se limpiará solo local:', error)
+    }
+  }
+  return clearSolicitudes()
 }
 
 const BORRADOR_KEY = 'ctp_entrega_borrador_'
