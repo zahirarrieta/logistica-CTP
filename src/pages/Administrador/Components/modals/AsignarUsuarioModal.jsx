@@ -1,18 +1,7 @@
 import { useEffect, useState } from 'react'
 import { MdClose, MdCheckCircle, MdAssignmentInd, MdTag, MdPersonAdd, MdCheck } from 'react-icons/md'
 import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
-
-const ASIGNADOS = [
-  'Hernán García',
-  'Daniel Chamorro',
-  'Sebastián Rojas',
-  'Duber Sepúlveda',
-  'Laura Puentes',
-  'Yonathan Ortiz',
-  'Camilo Melo',
-]
-
-const CONDUCTORES = ['Reinel Peña', 'Robert', 'Diego Peña']
+import useUsuarios from '../../../../hooks/useUsuarios.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
@@ -28,6 +17,7 @@ function initials(name) {
 export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate }) {
   const asignadoA = nombreDeAsignado(solicitud?.asignadoA)
   const [seleccion, setSeleccion] = useState('')
+  const { usuarios, cargando, error, recargar } = useUsuarios(open)
 
   useEffect(() => {
     if (open) setSeleccion(asignadoA)
@@ -36,7 +26,9 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
   if (!open || !solicitud) return null
 
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
-  const lista = enTransito ? CONDUCTORES : ASIGNADOS
+  const asignados = usuarios.filter((u) => u.rol === 'administrador')
+  const conductores = usuarios.filter((u) => u.rol === 'conductor')
+  const lista = enTransito ? conductores : asignados
 
   const isAsignadoActualmente = (n) => n === asignadoA
   const isSeleccion = (n) => n === seleccion
@@ -92,42 +84,70 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
           <p className="text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-3">
             {enTransito ? 'Selecciona el conductor' : 'Selecciona el usuario a asignar'}
           </p>
-          <div className="space-y-1.5">
-            {lista.map((n) => {
-              const actual = isAsignadoActualmente(n)
-              const sel = isSeleccion(n)
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => handleSelect(n)}
-                  disabled={actual}
-                  title={actual ? 'Esta persona ya está asignada' : `Asignar a ${n}`}
-                  className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-brand-deep transition-all ${
-                    actual
-                      ? 'bg-brand-cyan/15 ring-1 ring-brand-cyan/50 cursor-not-allowed'
-                      : sel
-                        ? 'bg-brand-cyan/20 ring-2 ring-brand-cyan/60'
-                        : 'bg-brand-mist/40 hover:bg-brand-cyan/15 hover:ring-1 hover:ring-brand-cyan/40'
-                  }`}
-                >
-                  <span className="inline-flex items-center gap-2.5 min-w-0">
-                    <span className="grid place-items-center size-8 shrink-0 rounded-full bg-brand-deep text-white text-xs font-extrabold">
-                      {initials(n)}
+          {cargando ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-10 text-brand-deep/60">
+              <div className="size-10 animate-spin rounded-full border-4 border-brand-deep/20 border-t-brand-deep" />
+              <p className="text-sm font-semibold">Cargando usuarios…</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-10">
+              <p className="text-sm font-semibold text-red-600">{error}</p>
+              <button
+                type="button"
+                onClick={recargar}
+                className="mt-2 rounded-xl bg-brand-navy px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep transition"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : lista.length === 0 ? (
+            <p className="text-center text-brand-ink/50 py-8">
+              No hay {enTransito ? 'conductores' : 'usuarios'} disponibles
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {lista.map((u) => {
+                const n = u.nombre
+                const actual = isAsignadoActualmente(n)
+                const sel = isSeleccion(n)
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => handleSelect(n)}
+                    disabled={actual}
+                    title={actual ? 'Esta persona ya está asignada' : `Asignar a ${n}`}
+                    className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-brand-deep transition-all ${
+                      actual
+                        ? 'bg-brand-cyan/15 ring-1 ring-brand-cyan/50 cursor-not-allowed'
+                        : sel
+                          ? 'bg-brand-cyan/20 ring-2 ring-brand-cyan/60'
+                          : 'bg-brand-mist/40 hover:bg-brand-cyan/15 hover:ring-1 hover:ring-brand-cyan/40'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-2.5 min-w-0">
+                      <span className="grid place-items-center size-8 shrink-0 rounded-full bg-brand-deep text-white text-xs font-extrabold">
+                        {initials(n)}
+                      </span>
+                      <span className="grid min-w-0 text-left">
+                        <span className="truncate">{n}</span>
+                        {u.correo && (
+                          <span className="truncate text-[11px] font-medium normal-case text-brand-ink/50">{u.correo}</span>
+                        )}
+                      </span>
                     </span>
-                    <span className="truncate">{n}</span>
-                  </span>
-                  {actual ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-brand-deep">
-                      <MdCheck className="text-brand-cyan" /> Asignado
-                    </span>
-                  ) : (
-                    <MdPersonAdd className="text-brand-cyan/60 shrink-0" />
-                  )}
-                </button>
-              )
-            })}
-          </div>
+                    {actual ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-brand-deep">
+                        <MdCheck className="text-brand-cyan" /> Asignado
+                      </span>
+                    ) : (
+                      <MdPersonAdd className="text-brand-cyan/60 shrink-0" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Botones */}

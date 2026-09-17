@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MdAdminPanelSettings, MdInbox, MdFilterList } from 'react-icons/md'
+import { MdAdminPanelSettings, MdInbox, MdFilterList, MdInsights } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
@@ -14,10 +14,17 @@ import AsignarConductorModal from './Components/modals/AsignarConductorModal.jsx
 import HistorialModal from './Components/modals/HistorialModal.jsx'
 import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
+import DashboardTab from './Components/DashboardTab.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud } from '../Home/Components/solicitudesStore.js'
+
+const TABS = [
+  { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
+  { id: 'dashboard', label: 'Dashboard', Icon: MdInsights },
+]
 
 export default function Administrador() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
+  const [tab, setTab] = useState('solicitudes')
   const [editSolicitud, setEditSolicitud] = useState(null)
   const [asignarSolicitud, setAsignarSolicitud] = useState(null)
   const [asignarConductorSolicitud, setAsignarConductorSolicitud] = useState(null)
@@ -97,42 +104,76 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
             </div>
           </div>
 
-          {solicitudes.length > 0 && (
-            <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
-              <EstadoFilter solicitudes={solicitudes} value={filterEstado} onChange={setFilterEstado} />
-              <AsignadoFilter solicitudes={solicitudes} value={filtroAsignado} onChange={setFiltroAsignado} />
-              <SearchFilters
-                cliente={filtroCliente}
-                zona={filtroZona}
-                onClienteChange={setFiltroCliente}
-                onZonaChange={setFiltroZona}
-              />
-            </div>
-          )}
+          {/* Tabs */}
+          <div className="mb-6 inline-flex items-center gap-1 rounded-2xl bg-brand-mist/70 ring-1 ring-brand-ink/10 p-1">
+            {TABS.map((t) => {
+              const Icon = t.Icon
+              const active = tab === t.id
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 sm:px-6 py-2.5 text-sm font-extrabold transition-all ${
+                    active
+                      ? 'bg-brand-navy text-white shadow-lg'
+                      : 'text-brand-ink/60 hover:bg-white/70 hover:text-brand-deep'
+                  }`}
+                >
+                  <Icon className="text-base" />
+                  <span>{t.label}</span>
+                  {t.id === 'solicitudes' && solicitudes.length > 0 && (
+                    <span className={`min-w-5 h-5 px-1 grid place-items-center rounded-full text-[10px] font-extrabold ${active ? 'bg-brand-cyan text-brand-ink' : 'bg-brand-deep/10 text-brand-deep'}`}>
+                      {solicitudes.length}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
 
-          <SolicitudesTable
-            items={filtered}
-            onEstadoClick={(s) => setHistorialSolicitud(s)}
-            onAsignarClick={(s) => setAsignarSolicitud(s)}
-            onCambiarEstadoClick={(s) => setEditSolicitud(s)}
-            onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
-            onEntregaDetallesClick={(s) => setEntregaDetallesSolicitud(s)}
-            onEliminarClick={handleEliminar}
-            colorRowsPorEstado
-            empty={
-              hasFilters
-                ? {
-                    icon: <MdFilterList />,
-                    title: 'No hay solicitudes que coincidan con los filtros',
-                    text: 'Ajusta el estado, asignado, cliente o zona seleccionados.',
-                  }
-                : {
-                    icon: <MdInbox />,
-                    title: 'Aún no hay solicitudes registradas',
-                    text: 'Crea tu primera solicitud desde «MIS SOLICITUDES».',
-                  }
-            }
-          />
+          {tab === 'dashboard' ? (
+            <DashboardTab solicitudes={solicitudes} />
+          ) : (
+            <>
+              {solicitudes.length > 0 && (
+                <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
+                  <EstadoFilter solicitudes={solicitudes} value={filterEstado} onChange={setFilterEstado} />
+                  <AsignadoFilter solicitudes={solicitudes} value={filtroAsignado} onChange={setFiltroAsignado} />
+                  <SearchFilters
+                    cliente={filtroCliente}
+                    zona={filtroZona}
+                    onClienteChange={setFiltroCliente}
+                    onZonaChange={setFiltroZona}
+                  />
+                </div>
+              )}
+
+              <SolicitudesTable
+                items={filtered}
+                onEstadoClick={(s) => setHistorialSolicitud(s)}
+                onAsignarClick={(s) => setAsignarSolicitud(s)}
+                onCambiarEstadoClick={(s) => setEditSolicitud(s)}
+                onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
+                onEntregaDetallesClick={(s) => setEntregaDetallesSolicitud(s)}
+                onEliminarClick={handleEliminar}
+                colorRowsPorEstado
+                empty={
+                  hasFilters
+                    ? {
+                        icon: <MdFilterList />,
+                        title: 'No hay solicitudes que coincidan con los filtros',
+                        text: 'Ajusta el estado, asignado, cliente o zona seleccionados.',
+                      }
+                    : {
+                        icon: <MdInbox />,
+                        title: 'Aún no hay solicitudes registradas',
+                        text: 'Crea tu primera solicitud desde «MIS SOLICITUDES».',
+                      }
+                }
+              />
+            </>
+          )}
         </div>
       </main>
 

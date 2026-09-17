@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { RiSteering2Line } from 'react-icons/ri'
 import { MdClose, MdCheckCircle, MdTag, MdCheck, MdLocalShipping, MdEdit, MdTwoWheeler, MdDirectionsCar, MdNumbers, MdDirectionsBus } from 'react-icons/md'
 import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
-
-const CONDUCTORES = ['Reinel Peña', 'Robert', 'Diego Peña', 'Elite', 'Otro']
+import useUsuarios from '../../../../hooks/useUsuarios.js'
 
 const OPCION_OTRO = 'Otro'
+
+const EXTRAS_CONDUCTOR = ['Elite']
 
 const VEHICULOS = ['Moto', 'Carro', 'Camioneta']
 
@@ -30,6 +31,7 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
   const [otroNombre, setOtroNombre] = useState('')
   const [vehiculo, setVehiculo] = useState('')
   const [placa, setPlaca] = useState('')
+  const { usuarios, cargando, error, recargar } = useUsuarios(open)
 
   useEffect(() => {
     if (open) {
@@ -40,6 +42,14 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
   }, [open, conductor, solicitud])
 
   if (!open || !solicitud) return null
+
+  const conductores = [
+    ...usuarios
+      .filter((u) => u.rol === 'conductor')
+      .map((u) => ({ nombre: u.nombre, correo: u.correo })),
+    ...EXTRAS_CONDUCTOR.map((nombre) => ({ nombre, correo: '' })),
+    { nombre: OPCION_OTRO, correo: '' },
+  ]
 
   const isConductorActualmente = (n) => n === conductor
   const isSeleccion = (n) => n === seleccion
@@ -108,55 +118,79 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
           <p className="text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-3">
             Selecciona el conductor para la entrega
           </p>
-          <div className="space-y-1.5">
-            {CONDUCTORES.map((n) => {
-              const actual = isConductorActualmente(n)
-              const sel = isSeleccion(n)
-              const esOtro = n === OPCION_OTRO
-              return (
-                <div key={n}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(n)}
-                    title={sel ? 'Conductor seleccionado' : `Asignar a ${n}`}
-                    className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-brand-deep transition-all ${
-                      sel
-                        ? 'bg-indigo-100 ring-2 ring-indigo-400/60'
-                        : 'bg-brand-mist/40 hover:bg-indigo-100/70 hover:ring-1 hover:ring-indigo-400/40'
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-2.5 min-w-0">
-                      <span className={`grid place-items-center size-8 shrink-0 rounded-full ${nombreColor} text-xs font-extrabold`}>
-                        {esOtro ? <MdEdit /> : initials(n)}
+          {cargando ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-10 text-brand-deep/60">
+              <div className="size-10 animate-spin rounded-full border-4 border-brand-deep/20 border-t-brand-deep" />
+              <p className="text-sm font-semibold">Cargando conductores…</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-10">
+              <p className="text-sm font-semibold text-red-600">{error}</p>
+              <button
+                type="button"
+                onClick={recargar}
+                className="mt-2 rounded-xl bg-brand-navy px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep transition"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {conductores.map((u) => {
+                const n = u.nombre
+                const actual = isConductorActualmente(n)
+                const sel = isSeleccion(n)
+                const esOtro = n === OPCION_OTRO
+                return (
+                  <div key={n}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(n)}
+                      title={sel ? 'Conductor seleccionado' : `Asignar a ${n}`}
+                      className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-brand-deep transition-all ${
+                        sel
+                          ? 'bg-indigo-100 ring-2 ring-indigo-400/60'
+                          : 'bg-brand-mist/40 hover:bg-indigo-100/70 hover:ring-1 hover:ring-indigo-400/40'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2.5 min-w-0">
+                        <span className={`grid place-items-center size-8 shrink-0 rounded-full ${nombreColor} text-xs font-extrabold`}>
+                          {esOtro ? <MdEdit /> : initials(n)}
+                        </span>
+                        <span className="grid min-w-0 text-left">
+                          <span className="truncate capitalize">{n}</span>
+                          {u.correo && (
+                            <span className="truncate text-[11px] font-medium normal-case text-brand-ink/50">{u.correo}</span>
+                          )}
+                        </span>
                       </span>
-                      <span className="truncate capitalize">{n}</span>
-                    </span>
-                    {actual ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700">
-                        <MdCheck className="text-indigo-500" /> Conductor
-                      </span>
-                    ) : (
-                      <MdLocalShipping className={`shrink-0 ${iconoColor}`} />
+                      {actual ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700">
+                          <MdCheck className="text-indigo-500" /> Conductor
+                        </span>
+                      ) : (
+                        <MdLocalShipping className={`shrink-0 ${iconoColor}`} />
+                      )}
+                    </button>
+                    {esOtro && sel && (
+                      <div className="mt-1.5 rounded-xl bg-indigo-50/80 border border-indigo-300/50 p-3 animate-fadeIn">
+                        <label className="block text-[11px] font-extrabold text-indigo-700 uppercase tracking-wide mb-2">
+                          Nombre del conductor que va
+                        </label>
+                        <input
+                          type="text"
+                          value={otroNombre}
+                          onChange={(e) => setOtroNombre(e.target.value)}
+                          placeholder="Escribe el nombre del conductor…"
+                          className="w-full rounded-xl border border-indigo-300/60 bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all"
+                        />
+                      </div>
                     )}
-                  </button>
-                  {esOtro && sel && (
-                    <div className="mt-1.5 rounded-xl bg-indigo-50/80 border border-indigo-300/50 p-3 animate-fadeIn">
-                      <label className="block text-[11px] font-extrabold text-indigo-700 uppercase tracking-wide mb-2">
-                        Nombre del conductor que va
-                      </label>
-                      <input
-                        type="text"
-                        value={otroNombre}
-                        onChange={(e) => setOtroNombre(e.target.value)}
-                        placeholder="Escribe el nombre del conductor…"
-                        className="w-full rounded-xl border border-indigo-300/60 bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all"
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           <div className="mt-4 space-y-3">
             <div>

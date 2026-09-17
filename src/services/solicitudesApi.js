@@ -232,3 +232,19 @@ export async function cargarClientes() {
   console.info(`[Supabase] cargados ${data.length} cliente(s)`)
   return data.map((c) => ({ ...c, cliente: c.nombre }))
 }
+
+export async function cargarUsuarios() {
+  if (!backendActivo) return null
+  await iniciarSesion()
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('correo, nombre, rol')
+    .eq('activo', true)
+    .order('nombre')
+  if (error) {
+    console.error('[Supabase] error cargando usuarios:', error.message, error.details || '')
+    throw error
+  }
+  console.info(`[Supabase] cargados ${data.length} usuario(s)`)
+  return data
+}
