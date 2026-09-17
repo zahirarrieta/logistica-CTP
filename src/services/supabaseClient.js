@@ -2,11 +2,16 @@ import { createClient } from '@supabase/supabase-js'
 import { msalInstance } from '../auth/msal.js'
 import { shortName } from '../auth/user.js'
 
-const url = (import.meta.env.VITE_SUPABASE_URL || '').trim()
+const FALLBACK_PUBLISHABLE = {
+  url: 'https://glvkvesvbfkeuvavffld.supabase.co',
+  key: 'sb_publishable_vMpbLHdHK2dUSrtW0VoEzQ_HtfwGSsJ',
+}
+
+const url = (import.meta.env.VITE_SUPABASE_URL || FALLBACK_PUBLISHABLE.url).trim()
 const apiKey = (
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
   || import.meta.env.VITE_SUPABASE_ANON_KEY
-  || ''
+  || FALLBACK_PUBLISHABLE.key
 ).trim()
 
 export const supabase = url && apiKey
