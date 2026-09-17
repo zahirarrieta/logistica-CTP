@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { MdAdminPanelSettings, MdInbox, MdFilterList, MdInsights } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -37,14 +37,18 @@ export default function Administrador() {
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
 
-  const filtered = solicitudes.filter((s) => {
-    const e = s.estado || 'Abierto'
-    if (filterEstado && e !== filterEstado) return false
-    if (filtroAsignado && (s.asignadoA || '') !== filtroAsignado) return false
-    if (filtroCliente && !(s.cliente || '').toLowerCase().includes(filtroCliente.toLowerCase())) return false
-    if (filtroZona && !(s.zona || '').toLowerCase().includes(filtroZona.toLowerCase())) return false
-    return true
-  })
+  const filtered = useMemo(() => {
+    const cliente = filtroCliente.toLowerCase()
+    const zona = filtroZona.toLowerCase()
+    return solicitudes.filter((s) => {
+      const e = s.estado || 'Abierto'
+      if (filterEstado && e !== filterEstado) return false
+      if (filtroAsignado && (s.asignadoA || '') !== filtroAsignado) return false
+      if (cliente && !(s.cliente || '').toLowerCase().includes(cliente)) return false
+      if (zona && !(s.zona || '').toLowerCase().includes(zona)) return false
+      return true
+    })
+  }, [solicitudes, filterEstado, filtroAsignado, filtroCliente, filtroZona])
 
   const hasFilters = Boolean(filterEstado || filtroAsignado || filtroCliente || filtroZona)
 

@@ -6,17 +6,28 @@ import { soloAdjuntosSolicitud } from '../../../components/pdfUtils.js'
 
 const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
+const WATERMARK_KEY = 'ctp_sync_watermark'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
 export const ESTADOS_ENTREGA = ['Entregado', 'Entregado Parcial']
 
+// Caché en memoria: evita re-parsear y re-normalizar todo el localStorage en
+// cada llamada. Se invalida comparando el crudo guardado (detecta cambios de
+// otras pestañas o escrituras externas).
+let cache = null
+let cacheRaw = null
+
 function escribir(list) {
+  let raw = null
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+    raw = JSON.stringify(list)
+    localStorage.setItem(STORAGE_KEY, raw)
   } catch {
     // Si falla el almacenamiento (ej. cuota), se ignora
   }
+  cache = list
+  cacheRaw = raw
   return list
 }
 
@@ -120,9 +131,14 @@ const TEXT_FIELDS = [
 
 export function loadSolicitudes() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY) || ''
+    if (cache && raw === cacheRaw) return cache
     const list = raw ? JSON.parse(raw) : []
-    if (!Array.isArray(list)) return []
+    if (!Array.isArray(list)) {
+      cache = []
+      cacheRaw = raw
+      return cache
+    }
     let faltanIds = false
     const normalizada = list.map((s) => {
       if (!s || typeof s !== 'object') return {}
@@ -158,8 +174,10 @@ export function loadSolicitudes() {
       return normal
     })
     // Los id de historial se persisten para que la subida a Supabase no duplique filas.
-    if (faltanIds) escribir(normalizada)
-    return normalizada
+    if (faltanIds) return escribir(normalizada)
+    cache = normalizada
+    cacheRaw = raw
+    return cache
   } catch {
     return []
   }
@@ -288,10 +306,13 @@ export function clearSolicitudes() {
   try {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(COUNTER_KEY)
+    localStorage.removeItem(WATERMARK_KEY)
   } catch {
     // ignorar
   }
-  return []
+  cache = []
+  cacheRaw = ''
+  return cache
 }
 
 const BORRADOR_KEY = 'ctp_entrega_borrador_'
@@ -361,31 +382,62 @@ function sembrarContador(list) {
   }
 }
 
-// Trae todo desde Supabase y lo fusiona con la caché local. Lo que esté marcado
+function leerWatermark() {
+  try {
+    return localStorage.getItem(WATERMARK_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function guardarWatermark(valor) {
+  if (!valor) return
+  try {
+    localStorage.setItem(WATERMARK_KEY, valor)
+  } catch {
+    // ignorar
+  }
+}
+
+// Trae desde Supabase y lo fusiona con la caché local. Solo re-descarga el
+// historial de las solicitudes que cambiaron desde la última sincronización
+// (marca de agua); el resto conserva su historial local. Lo que esté marcado
 // como pendiente de sincronizar gana sobre lo remoto (se hizo sin conexión).
 export async function sincronizarInicial() {
   const locales = loadSolicitudes()
   if (!backendActivo || !navigator.onLine) return locales
 
-  let remotas
+  let resultado
   try {
-    remotas = await descargarSolicitudes()
+    resultado = await descargarSolicitudes(leerWatermark())
   } catch (error) {
     console.warn('[Supabase] sin datos remotos:', error)
     return locales
   }
-  if (!Array.isArray(remotas)) return locales
+  if (!resultado || !Array.isArray(resultado.solicitudes)) return locales
 
-  const porId = new Map(remotas.map((r) => [r.id, r]))
+  const { solicitudes: remotas, conHistorial, watermark } = resultado
+  const porIdLocal = new Map(locales.map((s) => [s.id, s]))
+  const idsRemotos = new Set(remotas.map((r) => r.id))
+
   const fusion = []
-  for (const local of locales) {
-    const remota = porId.get(local.id)
-    porId.delete(local.id)
-    fusion.push(!remota || local.pendienteSync ? local : remota)
+  for (const remota of remotas) {
+    const local = porIdLocal.get(remota.id)
+    if (local?.pendienteSync) {
+      fusion.push(local)
+    } else if (local && !conHistorial.has(remota.id)) {
+      fusion.push({ ...remota, historial: local.historial })
+    } else {
+      fusion.push(remota)
+    }
   }
-  for (const remota of porId.values()) fusion.push(remota)
+  // Los locales pendientes que ya no existen en remoto se conservan (aún sin subir).
+  for (const local of locales) {
+    if (local.pendienteSync && !idsRemotos.has(local.id)) fusion.push(local)
+  }
 
   escribir(fusion)
+  guardarWatermark(watermark)
   sembrarContador(fusion)
   void sincronizarPendientes()
   return fusion

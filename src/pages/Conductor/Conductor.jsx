@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { RiSteering2Line } from 'react-icons/ri'
 import { MdLocalShipping } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
@@ -40,7 +40,10 @@ export default function Conductor() {
   const [editarSolicitud, setEditarSolicitud] = useState(null)
   const [toast, setToast] = useState(null)
   const online = useOnline()
-  const enTransito = solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || 'Abierto'))
+  const enTransito = useMemo(
+    () => solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || 'Abierto')),
+    [solicitudes]
+  )
 
   useEffect(() => {
     if (!online) return

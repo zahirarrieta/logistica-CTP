@@ -109,27 +109,40 @@ async function subirEvidencia(codigo, entrada) {
   return ruta
 }
 
-export async function descargarSolicitudes() {
+// Trae las solicitudes y, de forma incremental, solo el historial de las que
+// cambiaron desde `desde` (marca de agua = mayor `actualizado_en` visto). Las
+// que no cambiaron conservan su historial local, así no se re-descargan miles
+// de registros en cada inicio de sesión.
+export async function descargarSolicitudes(desde = '') {
   if (!backendActivo) return null
   await preparar()
 
-  const { data: filas, error } = await supabase
+  const { data, error } = await supabase
     .from('solicitudes')
     .select('*')
     .order('actualizado_en', { ascending: false })
     .limit(1000)
   if (error) throw error
 
-  const codigos = filas.map((f) => f.codigo)
+  const filas = data || []
+  const watermark = filas.reduce(
+    (acc, f) => (f.actualizado_en && f.actualizado_en > acc ? f.actualizado_en : acc),
+    desde || ''
+  )
+
+  const codigos = desde
+    ? filas.filter((f) => f.actualizado_en && f.actualizado_en > desde).map((f) => f.codigo)
+    : filas.map((f) => f.codigo)
+
   let registros = []
   if (codigos.length > 0) {
-    const { data, error: errorHist } = await supabase
+    const { data: dataHist, error: errorHist } = await supabase
       .from('historial')
       .select('*')
       .in('solicitud', codigos)
       .order('creado_en', { ascending: false })
     if (errorHist) throw errorHist
-    registros = data || []
+    registros = dataHist || []
   }
 
   const rutas = [
@@ -160,8 +173,13 @@ export async function descargarSolicitudes() {
 
   console.info(
     `[Supabase] descargadas ${filas.length} solicitud(es) y ${registros.length} registro(s) de historial`
+    + (desde ? ' (incremental)' : ' (completo)')
   )
-  return filas.map((f) => aLocal(f, porSolicitud.get(f.codigo) || []))
+  return {
+    solicitudes: filas.map((f) => aLocal(f, porSolicitud.get(f.codigo) || [])),
+    conHistorial: new Set(codigos),
+    watermark,
+  }
 }
 
 export async function empujarSolicitud(s) {

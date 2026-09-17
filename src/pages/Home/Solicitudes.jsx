@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { MdAdd, MdAssignmentAdd, MdInbox, MdFilterList } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -17,13 +17,17 @@ export default function Solicitudes() {
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
 
-  const filtered = solicitudes.filter((s) => {
-    const e = s.estado || 'Abierto'
-    if (filterEstado && e !== filterEstado) return false
-    if (filtroCliente && !(s.cliente || '').toLowerCase().includes(filtroCliente.toLowerCase())) return false
-    if (filtroZona && !(s.zona || '').toLowerCase().includes(filtroZona.toLowerCase())) return false
-    return true
-  })
+  const filtered = useMemo(() => {
+    const cliente = filtroCliente.toLowerCase()
+    const zona = filtroZona.toLowerCase()
+    return solicitudes.filter((s) => {
+      const e = s.estado || 'Abierto'
+      if (filterEstado && e !== filterEstado) return false
+      if (cliente && !(s.cliente || '').toLowerCase().includes(cliente)) return false
+      if (zona && !(s.zona || '').toLowerCase().includes(zona)) return false
+      return true
+    })
+  }, [solicitudes, filterEstado, filtroCliente, filtroZona])
 
   const hasFilters = Boolean(filterEstado || filtroCliente || filtroZona)
 

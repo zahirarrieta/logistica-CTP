@@ -26,6 +26,24 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined
+            if (id.includes('@azure') || id.includes('msal')) return 'msal'
+            if (id.includes('@supabase')) return 'supabase'
+            if (id.includes('react-icons')) return 'icons'
+            if (id.includes('animejs') || /node_modules[\\/]anime[\\/]/.test(id)) return 'anime'
+            if (id.includes('react-router')) return 'router'
+            if (
+              id.includes('node_modules/react/')
+              || id.includes('node_modules/react-dom/')
+              || id.includes('node_modules/scheduler/')
+            ) return 'react'
+            return 'vendor'
+          },
+        },
+      },
     },
     define,
   }
