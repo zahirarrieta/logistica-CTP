@@ -7,17 +7,30 @@ import Administrador from './pages/Administrador/Administrador.jsx'
 import Conductor from './pages/Conductor/Conductor.jsx'
 import Loader from './loader/Loader.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
+import { sincronizarInicial } from './pages/Home/Components/solicitudesStore.js'
 
 function Root() {
   const { account, loading } = useAuth()
   const [bootLoading, setBootLoading] = useState(true)
+  const [datosListos, setDatosListos] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => setBootLoading(false), 1800)
     return () => clearTimeout(timer)
   }, [])
 
-  if (bootLoading || loading) return <Loader />
+  useEffect(() => {
+    if (!account) return
+    let activo = true
+    sincronizarInicial().finally(() => {
+      if (activo) setDatosListos(true)
+    })
+    return () => {
+      activo = false
+    }
+  }, [account])
+
+  if (bootLoading || loading || (account && !datosListos)) return <Loader />
 
   if (!account) return <Login />
 

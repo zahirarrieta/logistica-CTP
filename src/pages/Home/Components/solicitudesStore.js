@@ -1,5 +1,7 @@
 import { msalInstance } from '../../../auth/msal.js'
 import { shortName } from '../../../auth/user.js'
+import { backendActivo } from '../../../services/supabaseClient.js'
+import { descargarSolicitudes, empujarSolicitud, borrarSolicitud } from '../../../services/solicitudesApi.js'
 
 const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
@@ -7,6 +9,41 @@ const COUNTER_KEY = 'ctp_solicitudes_counter'
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
 export const ESTADOS_ENTREGA = ['Entregado', 'Entregado Parcial']
+
+function escribir(list) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+  } catch {
+    // Si falla el almacenamiento (ej. cuota), se ignora
+  }
+  return list
+}
+
+function generarId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function pendiente(id) {
+  return escribir(loadSolicitudes().map((s) => (s.id === id ? { ...s, pendienteSync: true } : s)))
+}
+
+function empujar(solicitud) {
+  if (!backendActivo || !solicitud?.id) return
+  if (!navigator.onLine) {
+    pendiente(solicitud.id)
+    return
+  }
+  const actual = loadSolicitudes().find((s) => s.id === solicitud.id) || solicitud
+  void empujarSolicitud(actual)
+    .then(() => {
+      escribir(loadSolicitudes().map((s) => (s.id === actual.id ? { ...s, pendienteSync: false } : s)))
+    })
+    .catch((error) => {
+      console.warn('[Supabase] no se pudo subir:', error)
+      pendiente(actual.id)
+    })
+}
 
 export function buscarEntrega(solicitud) {
   const historial = Array.isArray(solicitud?.historial) ? solicitud.historial : []
@@ -84,7 +121,8 @@ export function loadSolicitudes() {
     const raw = localStorage.getItem(STORAGE_KEY)
     const list = raw ? JSON.parse(raw) : []
     if (!Array.isArray(list)) return []
-    return list.map((s) => {
+    let faltanIds = false
+    const normalizada = list.map((s) => {
       if (!s || typeof s !== 'object') return {}
       const normal = { ...s }
       for (const key of TEXT_FIELDS) {
@@ -94,6 +132,10 @@ export function loadSolicitudes() {
         normal.historial = normal.historial.map((h) => {
           if (!h || typeof h !== 'object') return {}
           const hn = { ...h }
+          if (typeof hn.id !== 'string' || !hn.id) {
+            hn.id = generarId()
+            faltanIds = true
+          }
           if (typeof hn.anterior !== 'string') hn.anterior = safeText(hn.anterior)
           if (typeof hn.nuevo !== 'string') hn.nuevo = safeText(hn.nuevo)
           if (typeof hn.persona !== 'string') hn.persona = safeText(hn.persona)
@@ -104,14 +146,17 @@ export function loadSolicitudes() {
           if (typeof hn.adjunto !== 'string') hn.adjunto = safeText(hn.adjunto)
           if (typeof hn.vehiculo !== 'string') hn.vehiculo = safeText(hn.vehiculo)
           if (typeof hn.placa !== 'string') hn.placa = safeText(hn.placa)
-if (typeof hn.conductor !== 'string') hn.conductor = safeText(hn.conductor)
-        if (typeof hn.evidencia !== 'string') hn.evidencia = safeText(hn.evidencia)
-        if (hn.encuesta && typeof hn.encuesta !== 'object') hn.encuesta = null
-        return hn
+          if (typeof hn.conductor !== 'string') hn.conductor = safeText(hn.conductor)
+          if (typeof hn.evidencia !== 'string') hn.evidencia = safeText(hn.evidencia)
+          if (hn.encuesta && typeof hn.encuesta !== 'object') hn.encuesta = null
+          return hn
         })
       }
       return normal
     })
+    // Los id de historial se persisten para que la subida a Supabase no duplique filas.
+    if (faltanIds) escribir(normalizada)
+    return normalizada
   } catch {
     return []
   }
@@ -142,22 +187,14 @@ export function saveSolicitud(data) {
     historial: [],
     ...data,
   }
-  const next = [entry, ...list]
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // Si falla el almacenamiento (ej. cuota), se ignora
-  }
+  const next = escribir([entry, ...list])
+  empujar(entry)
   return next
 }
 
 export function updateEstado(id, estado) {
-  const next = loadSolicitudes().map((s) => (s.id === id ? { ...s, estado } : s))
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // ignorar
-  }
+  const next = escribir(loadSolicitudes().map((s) => (s.id === id ? { ...s, estado } : s)))
+  empujar({ id })
   return next
 }
 
@@ -197,24 +234,17 @@ export function updateSolicitud(id, updates) {
     }
     if (campos.length === 0) return { ...s, ...updates, historial }
     const { fecha, hora } = nowStamp()
-    const nuevos = campos.map((c) => ({ ...c, fecha, hora, persona: currentPersona() }))
+    const nuevos = campos.map((c) => ({ ...c, id: generarId(), fecha, hora, persona: currentPersona() }))
     return { ...s, ...updates, historial: [...nuevos, ...historial].slice(0, 30) }
   })
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // ignorar
-  }
+  escribir(next)
+  empujar({ id })
   return next
 }
 
 export function removeSolicitud(id) {
-  const next = loadSolicitudes().filter((s) => s.id !== id)
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // ignorar
-  }
+  const next = escribir(loadSolicitudes().filter((s) => s.id !== id))
+  if (backendActivo) void borrarSolicitud(id).catch(() => {})
   return next
 }
 
@@ -256,24 +286,71 @@ export function eliminarBorradorEntrega(id) {
 }
 
 export function marcarPendienteSync(id) {
-  const next = loadSolicitudes().map((s) => (s.id === id ? { ...s, pendienteSync: true } : s))
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // ignorar
-  }
-  return next
+  return pendiente(id)
 }
 
-export function sincronizarPendientes() {
-  const list = loadSolicitudes()
-  const cantidad = list.filter((s) => s.pendienteSync).length
-  if (cantidad === 0) return 0
-  const next = list.map((s) => (s.pendienteSync ? { ...s, pendienteSync: false } : s))
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // ignorar
+export async function sincronizarPendientes() {
+  if (!backendActivo) return 0
+  const pendientes = loadSolicitudes().filter((s) => s.pendienteSync)
+  if (pendientes.length === 0) return 0
+  let subidas = 0
+  for (const s of pendientes) {
+    try {
+      await empujarSolicitud(s)
+      subidas += 1
+      escribir(loadSolicitudes().map((x) => (x.id === s.id ? { ...x, pendienteSync: false } : x)))
+    } catch (error) {
+      console.warn('[Supabase] pendientes en pausa:', error)
+      break
+    }
   }
-  return cantidad
+  return subidas
+}
+
+function numeroDe(id) {
+  const n = parseInt(String(id).replace(/\D/g, ''), 10)
+  return Number.isFinite(n) ? n : 0
+}
+
+function sembrarContador(list) {
+  const maximo = list.reduce((acc, s) => Math.max(acc, numeroDe(s.id)), 0)
+  if (maximo <= 0) return
+  const actual = parseInt(localStorage.getItem(COUNTER_KEY) || '0', 10) || 0
+  if (maximo > actual) {
+    try {
+      localStorage.setItem(COUNTER_KEY, String(maximo))
+    } catch {
+      // ignorar
+    }
+  }
+}
+
+// Trae todo desde Supabase y lo fusiona con la caché local. Lo que esté marcado
+// como pendiente de sincronizar gana sobre lo remoto (se hizo sin conexión).
+export async function sincronizarInicial() {
+  const locales = loadSolicitudes()
+  if (!backendActivo || !navigator.onLine) return locales
+
+  let remotas
+  try {
+    remotas = await descargarSolicitudes()
+  } catch (error) {
+    console.warn('[Supabase] sin datos remotos:', error)
+    return locales
+  }
+  if (!Array.isArray(remotas)) return locales
+
+  const porId = new Map(remotas.map((r) => [r.id, r]))
+  const fusion = []
+  for (const local of locales) {
+    const remota = porId.get(local.id)
+    porId.delete(local.id)
+    fusion.push(!remota || local.pendienteSync ? local : remota)
+  }
+  for (const remota of porId.values()) fusion.push(remota)
+
+  escribir(fusion)
+  sembrarContador(fusion)
+  void sincronizarPendientes()
+  return fusion
 }

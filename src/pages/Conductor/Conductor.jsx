@@ -44,8 +44,13 @@ export default function Conductor() {
 
   useEffect(() => {
     if (!online) return
-    const cantidad = sincronizarPendientes()
-    if (cantidad > 0) setToast({ tipo: 'sync', cantidad })
+    let activo = true
+    sincronizarPendientes().then((cantidad) => {
+      if (activo && cantidad > 0) setToast({ tipo: 'sync', cantidad })
+    })
+    return () => {
+      activo = false
+    }
   }, [online])
 
   const handleUpdateEstado = (id, updates) => {
