@@ -8,6 +8,7 @@ import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import { loadSolicitudes, saveSolicitud } from './Components/solicitudesStore.js'
+import { solicitudCreada } from '../../services/notificaciones.jsx'
 
 export default function Solicitudes() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
@@ -32,7 +33,9 @@ export default function Solicitudes() {
   const hasFilters = Boolean(filterEstado || filtroCliente || filtroZona)
 
   const handleNewSolicitud = (data) => {
-    setSolicitudes(saveSolicitud(data))
+    const siguiente = saveSolicitud(data)
+    setSolicitudes(siguiente)
+    solicitudCreada(siguiente[0])
     setModalOpen(false)
   }
 

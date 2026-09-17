@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
+import { Toaster } from 'sileo'
 import Loader from './loader/Loader.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
 import { sincronizarInicial } from './pages/Home/Components/solicitudesStore.js'
@@ -52,6 +53,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Root />
+      <Toaster position="top-right" offset={{ top: '5.5rem', right: '0.75rem' }} />
     </AuthProvider>
   )
 }

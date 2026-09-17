@@ -6,6 +6,7 @@ import { peekNextId } from '../solicitudesStore.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
 import { subirAdjuntosOneDrive } from '../../../../services/oneDriveApi.js'
+import { documentosSubidos, errorSubida as notificarErrorSubida } from '../../../../services/notificaciones.jsx'
 
 const TIPO_SOLICITUD_OPTIONS = [
   { value: 'EMERGENCIA / 2 Horas', label: 'EMERGENCIA / 2 Horas' },
@@ -151,12 +152,14 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
         idSolicitud,
       )
       adjuntosUrls = subidos.map((s) => s.url).filter(Boolean)
+      documentosSubidos({ id: idSolicitud, nombres: formData.adjuntos.map((f) => f.name) })
       setSubiendoMsg('')
     } catch (err) {
       console.error('[SolicitudModal] error subiendo a OneDrive:', err)
       setSubiendoMsg('')
       setLoading(false)
       setErrores([`Error subiendo archivos: ${err.message}`])
+      notificarErrorSubida(err.message, idSolicitud)
       return
     }
 

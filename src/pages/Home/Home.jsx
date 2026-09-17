@@ -6,6 +6,7 @@ import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
 import { saveSolicitud } from './Components/solicitudesStore.js'
+import { solicitudCreada } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { shortName } from '../../auth/user.js'
 
@@ -55,8 +56,9 @@ function Home() {
   }
 
   const handleNewSolicitud = (data) => {
-    saveSolicitud(data)
+    const siguiente = saveSolicitud(data)
     setSolicitudModalOpen(false)
+    solicitudCreada(siguiente[0])
     navigate('/solicitudes')
   }
 

@@ -3,6 +3,7 @@ import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers
 import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../Home/Components/estadoColors.js'
 import { subirFacturaRemisionOneDrive } from '../../../../services/oneDriveApi.js'
+import { documentosSubidos, errorSubida as notificarErrorSubida } from '../../../../services/notificaciones.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
@@ -93,9 +94,11 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
           throw new Error('OneDrive no devolvió una URL del documento subido')
         }
         updates.nuevaFacturaUrls = urls
+        documentosSubidos({ id: solicitud.id, nombres: adjuntoTramite.map((f) => f.name) })
       } catch (err) {
         console.error('[EstadosModal] error subiendo factura a OneDrive:', err)
         setErrorSubida(`No se pudo guardar el documento en OneDrive: ${err.message}`)
+        notificarErrorSubida(err.message, solicitud.id)
         setSubiendo(false)
         return
       }

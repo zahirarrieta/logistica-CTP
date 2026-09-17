@@ -6,7 +6,6 @@ import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import AsignadoFilter from '../../components/AsignadoFilter.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
-import Toast from '../../components/Toast.jsx'
 import EstadosModal from './Components/modals/EstadosModal.jsx'
 import { ESTADOS } from '../Home/Components/estadoColors.js'
 import AsignarUsuarioModal from './Components/modals/AsignarUsuarioModal.jsx'
@@ -16,6 +15,7 @@ import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
 import DashboardTab from './Components/DashboardTab.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud } from '../Home/Components/solicitudesStore.js'
+import { estadoActualizado, solicitudAsignada, conductorAsignado } from '../../services/notificaciones.jsx'
 
 const TABS = [
   { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
@@ -31,7 +31,6 @@ export default function Administrador() {
   const [historialSolicitud, setHistorialSolicitud] = useState(null)
   const [entregaDetallesSolicitud, setEntregaDetallesSolicitud] = useState(null)
   const [eliminarSolicitud, setEliminarSolicitud] = useState(null)
-  const [toast, setToast] = useState(null)
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroAsignado, setFiltroAsignado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
@@ -70,18 +69,18 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
 
   const handleUpdateEstado = (id, updates) => {
     setSolicitudes(updateSolicitud(id, updates))
-    setToast({ tipo: 'estado', estado: updates.estado })
+    estadoActualizado(id, updates.estado)
   }
 
   const handleAsignar = (id, updates) => {
     setSolicitudes(updateSolicitud(id, updates))
-    setToast({ tipo: 'asignado', asignadoA: updates.asignadoA })
+    solicitudAsignada(id, updates.asignadoA)
   }
 
   const handleAsignarConductor = (id, updates) => {
     const siguiente = updateSolicitud(id, updates)
     setSolicitudes(siguiente)
-    setToast({ tipo: 'conductor', asignadoA: updates.conductor })
+    conductorAsignado(id, updates.conductor)
     if (editSolicitud && editSolicitud.id === id) {
       setEditSolicitud(siguiente.find((s) => s.id === id) || null)
     }
@@ -225,14 +224,6 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
         onConfirm={confirmarEliminar}
       />
 
-      {toast && (
-        <Toast
-          tipo={toast.tipo}
-          estado={toast.estado}
-          asignadoA={toast.asignadoA}
-          onClose={() => setToast(null)}
-        />
-      )}
     </div>
   )
 }

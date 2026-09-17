@@ -4,6 +4,7 @@ import { RiSteering2Line } from 'react-icons/ri'
 import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
 import { subirDocEntregaOneDrive } from '../../../../services/oneDriveApi.js'
+import { evidenciaSubida, subidaPendiente } from '../../../../services/notificaciones.jsx'
 import {
   guardarBorradorEntrega,
   cargarBorradorEntrega,
@@ -125,10 +126,13 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
           dataUrlABlob(evidencia),
           solicitud.numeroReferencia || solicitud.id
         )
-        if (subida?.url) evidenciaFinal = subida.url
-        else throw new Error('OneDrive no devolvió el enlace del archivo')
+        if (subida?.url) {
+          evidenciaFinal = subida.url
+          evidenciaSubida({ id: solicitud.id, archivo: solicitud.numeroReferencia || solicitud.id })
+        } else throw new Error('OneDrive no devolvió el enlace del archivo')
       } catch (err) {
         console.warn('[OneDrive] no se pudo subir la evidencia, se guardará localmente:', err)
+        subidaPendiente(undefined, solicitud.id)
       }
     }
     eliminarBorradorEntrega(solicitud.id)

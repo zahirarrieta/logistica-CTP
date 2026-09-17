@@ -4,7 +4,6 @@ import { MdLocalShipping } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
-import Toast from '../../components/Toast.jsx'
 import IndicadorSinConexion from '../../components/IndicadorSinConexion.jsx'
 import EntregaConductor from './Components/modals/EntregaConductor.jsx'
 import {
@@ -13,6 +12,7 @@ import {
   marcarPendienteSync,
   sincronizarPendientes,
 } from '../Home/Components/solicitudesStore.js'
+import { estadoActualizado, syncRestablecida } from '../../services/notificaciones.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
@@ -38,7 +38,6 @@ function destinoEntrega(s) {
 export default function Conductor() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [editarSolicitud, setEditarSolicitud] = useState(null)
-  const [toast, setToast] = useState(null)
   const online = useOnline()
   const enTransito = useMemo(
     () => solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || 'Abierto')),
@@ -49,7 +48,7 @@ export default function Conductor() {
     if (!online) return
     let activo = true
     sincronizarPendientes().then((cantidad) => {
-      if (activo && cantidad > 0) setToast({ tipo: 'sync', cantidad })
+      if (activo && cantidad > 0) syncRestablecida(cantidad)
     })
     return () => {
       activo = false
@@ -60,7 +59,7 @@ export default function Conductor() {
     let siguiente = updateSolicitud(id, updates)
     if (!navigator.onLine) siguiente = marcarPendienteSync(id)
     setSolicitudes(siguiente)
-    setToast({ tipo: 'estado', estado: updates.estado })
+    estadoActualizado(id, updates.estado)
   }
 
   return (
@@ -123,15 +122,6 @@ export default function Conductor() {
         onUpdate={handleUpdateEstado}
         destino={editarSolicitud ? destinoEntrega(editarSolicitud) : undefined}
       />
-
-      {toast && (
-        <Toast
-          tipo={toast.tipo}
-          estado={toast.estado}
-          cantidad={toast.cantidad}
-          onClose={() => setToast(null)}
-        />
-      )}
 
       <IndicadorSinConexion />
     </div>

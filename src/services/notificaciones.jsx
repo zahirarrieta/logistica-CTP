@@ -1,0 +1,164 @@
+import { sileo } from 'sileo'
+import {
+  MdAssignmentInd,
+  MdCloudDone,
+  MdCloudUpload,
+  MdErrorOutline,
+  MdSend,
+  MdSwapHoriz,
+} from 'react-icons/md'
+import { RiSteering2Line } from 'react-icons/ri'
+import { getBadgeColor } from '../pages/Home/Components/estadoColors.js'
+
+const BASE = {
+  duration: 4500,
+  roundness: 18,
+  fill: '#071A3D',
+  styles: {
+    title: '!text-white !normal-case !font-extrabold !tracking-wide',
+    description: '!text-brand-mist',
+    badge: '!bg-brand-cyan/20 !text-brand-cyan',
+  },
+}
+
+const ESTADO_TIPO = {
+  'Entregado': 'success',
+  'Entregado Parcial': 'success',
+  'Retenido por Cartera': 'error',
+  'Devolución a Solicitante': 'warning',
+  'Pendiente por Autorización': 'warning',
+  'En Tránsito': 'info',
+  'En Tránsito Parcial': 'info',
+  'En Trámite': 'info',
+  'Abierto': 'info',
+}
+
+const linea = (children) => (
+  <span className="block text-sm font-semibold leading-snug text-white">{children}</span>
+)
+
+const detalle = (children) => (
+  <span className="mt-1 block text-xs font-medium text-brand-mist/80">{children}</span>
+)
+
+function titulo(id, fallback) {
+  return id ? `${id}` : fallback
+}
+
+export function solicitudCreada(solicitud = {}) {
+  const id = solicitud.numeroReferencia || solicitud.id
+  sileo.success({
+    ...BASE,
+    title: titulo(id, 'Solicitud creada'),
+    icon: <MdSend />,
+    description: (
+      <>
+        {linea('Solicitud creada correctamente.')}
+        {solicitud.cliente && detalle(`Cliente: ${solicitud.cliente}`)}
+      </>
+    ),
+  })
+}
+
+export function estadoActualizado(id, estado) {
+  const tipo = ESTADO_TIPO[estado] || 'info'
+  sileo[tipo]({
+    ...BASE,
+    title: titulo(id, 'Estado actualizado'),
+    icon: <MdSwapHoriz />,
+    description: (
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-white">Nuevo estado:</span>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${getBadgeColor(estado)}`}>
+          {estado || '—'}
+        </span>
+      </span>
+    ),
+  })
+}
+
+export function solicitudAsignada(id, asignadoA) {
+  sileo.info({
+    ...BASE,
+    title: titulo(id, 'Solicitud asignada'),
+    icon: <MdAssignmentInd />,
+    description: (
+      <span className="text-sm font-semibold text-white">
+        Asignada a «<span className="text-brand-cyan">{asignadoA || 'Sin asignar'}</span>».
+      </span>
+    ),
+  })
+}
+
+export function conductorAsignado(id, conductor) {
+  sileo.info({
+    ...BASE,
+    title: titulo(id, 'Conductor asignado'),
+    icon: <RiSteering2Line />,
+    description: (
+      <span className="text-sm font-semibold text-white">
+        Conductor «<span className="text-brand-cyan">{conductor || '—'}</span>» asignado.
+      </span>
+    ),
+  })
+}
+
+export function syncRestablecida(cantidad) {
+  sileo.success({
+    ...BASE,
+    title: 'Conexión restablecida',
+    icon: <MdCloudDone />,
+    description: linea(`${cantidad} entrega(s) sincronizada(s) con el servidor.`),
+  })
+}
+
+export function documentosSubidos({ id, nombres = [], destino = 'OneDrive' } = {}) {
+  const lista = nombres.filter(Boolean)
+  sileo.success({
+    ...BASE,
+    title: titulo(id, lista.length > 1 ? `${lista.length} archivos subidos` : 'Archivo subido'),
+    icon: <MdCloudUpload />,
+    description: (
+      <>
+        {linea(`Guardado(s) correctamente en ${destino}.`)}
+        {lista.length > 0 && detalle(lista.join(', '))}
+      </>
+    ),
+  })
+}
+
+export function evidenciaSubida({ id, archivo } = {}) {
+  sileo.success({
+    ...BASE,
+    title: titulo(id, 'Evidencia adjuntada'),
+    icon: <MdCloudUpload />,
+    description: (
+      <>
+        {linea('La evidencia de entrega se guardó en OneDrive.')}
+        {archivo && detalle(archivo)}
+      </>
+    ),
+  })
+}
+
+export function subidaPendiente(mensaje, id) {
+  sileo.warning({
+    ...BASE,
+    duration: 6000,
+    title: titulo(id, 'Evidencia guardada localmente'),
+    icon: <MdErrorOutline />,
+    description: linea(
+      mensaje || 'No se pudo subir la evidencia a OneDrive; se conservará en este dispositivo.'
+    ),
+  })
+}
+
+export function errorSubida(mensaje, id) {
+  sileo.error({
+    ...BASE,
+    duration: 6000,
+    title: titulo(id, 'No se pudo subir el archivo'),
+    icon: <MdErrorOutline />,
+    description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
+  })
+}

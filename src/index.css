@@ -339,6 +339,11 @@ input:focus, textarea:focus, select:focus {
   background-clip: padding-box;
 }
 
+[data-sileo-viewport] {
+  z-index: 99998 !important;
+  font-family: 'Montserrat', system-ui, sans-serif;
+}
+
 
 
 
