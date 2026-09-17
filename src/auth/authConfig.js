@@ -4,7 +4,11 @@ const TENANT_ID =
   import.meta.env.VITE_AZURE_TENANT_ID || '0294e0dd-589f-4476-b787-4e6f5f291e6f'
 
 export const loginRequest = {
-  scopes: ['openid', 'profile', 'email', 'User.Read'],
+  scopes: ['openid', 'profile', 'email', 'User.Read', 'Files.ReadWrite'],
+}
+
+export const graphTokenRequest = {
+  scopes: ['Files.ReadWrite'],
 }
 
 export const msalConfig = {

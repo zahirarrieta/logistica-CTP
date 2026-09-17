@@ -24,12 +24,14 @@ import {
   MdLocalShipping,
   MdMap,
   MdDescription,
+  MdDeleteOutline,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../pages/Home/Components/estadoColors.js'
 import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
 import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'
 import DetalleModal from './DetalleModal.jsx'
+import AdjuntosModal from './AdjuntosModal.jsx'
 
 const ITEMS_PER_PAGE = 10
 
@@ -105,11 +107,11 @@ function HistorialButton({ onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const cardBg = colorRow ? getEstadoBg(s.estado) : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
-  const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick || onSeguimientoClick)
+  const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick || onSeguimientoClick || onEliminarClick)
 
   return (
     <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${cardBg}`}>
@@ -146,7 +148,26 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
           <Row icon={<MdWarehouse />} label="Bodega" value={s.bodega} />
           <Row icon={<MdTag />} label="NIT" value={s.nit} />
           <Row icon={<MdPlace />} label="Zona" value={s.zona} />
-          <Row icon={<MdAttachFile />} label="Adjuntos" value={s.adjuntos?.length > 0 ? `${s.adjuntos.length} archivo(s)` : '—'} />
+          <div className="flex items-center justify-between gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
+            <div className="flex items-center gap-2">
+              <span className="text-brand-cyan mt-0.5 shrink-0"><MdAttachFile /></span>
+              <span className="text-brand-ink/50 shrink-0">Adjuntos</span>
+            </div>
+            {s.adjuntos && s.adjuntos.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => onVerAdjuntosClick?.(s)}
+                aria-label="Ver adjuntos"
+                title="Ver adjuntos"
+                className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
+              >
+                <MdAttachFile className="text-sm" />
+                {s.adjuntos.length} archivo(s)
+              </button>
+            ) : (
+              <span className="text-brand-ink/40 text-sm">—</span>
+            )}
+          </div>
           <div className="flex items-center justify-between gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
             <div className="flex items-center gap-2">
               <span className="text-brand-cyan mt-0.5 shrink-0"><MdNotes /></span>
@@ -256,6 +277,21 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Seguimiento
                 </button>
               )}
+              {onEliminarClick && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEliminarClick(s)
+                  }}
+                  title="Eliminar solicitud"
+                  aria-label="Eliminar solicitud"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdDeleteOutline className="text-lg" />
+                  Eliminar
+                </button>
+              )}
             </div>
           )}
           {action}
@@ -265,11 +301,12 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
   )
 }
 
-export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, cardActions, empty, colorRowsPorEstado }) {
+export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, cardActions, empty, colorRowsPorEstado }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [obsSolicitud, setObsSolicitud] = useState(null)
   const [detalleSolicitud, setDetalleSolicitud] = useState(null)
+  const [adjuntosSolicitud, setAdjuntosSolicitud] = useState(null)
   const [correoTooltip, setCorreoTooltip] = useState(null)
 
   const handleCorreoEnter = (e, correo) => {
@@ -280,7 +317,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
 
   const openObs = (s) => setObsSolicitud(s)
   const openDetalle = (s) => setDetalleSolicitud(s)
-  const hasAcciones = Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick)
+  const hasAcciones = Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick)
 
   const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1
   const page = Math.min(currentPage, totalPages)
@@ -315,7 +352,9 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
             onCambiarEstadoClick={onCambiarEstadoClick}
             onSeguimientoClick={onSeguimientoClick}
             onEntregaDetallesClick={onEntregaDetallesClick}
+            onEliminarClick={onEliminarClick}
             onClickObs={openObs}
+            onVerAdjuntosClick={setAdjuntosSolicitud}
             colorRow={colorRowsPorEstado}
           />
         ))}
@@ -362,7 +401,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                   <span className="inline-flex items-center gap-1.5"><MdCheckCircle className="text-base" /> Estado</span>
                 </th>
                 {hasAcciones && (
-                  <th className="px-3 py-4 w-32 sticky right-0 z-10 bg-brand-navy">
+                  <th className="px-3 py-4 w-44 sticky right-0 z-10 bg-brand-navy">
                     <span className="sr-only">Acciones</span>
                   </th>
                 )}
@@ -411,7 +450,18 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                   <td className="px-2 py-3 text-brand-ink/80 max-w-[140px] truncate whitespace-nowrap border-b border-l border-brand-ink/10">{s.cliente}</td>
                   <td className="px-2 py-3 capitalize text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.zona}</td>
                   <td className="px-2 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                    {s.adjuntos && s.adjuntos.length > 0 ? `${s.adjuntos.length} archivo(s)` : '—'}
+                    {s.adjuntos && s.adjuntos.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setAdjuntosSolicitud(s) }}
+                        aria-label="Ver adjuntos"
+                        title="Ver adjuntos"
+                        className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
+                      >
+                        <MdAttachFile className="text-sm" />
+                        {s.adjuntos.length} archivo(s)
+                      </button>
+                    ) : '—'}
                   </td>
                   <td className="px-2 py-3 border-b border-l border-brand-ink/10 text-center">
                     <button
@@ -490,6 +540,20 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                             <MdDescription className="text-xl" />
                           </button>
                         )}
+                        {onEliminarClick && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEliminarClick(s)
+                            }}
+                            title="Eliminar solicitud"
+                            aria-label="Eliminar solicitud"
+                            className="grid place-items-center size-9 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors"
+                          >
+                            <MdDeleteOutline className="text-xl" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   )}
@@ -548,6 +612,12 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
         solicitud={detalleSolicitud}
         open={detalleSolicitud !== null}
         onClose={() => setDetalleSolicitud(null)}
+      />
+
+      <AdjuntosModal
+        open={adjuntosSolicitud !== null}
+        onClose={() => setAdjuntosSolicitud(null)}
+        adjuntos={adjuntosSolicitud?.adjuntos || []}
       />
 
       {correoTooltip && (

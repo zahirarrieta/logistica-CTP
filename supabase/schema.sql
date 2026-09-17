@@ -22,13 +22,17 @@ create table if not exists public.usuarios (
 );
 
 -- ----------------------------------------------------------------------------
--- 2. CLIENTES (los 223 registros de clientesData.js, se cargan una sola vez)
+-- 2. CLIENTES (los 224 registros de clientesData.js, se cargan una sola vez)
+--    Un mismo NIT puede tener varias sedes (bodega distinta), así que la PK
+--    es la combinación (nit, bodega).
 -- ----------------------------------------------------------------------------
 create table if not exists public.clientes (
-  nit     text primary key,
+  id      serial primary key,
+  nit     text not null,
   nombre  text not null default '',
   bodega  text not null default '',
-  zona    text not null default ''
+  zona    text not null default '',
+  unique (nit, bodega)
 );
 
 create index if not exists clientes_nombre_idx on public.clientes (nombre);
@@ -198,10 +202,10 @@ create policy usuarios_update on public.usuarios
     correo = public.correo_actual() or public.rol_actual() = 'administrador'
   );
 
--- clientes: catálogo de lectura para todos los autenticados.
+-- clientes: catálogo de lectura pública.
 drop policy if exists clientes_select on public.clientes;
 create policy clientes_select on public.clientes
-  for select using (auth.role() = 'anon' or auth.role() = 'authenticated');
+  for select using (true);
 
 drop policy if exists clientes_admin_write on public.clientes;
 create policy clientes_admin_write on public.clientes

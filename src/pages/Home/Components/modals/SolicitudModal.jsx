@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes } from 'react-icons/md'
+import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
 import { peekNextId } from '../solicitudesStore.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
+import { subirAdjuntosOneDrive } from '../../../../services/oneDriveApi.js'
 
 const TIPO_SOLICITUD_OPTIONS = [
   { value: 'EMERGENCIA / 2 Horas', label: 'EMERGENCIA / 2 Horas' },
@@ -16,6 +17,21 @@ const TIPO_SOLICITUD_OPTIONS = [
   { value: 'ADMINISTRATIVA', label: 'ADMINISTRATIVA' },
   { value: 'RECOLECCIÓN DE DISPOSITIVOS', label: 'RECOLECCIÓN DE DISPOSITIVOS' },
 ]
+
+function iconoArchivo(archivo) {
+  const nombre = archivo.name || ''
+  const tipo = archivo.type || ''
+  if (tipo.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(nombre)) {
+    return <MdImage className="text-blue-500" />
+  }
+  if (tipo === 'application/pdf' || /\.pdf$/i.test(nombre)) {
+    return <MdPictureAsPdf className="text-red-500" />
+  }
+  if (/\.xlsx?$/.test(nombre) || tipo.includes('spreadsheet') || tipo.includes('excel')) {
+    return <MdTableChart className="text-green-600" />
+  }
+  return <MdInsertDriveFile className="text-gray-500" />
+}
 
 export default function SolicitudModal({ open, onClose, onSubmit }) {
   const { account } = useAuth()
@@ -33,6 +49,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
   })
   const [loading, setLoading] = useState(false)
   const [errores, setErrores] = useState([])
+  const [subiendoMsg, setSubiendoMsg] = useState('')
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -41,9 +58,25 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
   }
 
   const handleFileChange = (e) => {
-    const files = Array.from(e.target.files || [])
-    setFormData(prev => ({ ...prev, adjuntos: files }))
+    const nuevos = Array.from(e.target.files || [])
+    const total = formData.adjuntos.length + nuevos.length
+    
+    if (total > 3) {
+      setErrores(['Máximo 3 archivos permitidos'])
+      e.target.value = ''
+      return
+    }
+    
+    setFormData(prev => ({ ...prev, adjuntos: [...prev.adjuntos, ...nuevos] }))
     if (errores.length > 0) setErrores([])
+    e.target.value = ''
+  }
+
+  const eliminarArchivo = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      adjuntos: prev.adjuntos.filter((_, i) => i !== index),
+    }))
   }
 
   const handleSelectCliente = (c) => {
@@ -106,11 +139,29 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
 
     setErrores([])
     setLoading(true)
-    // Simular envío del formulario
-    await new Promise(resolve => setTimeout(resolve, 1200))
-    setLoading(false)
+
+    const idSolicitud = peekNextId()
+    let adjuntosUrls = []
+
+    try {
+      setSubiendoMsg(`Subiendo ${formData.adjuntos.length} archivo(s) a OneDrive…`)
+      const subidos = await subirAdjuntosOneDrive(
+        formData.adjuntos,
+        formData.correo,
+        idSolicitud,
+      )
+      adjuntosUrls = subidos.map((s) => s.url).filter(Boolean)
+      setSubiendoMsg('')
+    } catch (err) {
+      console.error('[SolicitudModal] error subiendo a OneDrive:', err)
+      setSubiendoMsg('')
+      setLoading(false)
+      setErrores([`Error subiendo archivos: ${err.message}`])
+      return
+    }
+
     if (onSubmit) {
-      onSubmit({ ...formData, adjuntos: formData.adjuntos.map(f => f.name) })
+      onSubmit({ ...formData, adjuntos: adjuntosUrls })
     }
     resetForm()
     onClose()
@@ -266,17 +317,39 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
 
           {/* Adjuntos */}
           <div>
-            <label className="block text-sm font-semibold text-brand-deep mb-1.5">Adjuntos</label>
-            <label className="flex flex-col items-center justify-center gap-2 w-full px-4 py-5 border-2 border-dashed border-brand-ink/25 rounded-xl bg-brand-mist/30 text-brand-ink/70 cursor-pointer hover:border-brand-cyan hover:bg-brand-mist/50 transition-colors">
-              <MdCloudUpload className="text-3xl text-brand-cyan" />
-              <span className="text-sm font-medium">Haz clic para adjuntar archivos</span>
-              <span className="text-xs text-brand-ink/50">
-                {formData.adjuntos.length > 0
-                  ? `${formData.adjuntos.length} archivo(s) seleccionado(s)`
-                  : 'PDF, imágenes u otros documentos'}
-              </span>
-              <input type="file" name="adjuntos" multiple onChange={handleFileChange} className="hidden" />
+            <label className="block text-sm font-semibold text-brand-deep mb-1.5">
+              Adjuntos {formData.adjuntos.length > 0 && <span className="text-brand-cyan">({formData.adjuntos.length}/3)</span>}
             </label>
+            {formData.adjuntos.length < 3 && (
+              <label className="flex flex-col items-center justify-center gap-2 w-full px-4 py-5 border-2 border-dashed border-brand-ink/25 rounded-xl bg-brand-mist/30 text-brand-ink/70 cursor-pointer hover:border-brand-cyan hover:bg-brand-mist/50 transition-colors">
+                <MdCloudUpload className="text-3xl text-brand-cyan" />
+                <span className="text-sm font-medium">Haz clic para adjuntar archivos</span>
+                <span className="text-xs text-brand-ink/50">PDF, imágenes, Excel — mínimo 1, máximo 3 archivos</span>
+                <input type="file" name="adjuntos" multiple onChange={handleFileChange} className="hidden" accept="image/*,.pdf,.xls,.xlsx,.doc,.docx" />
+              </label>
+            )}
+
+            {formData.adjuntos.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {formData.adjuntos.map((archivo, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-brand-mist/50 border border-brand-ink/10">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xl shrink-0">{iconoArchivo(archivo)}</span>
+                      <span className="text-sm text-brand-ink truncate">{archivo.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => eliminarArchivo(i)}
+                      aria-label={`Eliminar ${archivo.name}`}
+                      title="Eliminar archivo"
+                      className="grid place-items-center size-7 rounded-full text-brand-ink/50 hover:bg-red-100 hover:text-red-600 transition-colors shrink-0"
+                    >
+                      <MdCancel className="text-lg" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Observaciones */}
@@ -323,7 +396,14 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
       </div>
     </div>
 
-      {loading && <Loader />}
+      {loading && (
+        <div className="fixed inset-0 z-[1100] flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
+          <Loader />
+          {subiendoMsg && (
+            <p className="text-white text-sm font-semibold animate-pulse">{subiendoMsg}</p>
+          )}
+        </div>
+      )}
 
       <ClientPickerModal
         open={clientPickerOpen}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MdAdminPanelSettings, MdDeleteSweep, MdInbox, MdFilterList } from 'react-icons/md'
+import { MdAdminPanelSettings, MdInbox, MdFilterList } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
@@ -13,7 +13,8 @@ import AsignarUsuarioModal from './Components/modals/AsignarUsuarioModal.jsx'
 import AsignarConductorModal from './Components/modals/AsignarConductorModal.jsx'
 import HistorialModal from './Components/modals/HistorialModal.jsx'
 import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
-import { loadSolicitudes, updateSolicitud, clearSolicitudes } from '../Home/Components/solicitudesStore.js'
+import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
+import { loadSolicitudes, updateSolicitud, removeSolicitud } from '../Home/Components/solicitudesStore.js'
 
 export default function Administrador() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
@@ -22,6 +23,7 @@ export default function Administrador() {
   const [asignarConductorSolicitud, setAsignarConductorSolicitud] = useState(null)
   const [historialSolicitud, setHistorialSolicitud] = useState(null)
   const [entregaDetallesSolicitud, setEntregaDetallesSolicitud] = useState(null)
+  const [eliminarSolicitud, setEliminarSolicitud] = useState(null)
   const [toast, setToast] = useState(null)
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroAsignado, setFiltroAsignado] = useState(null)
@@ -41,15 +43,18 @@ export default function Administrador() {
 
 const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
 
-  const handleClearAll = () => {
-    if (window.confirm('¿Seguro que deseas eliminar todas las solicitudes? Esta acción no se puede deshacer.')) {
-      setSolicitudes(clearSolicitudes())
-      setEditSolicitud(null)
-      setFilterEstado(null)
-      setFiltroAsignado(null)
-      setFiltroCliente('')
-      setFiltroZona('')
-    }
+  const handleEliminar = (solicitud) => {
+    setEliminarSolicitud(solicitud)
+  }
+
+  const confirmarEliminar = (solicitud) => {
+    const siguiente = removeSolicitud(solicitud.id)
+    setSolicitudes(siguiente)
+    if (editSolicitud?.id === solicitud.id) setEditSolicitud(null)
+    if (asignarSolicitud?.id === solicitud.id) setAsignarSolicitud(null)
+    if (asignarConductorSolicitud?.id === solicitud.id) setAsignarConductorSolicitud(null)
+    if (historialSolicitud?.id === solicitud.id) setHistorialSolicitud(null)
+    if (entregaDetallesSolicitud?.id === solicitud.id) setEntregaDetallesSolicitud(null)
   }
 
   const handleUpdateEstado = (id, updates) => {
@@ -90,18 +95,6 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                 Listado de todas las solicitudes registradas
               </p>
             </div>
-            {solicitudes.length > 0 && (
-              <div className="flex items-center justify-end shrink-0">
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  className="inline-flex items-center gap-2 rounded-full bg-red-50 text-red-600 border-2 border-red-200 px-5 py-2 text-sm font-bold hover:bg-red-100 transition-colors"
-                >
-                  <MdDeleteSweep className="text-lg" />
-                  Borrar todo
-                </button>
-              </div>
-            )}
           </div>
 
           {solicitudes.length > 0 && (
@@ -124,6 +117,7 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
             onCambiarEstadoClick={(s) => setEditSolicitud(s)}
             onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
             onEntregaDetallesClick={(s) => setEntregaDetallesSolicitud(s)}
+            onEliminarClick={handleEliminar}
             colorRowsPorEstado
             empty={
               hasFilters
@@ -177,6 +171,13 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
         solicitud={entregaDetallesSolicitud}
         open={entregaDetallesSolicitud !== null}
         onClose={() => setEntregaDetallesSolicitud(null)}
+      />
+
+      <ConfirmarEliminarModal
+        solicitud={eliminarSolicitud}
+        open={eliminarSolicitud !== null}
+        onClose={() => setEliminarSolicitud(null)}
+        onConfirm={confirmarEliminar}
       />
 
       {toast && (

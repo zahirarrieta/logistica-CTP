@@ -104,6 +104,7 @@ async function subirEvidencia(codigo, entrada) {
     .from('evidencias')
     .upload(ruta, blob, { contentType: mime, upsert: true })
   if (error) throw error
+  console.info(`[Supabase] evidencia subida a evidencias/${ruta}`)
   return ruta
 }
 
@@ -150,6 +151,9 @@ export async function descargarSolicitudes() {
     porSolicitud.set(h.solicitud, lista)
   }
 
+  console.info(
+    `[Supabase] descargadas ${filas.length} solicitud(es) y ${registros.length} registro(s) de historial`
+  )
   return filas.map((f) => aLocal(f, porSolicitud.get(f.codigo) || []))
 }
 
@@ -198,6 +202,10 @@ export async function empujarSolicitud(s) {
       .upsert(conId, { onConflict: 'id' })
     if (errorHist) throw errorHist
   }
+  console.info(
+    `[Supabase] guardada ${s.codigo || s.id} · estado "${s.estado || 'Abierto'}"`
+    + ` · ${conId.length} registro(s) de historial`
+  )
   return true
 }
 
@@ -206,5 +214,21 @@ export async function borrarSolicitud(codigo) {
   await preparar()
   const { error } = await supabase.from('solicitudes').delete().eq('codigo', codigo)
   if (error) throw error
+  console.info(`[Supabase] borrada ${codigo}`)
   return true
+}
+
+export async function cargarClientes() {
+  if (!backendActivo) return null
+  await iniciarSesion()
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('nit, nombre, bodega, zona')
+    .order('nombre')
+  if (error) {
+    console.error('[Supabase] error cargando clientes:', error.message, error.details || '')
+    throw error
+  }
+  console.info(`[Supabase] cargados ${data.length} cliente(s)`)
+  return data.map((c) => ({ ...c, cliente: c.nombre }))
 }

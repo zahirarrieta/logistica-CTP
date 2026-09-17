@@ -1,15 +1,41 @@
-import { useMemo, useState } from 'react'
-import { MdApartment, MdBadge, MdBusiness, MdCheck, MdClose, MdInventory, MdKeyboardArrowDown, MdLocationPin, MdSearch } from 'react-icons/md'
-import { CLIENTES } from '../clientesData.js'
+import { useEffect, useMemo, useState } from 'react'
+import { MdApartment, MdBadge, MdBusiness, MdCheck, MdClose, MdInventory, MdKeyboardArrowDown, MdLocationPin } from 'react-icons/md'
+import { cargarClientes } from '../../../../services/solicitudesApi.js'
 
 const WITH_ICON = 'w-10 h-10 rounded-full bg-brand-mist border border-brand-ink/10 grid place-items-center text-brand-deep'
 
-const ZONAS = ['TODOS', ...[...new Set(CLIENTES.map((c) => c.zona))].sort()]
-
 export default function ClientPickerModal({ open, onClose, onSelect }) {
+  const [clientes, setClientes] = useState([])
+  const [cargando, setCargando] = useState(false)
+  const [error, setError] = useState('')
   const [zona, setZona] = useState('TODOS')
   const [zonaOpen, setZonaOpen] = useState(false)
   const [filter, setFilter] = useState({ nit: '', nombre: '', bodega: '' })
+
+  useEffect(() => {
+    if (!open) return
+    let cancelado = false
+    setCargando(true)
+    setError('')
+    cargarClientes()
+      .then((data) => {
+        if (!cancelado) {
+          setClientes(data || [])
+          setZona('TODOS')
+        }
+      })
+      .catch((err) => {
+        console.error('[ClientPicker] error cargando clientes:', err)
+        if (!cancelado) setError(err.message || 'Error al cargar clientes')
+      })
+      .finally(() => { if (!cancelado) setCargando(false) })
+    return () => { cancelado = true }
+  }, [open])
+
+  const zonas = useMemo(
+    () => ['TODOS', ...[...new Set(clientes.map((c) => c.zona))].sort()],
+    [clientes],
+  )
 
   const filtered = useMemo(() => {
     const q = {
@@ -17,14 +43,14 @@ export default function ClientPickerModal({ open, onClose, onSelect }) {
       nombre: filter.nombre.trim().toLowerCase(),
       bodega: filter.bodega.trim().toLowerCase(),
     }
-    return CLIENTES.filter((c) => {
+    return clientes.filter((c) => {
       if (zona !== 'TODOS' && (c.zona || '') !== zona) return false
       if (q.nit && !(c.nit || '').toLowerCase().includes(q.nit)) return false
       if (q.nombre && !(c.cliente || '').toLowerCase().includes(q.nombre)) return false
       if (q.bodega && !(c.bodega || '').toLowerCase().includes(q.bodega)) return false
       return true
     })
-  }, [zona, filter])
+  }, [clientes, zona, filter])
 
   if (!open) return null
 
@@ -123,7 +149,7 @@ export default function ClientPickerModal({ open, onClose, onSelect }) {
                 <MdLocationPin className="text-brand-deep" />
                 {zona}
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand-cyan/20 text-brand-deep">
-                  {zona === 'TODOS' ? CLIENTES.length : CLIENTES.filter((c) => c.zona === zona).length}
+                  {zona === 'TODOS' ? clientes.length : clientes.filter((c) => c.zona === zona).length}
                 </span>
               </span>
               <span className="grid place-items-center size-6 rounded-full bg-brand-deep/10">
@@ -137,11 +163,11 @@ export default function ClientPickerModal({ open, onClose, onSelect }) {
                 <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white rounded-xl border border-brand-deep/20 shadow-2xl max-h-64 overflow-y-auto [scrollbar-width:thin]">
                   <div className="sticky top-0 z-10 bg-brand-mist px-4 py-2 border-b border-brand-deep/10 flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-brand-deep">Zona</span>
-                    <span className="text-[10px] font-semibold text-brand-deep/60">{ZONAS.length} zonas</span>
+                    <span className="text-[10px] font-semibold text-brand-deep/60">{zonas.length} zonas</span>
                   </div>
                   <div className="divide-y divide-brand-deep/10">
-                    {ZONAS.map((z) => {
-                      const count = z === 'TODOS' ? CLIENTES.length : CLIENTES.filter((c) => c.zona === z).length
+                    {zonas.map((z) => {
+                      const count = z === 'TODOS' ? clientes.length : clientes.filter((c) => c.zona === z).length
                       const active = zona === z
                       return (
                         <button
@@ -175,9 +201,34 @@ export default function ClientPickerModal({ open, onClose, onSelect }) {
         </div>
 
         {/* Tabla de clientes */}
-        <div className="overflow-y-auto p-4 sm:p-5">
-          {filtered.length === 0 ? (
-            <p className="text-center text-brand-ink/50 py-10">Sin resultados para los filtros aplicados</p>
+        <div className="overflow-y-auto p-4 sm:p-5 min-h-0 flex-1">
+          {cargando ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-brand-deep/60">
+              <div className="size-10 animate-spin rounded-full border-4 border-brand-deep/20 border-t-brand-deep" />
+              <p className="text-sm font-semibold">Cargando clientes…</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-16">
+              <p className="text-sm font-semibold text-red-600">{error}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setCargando(true)
+                  setError('')
+                  cargarClientes()
+                    .then((data) => { setClientes(data || []); setZona('TODOS') })
+                    .catch((err) => setError(err.message || 'Error al cargar clientes'))
+                    .finally(() => setCargando(false))
+                }}
+                className="mt-2 rounded-xl bg-brand-navy px-4 py-2 text-xs font-bold text-white hover:bg-brand-deep transition"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-brand-ink/50 py-10">
+              {clientes.length === 0 ? 'No hay clientes disponibles' : 'Sin resultados para los filtros aplicados'}
+            </p>
           ) : (
             <div className="overflow-hidden rounded-xl border border-brand-ink/15 shadow-sm">
               <table className="w-full text-left text-sm border-separate border-spacing-0">

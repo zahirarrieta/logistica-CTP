@@ -31,6 +31,7 @@ function pendiente(id) {
 function empujar(solicitud) {
   if (!backendActivo || !solicitud?.id) return
   if (!navigator.onLine) {
+    console.info(`[Supabase] sin conexión: ${solicitud.id} queda en la cola, se sube al volver la red`)
     pendiente(solicitud.id)
     return
   }
@@ -244,7 +245,7 @@ export function updateSolicitud(id, updates) {
 
 export function removeSolicitud(id) {
   const next = escribir(loadSolicitudes().filter((s) => s.id !== id))
-  if (backendActivo) void borrarSolicitud(id).catch(() => {})
+  if (backendActivo) void borrarSolicitud(id).catch((error) => console.warn('[Supabase] no se pudo borrar en la base:', error))
   return next
 }
 
