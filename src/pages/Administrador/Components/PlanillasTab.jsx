@@ -4,7 +4,7 @@ import {
   MdSearch,
   MdLocalShipping,
   MdTag,
-  MdVisibility,
+  MdAssignment,
   MdPerson,
   MdPlace,
   MdCategory,
@@ -194,7 +194,7 @@ export default function PlanillasTab({ solicitudes = [] }) {
                   onClick={() => setPlanillaAbierta(d.conductor)}
                   className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 py-2 text-xs sm:text-sm font-extrabold text-brand-ink hover:brightness-105 transition shrink-0"
                 >
-                  <MdVisibility className="text-base" />
+                  <MdAssignment className="text-base" />
                   Ver planilla
                 </button>
               </div>

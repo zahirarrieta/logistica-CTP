@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MdClose,
   MdPrint,
@@ -10,6 +10,7 @@ import {
   MdLocalShipping,
   MdTag,
   MdPerson,
+  MdPersonOutline,
   MdEvent,
   MdNotes,
 } from 'react-icons/md'
@@ -25,38 +26,47 @@ import {
 } from '../planillaStore.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
-const VEHICULOS = ['Moto', 'Carro', 'Camioneta']
 
-const FILA_VACIA = { id: '', cliente: '', zona: '', tipoSolicitud: '', observaciones: '' }
+const FILA_VACIA = { id: '', solicitante: '', cliente: '', zona: '', tipoSolicitud: '', observaciones: '' }
 
-function Campo({ icon, label, children }) {
+function formatFecha(iso) {
+  if (!iso) return new Date().toLocaleDateString('es-CO')
+  const partes = String(iso).split('-').map(Number)
+  const dt = partes.length === 3 && partes.every(Boolean)
+    ? new Date(partes[0], partes[1] - 1, partes[2])
+    : new Date(iso)
+  if (Number.isNaN(dt.getTime())) return String(iso)
+  return dt.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
+function Dato({ icon, label, value }) {
   return (
-    <label className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1">
       <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-brand-ink/50">
         {icon}
         {label}
       </span>
-      {children}
-    </label>
+      <span className="rounded-lg border border-brand-ink/10 bg-brand-mist/40 px-2.5 py-1.5 text-sm font-semibold text-brand-ink print:bg-transparent">
+        {value || '—'}
+      </span>
+    </div>
   )
 }
 
-const inputBase =
-  'w-full rounded-lg border border-brand-ink/15 bg-white px-2.5 py-1.5 text-sm font-semibold text-brand-ink outline-none focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/30 transition print:border-brand-ink/25'
+const celdaInput =
+  'w-full bg-transparent text-sm outline-none placeholder:text-brand-ink/30 focus:bg-brand-cyan/5 rounded px-1'
 
 export default function PlanillaModal({ conductor, solicitudes = [], open, onClose }) {
   const [planilla, setPlanilla] = useState(() => getPlanilla(conductor))
   const [generando, setGenerando] = useState(false)
+  const [capturando, setCapturando] = useState(false)
+  const hojaRef = useRef(null)
 
   useEffect(() => {
     if (!open || !conductor) return
     const siguiente = getPlanilla(conductor)
-    const base = solicitudes.find((s) => nombreDeAsignado(s.conductor) === conductor && (s.vehiculo || s.placa))
-    if (!siguiente.vehiculo) siguiente.vehiculo = base?.vehiculo || ''
-    if (!siguiente.placa) siguiente.placa = base?.placa || ''
     if (!siguiente.fecha) siguiente.fecha = fechaHoy()
     setPlanilla(siguiente)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, conductor])
 
   const actualizar = (patch) => {
@@ -78,6 +88,7 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
         key: s.id,
         manual: false,
         id: s.id,
+        solicitante: s.nombreCompleto || '',
         cliente: s.cliente || '',
         zona: s.zona || '',
         tipoSolicitud: s.tipoSolicitud || '',
@@ -87,6 +98,12 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
     const extra = (planilla.filasExtra || []).map((f) => ({ ...f, manual: true }))
     return [...incluidas, ...extra]
   }, [solicitudes, conductor, planilla])
+
+  const datosVehiculo = useMemo(() => {
+    const delConductor = solicitudes.filter((s) => nombreDeAsignado(s.conductor) === conductor)
+    const base = delConductor.find((s) => s.vehiculo || s.placa) || {}
+    return { vehiculo: base.vehiculo || '', placa: base.placa || '' }
+  }, [solicitudes, conductor])
 
   if (!open || !conductor) return null
 
@@ -137,14 +154,19 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
   const handlePdf = async () => {
     try {
       setGenerando(true)
-      await descargarPlanillaPdf({ ...planilla, filas })
+      setCapturando(true)
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      await descargarPlanillaPdf({ elemento: hojaRef.current, conductor, fecha: planilla.fecha })
     } catch (err) {
       window.alert(`No se pudo generar el PDF: ${err?.message || 'error desconocido'}`)
     } finally {
+      setCapturando(false)
       setGenerando(false)
     }
   }
   const handlePrint = () => window.print()
+
+  const soloLectura = capturando
 
   return (
     <div
@@ -152,7 +174,7 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
       onClick={onClose}
     >
       <div
-        className="planilla-dialog relative bg-white text-brand-ink w-full max-w-5xl rounded-2xl shadow-2xl animate-scaleIn my-auto"
+        className="planilla-dialog relative bg-white text-brand-ink w-full max-w-6xl rounded-2xl shadow-2xl animate-scaleIn my-auto"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -182,58 +204,42 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
         </div>
 
         <div className="p-3 sm:p-6">
-          {/* Hoja imprimible */}
-          <div id="planilla-print" className="planilla-sheet rounded-xl border border-brand-ink/15 bg-white p-4 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-brand-cyan pb-3 mb-4">
-              <div>
+          {/* Hoja imprimible / exportable */}
+          <div ref={hojaRef} id="planilla-print" className="planilla-sheet rounded-xl border border-brand-ink/15 bg-white p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3 border-b-2 border-brand-cyan pb-3 mb-4">
+              <img src="/CTP.png" alt="CTP" className="h-12 sm:h-16 w-auto object-contain shrink-0" />
+              <div className="text-center min-w-0">
                 <p className="text-lg sm:text-xl font-extrabold text-brand-navy uppercase tracking-wide">Planilla de salida</p>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-brand-deep/70">CTP Logística · Control de entregas</p>
               </div>
-              <span className="text-xs font-bold text-brand-ink/60">{filas.length} {filas.length === 1 ? 'pedido' : 'pedidos'}</span>
+              <img src="/Principal/PEDRO.png" alt="Pedro" className="h-14 sm:h-20 w-auto object-contain shrink-0" />
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-              <Campo icon={<MdPerson />} label="Conductor">
-                <input className={inputBase} value={conductor} readOnly />
-              </Campo>
-              <Campo icon={<MdLocalShipping />} label="Vehículo / Tipo">
-                <select className={inputBase} value={planilla.vehiculo || ''} onChange={(e) => actualizar({ vehiculo: e.target.value })}>
-                  <option value="">Sin especificar</option>
-                  {VEHICULOS.map((v) => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
-              </Campo>
-              <Campo icon={<MdTag />} label="Placa">
-                <input
-                  className={`${inputBase} uppercase`}
-                  value={planilla.placa || ''}
-                  onChange={(e) => actualizar({ placa: e.target.value.toUpperCase() })}
-                  placeholder="ABC123"
-                />
-              </Campo>
-              <Campo icon={<MdEvent />} label="Fecha">
-                <input type="date" className={inputBase} value={planilla.fecha || ''} onChange={(e) => actualizar({ fecha: e.target.value })} />
-              </Campo>
+              <Dato icon={<MdPerson />} label="Conductor" value={conductor} />
+              <Dato icon={<MdLocalShipping />} label="Vehículo / Tipo" value={datosVehiculo.vehiculo} />
+              <Dato icon={<MdTag />} label="Placa" value={datosVehiculo.placa} />
+              <Dato icon={<MdEvent />} label="Fecha" value={formatFecha(planilla.fecha)} />
             </div>
 
-            <div className="overflow-x-auto">
+            <div className={soloLectura ? '' : 'overflow-x-auto'}>
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-brand-deep text-white">
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-center font-bold w-8">#</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-28">ID</th>
+                    <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-40">Solicitante</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold">Cliente</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-32">Zona</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-36">Tipo de solicitud</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold">Observaciones</th>
-                    <th className="border border-brand-deep/30 px-2 py-1.5 text-center font-bold w-10 print:hidden">—</th>
+                    {!soloLectura && <th className="border border-brand-deep/30 px-2 py-1.5 text-center font-bold w-10 print:hidden">—</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {filas.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="border border-brand-ink/10 px-3 py-6 text-center text-brand-ink/50 font-semibold">
+                      <td colSpan={soloLectura ? 7 : 8} className="border border-brand-ink/10 px-3 py-6 text-center text-brand-ink/50 font-semibold">
                         No hay pedidos en esta planilla. Agrega filas o solicitudes.
                       </td>
                     </tr>
@@ -242,71 +248,89 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                       <tr key={f.key} className={i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/5'}>
                         <td className="border border-brand-ink/10 px-2 py-1.5 text-center font-bold text-brand-ink/60">{i + 1}</td>
                         <td className="border border-brand-ink/10 px-1.5 py-1">
-                          {f.manual ? (
+                          {f.manual && !soloLectura ? (
                             <input
-                              className="w-full bg-transparent text-xs font-bold text-brand-deep uppercase outline-none"
+                              className={`${celdaInput} font-extrabold text-brand-deep uppercase`}
                               value={f.id}
                               placeholder="CTPLOG-"
                               onChange={(e) => editarFilaManual(f.key, 'id', e.target.value)}
                             />
                           ) : (
-                            <span className="font-extrabold text-brand-deep">{f.id}</span>
+                            <span className="px-1 font-extrabold text-brand-deep">{f.id || '—'}</span>
                           )}
                         </td>
                         <td className="border border-brand-ink/10 px-1.5 py-1">
-                          {f.manual ? (
+                          {f.manual && !soloLectura ? (
                             <input
-                              className="w-full bg-transparent text-sm font-semibold outline-none"
+                              className={`${celdaInput} font-semibold`}
+                              value={f.solicitante}
+                              placeholder="Solicitante"
+                              onChange={(e) => editarFilaManual(f.key, 'solicitante', e.target.value)}
+                            />
+                          ) : (
+                            <span className="px-1 font-semibold text-brand-ink">{f.solicitante || '—'}</span>
+                          )}
+                        </td>
+                        <td className="border border-brand-ink/10 px-1.5 py-1">
+                          {f.manual && !soloLectura ? (
+                            <input
+                              className={`${celdaInput} font-semibold`}
                               value={f.cliente}
                               placeholder="Cliente"
                               onChange={(e) => editarFilaManual(f.key, 'cliente', e.target.value)}
                             />
                           ) : (
-                            <span className="font-semibold text-brand-ink">{f.cliente || '—'}</span>
+                            <span className="px-1 font-semibold text-brand-ink">{f.cliente || '—'}</span>
                           )}
                         </td>
                         <td className="border border-brand-ink/10 px-1.5 py-1">
-                          {f.manual ? (
+                          {f.manual && !soloLectura ? (
                             <input
-                              className="w-full bg-transparent text-sm outline-none"
+                              className={celdaInput}
                               value={f.zona}
                               placeholder="Zona"
                               onChange={(e) => editarFilaManual(f.key, 'zona', e.target.value)}
                             />
                           ) : (
-                            <span className="text-brand-ink/80">{f.zona || '—'}</span>
+                            <span className="px-1 text-brand-ink/80">{f.zona || '—'}</span>
                           )}
                         </td>
                         <td className="border border-brand-ink/10 px-1.5 py-1">
-                          {f.manual ? (
+                          {f.manual && !soloLectura ? (
                             <input
-                              className="w-full bg-transparent text-sm outline-none"
+                              className={celdaInput}
                               value={f.tipoSolicitud}
                               placeholder="Tipo"
                               onChange={(e) => editarFilaManual(f.key, 'tipoSolicitud', e.target.value)}
                             />
                           ) : (
-                            <span className="text-brand-ink/80">{f.tipoSolicitud || '—'}</span>
+                            <span className="px-1 text-brand-ink/80">{f.tipoSolicitud || '—'}</span>
                           )}
                         </td>
                         <td className="border border-brand-ink/10 px-1.5 py-1">
-                          <input
-                            className="w-full bg-transparent text-sm text-brand-ink/80 outline-none"
-                            value={f.observaciones}
-                            placeholder="Observación…"
-                            onChange={(e) => (f.manual ? editarFilaManual(f.key, 'observaciones', e.target.value) : editarObservacion(f.id, e.target.value))}
-                          />
+                          {soloLectura ? (
+                            <span className="px-1 text-brand-ink/80">{f.observaciones || '—'}</span>
+                          ) : (
+                            <input
+                              className={`${celdaInput} text-brand-ink/80`}
+                              value={f.observaciones}
+                              placeholder="Observación…"
+                              onChange={(e) => (f.manual ? editarFilaManual(f.key, 'observaciones', e.target.value) : editarObservacion(f.id, e.target.value))}
+                            />
+                          )}
                         </td>
-                        <td className="border border-brand-ink/10 px-1 py-1 text-center print:hidden">
-                          <button
-                            type="button"
-                            onClick={() => quitarFila(f)}
-                            title="Quitar de la planilla"
-                            className="grid place-items-center size-7 rounded-lg text-red-500 hover:bg-red-50 transition mx-auto"
-                          >
-                            <MdDeleteOutline />
-                          </button>
-                        </td>
+                        {!soloLectura && (
+                          <td className="border border-brand-ink/10 px-1 py-1 text-center print:hidden">
+                            <button
+                              type="button"
+                              onClick={() => quitarFila(f)}
+                              title="Quitar de la planilla"
+                              className="grid place-items-center size-7 rounded-lg text-red-500 hover:bg-red-50 transition mx-auto"
+                            >
+                              <MdDeleteOutline />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
@@ -314,7 +338,7 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
               </table>
             </div>
 
-            {filas.some((f) => !f.manual && f.estado) && (
+            {!soloLectura && filas.some((f) => !f.manual && f.estado) && (
               <div className="mt-3 flex flex-wrap gap-1.5 print:hidden">
                 {[...new Set(filas.filter((f) => !f.manual).map((f) => f.estado))].map((e) => (
                   <span key={e} className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${getBadgeColor(e)}`}>
@@ -329,13 +353,19 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                 <MdNotes />
                 Observaciones generales
               </p>
-              <textarea
-                rows={2}
-                className={`${inputBase} mt-1 resize-y font-normal`}
-                value={planilla.observaciones || ''}
-                onChange={(e) => actualizar({ observaciones: e.target.value })}
-                placeholder="Novedades, instrucciones o pendientes de la ruta…"
-              />
+              {soloLectura ? (
+                <p className="mt-1 min-h-10 whitespace-pre-wrap rounded-lg border border-brand-ink/15 px-2.5 py-1.5 text-sm text-brand-ink/80">
+                  {planilla.observaciones || 'Sin observaciones.'}
+                </p>
+              ) : (
+                <textarea
+                  rows={2}
+                  className="mt-1 w-full resize-y rounded-lg border border-brand-ink/15 bg-white px-2.5 py-1.5 text-sm font-normal text-brand-ink outline-none focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/30 transition"
+                  value={planilla.observaciones || ''}
+                  onChange={(e) => actualizar({ observaciones: e.target.value })}
+                  placeholder="Novedades, instrucciones o pendientes de la ruta…"
+                />
+              )}
             </div>
 
             <div className="mt-8 grid grid-cols-2 gap-8 text-[11px] text-brand-ink/60">
@@ -375,6 +405,10 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
               <MdAddCircleOutline className="text-base" />
               Fila manual
             </button>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-brand-ink/50 sm:ml-auto">
+              <MdPersonOutline />
+              Los datos de conductor, vehículo, placa y fecha se toman automáticamente de la asignación.
+            </span>
           </div>
         </div>
 

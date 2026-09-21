@@ -345,9 +345,13 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ===== Impresión de la planilla de salida ===== */
+.planilla-sheet {
+  font-family: 'Montserrat', system-ui, sans-serif;
+}
+
 @page {
-  size: A4;
-  margin: 12mm;
+  size: A4 landscape;
+  margin: 10mm;
 }
 
 @media print {
