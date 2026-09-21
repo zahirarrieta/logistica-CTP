@@ -12,7 +12,7 @@ async function preparar() {
   if (!correo) return
   usuarioRegistrado = true
   try {
-    await supabase.from('usuarios').insert({ correo, nombre }, { ignoreDuplicates: true })
+    await supabase.from('usuarios').upsert({ correo, nombre }, { onConflict: 'correo', ignoreDuplicates: true })
   } catch {
     // Si no se pudo registrar el usuario, el resto de la sincronización sigue intentándolo.
   }
