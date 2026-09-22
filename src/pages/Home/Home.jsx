@@ -57,8 +57,8 @@ function Home() {
     setShowModal(false)
   }
 
-  const handleNewSolicitud = (data) => {
-    const siguiente = saveSolicitud(data)
+  const handleNewSolicitud = async (data) => {
+    const siguiente = await saveSolicitud(data)
     setSolicitudModalOpen(false)
     solicitudCreada(siguiente[0])
     navigate('/solicitudes')

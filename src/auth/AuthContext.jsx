@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { getActiveAccount, msalInstance, msalReady } from './msal.js'
 import { loginRequest } from './authConfig.js'
 import { cargarUsuarioActual } from '../services/solicitudesApi.js'
+import { cerrarSesion } from '../services/supabaseClient.js'
 
 const AuthContext = createContext(null)
 
@@ -64,6 +65,7 @@ export function AuthProvider({ children }) {
     setAccount(null)
     setUsuario(null)
     setRolListo(false)
+    void cerrarSesion()
     msalInstance.logoutPopup({ postLogoutRedirectUri: 'about:blank' }).catch(() => {})
   }
 

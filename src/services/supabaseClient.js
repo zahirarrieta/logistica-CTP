@@ -35,20 +35,52 @@ export function datosUsuario() {
 }
 
 let sesion = null
+let sesionDeCorreo = ''
+
+async function liberarSesion() {
+  if (supabase && sesion) {
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      // ignorar
+    }
+  }
+  sesion = null
+  sesionDeCorreo = ''
+}
+
+// Cierra la sesión anónima de Supabase y deja la sesión en caché sin uso. Se
+// llama al cerrar sesión o cambiar de cuenta para que cada usuario de Microsoft
+// obtenga su propio JWT anónimo y Supabase no rechace el del usuario anterior.
+export function cerrarSesion() {
+  if (!supabase) return Promise.resolve()
+  return liberarSesion()
+}
 
 export function iniciarSesion() {
   if (!supabase) return Promise.resolve(null)
+  const { correo } = datosUsuario()
+  // Si ya había una sesión anónima de OTRO usuario, se descarta y se abre una
+  // nueva: evita errores de validación del JWT viejo y el cruce de visibilidad
+  // entre cuentas por RLS.
+  if (sesion && sesionDeCorreo && sesionDeCorreo !== correo) {
+    sesion = null
+    sesionDeCorreo = ''
+    void supabase.auth.signOut().catch(() => {})
+  }
   if (!sesion) {
-    const { correo, nombre } = datosUsuario()
+    const { correo: correoSesion, nombre } = datosUsuario()
     sesion = supabase.auth
-      .signInAnonymously({ options: { data: { correo, nombre } } })
+      .signInAnonymously({ options: { data: { correo: correoSesion, nombre } } })
       .then(({ data, error }) => {
         if (error) throw error
-        console.info(`[Supabase] sesión abierta como ${correo || nombre}`)
+        sesionDeCorreo = correoSesion
+        console.info(`[Supabase] sesión abierta como ${correoSesion || nombre}`)
         return data.session
       })
       .catch((error) => {
         sesion = null
+        sesionDeCorreo = ''
         if (/anonymous/i.test(error?.message || '')) {
           console.error(
             '[Supabase] falta activar Anonymous Sign-Ins: Studio > Authentication > Sign In / Up > Providers'

@@ -135,6 +135,24 @@ as $$
   );
 $$;
 
+-- Reserva el siguiente código de forma GLOBAL por RPC (SECURITY DEFINER, ignora
+-- RLS). Así todos los usuarios ven y usan el mismo próximo ID aunque su rol no
+-- les permita leer las solicitudes de los demás (solicitantes solo sus propias,
+-- conductores solo tránsito). La secuencia es atómica: nunca se repite un ID.
+create or replace function public.proximo_codigo()
+returns text
+language sql
+security definer
+set search_path = public
+as $$
+  select 'CTPLOG-' || lpad(nextval('public.solicitudes_codigo_seq')::text, 5, '0');
+$$;
+
+grant execute on function public.proximo_codigo() to anon, authenticated;
+
+-- Deja la secuencia a la par del código más alto existente (idempotente).
+select public.sincronizar_secuencia_codigos();
+
 -- ----------------------------------------------------------------------------
 -- 4. HISTORIAL (auditoría + datos de la entrega; de aquí sale "Detalles")
 -- ----------------------------------------------------------------------------

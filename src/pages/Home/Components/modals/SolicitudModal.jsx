@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
-import { peekNextId, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../solicitudesStore.js'
+import { peekNextId, reservarProximoCodigo, hayProximoReservado, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../solicitudesStore.js'
 import { nombrePdfFromUrl } from '../../../../components/pdfUtils.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
@@ -88,6 +88,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
   const [errores, setErrores] = useState([])
   const [subiendoMsg, setSubiendoMsg] = useState('')
   const [previewAbierto, setPreviewAbierto] = useState(null)
+  const [siguiente, setSiguiente] = useState(peekNextId())
   const urlsRef = useRef(new Map())
 
   // Libera las URLs de vista previa al desmontar el modal.
@@ -144,8 +145,28 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
         observaciones: '',
       })
     }
+    // En creación se pide al servidor el próximo código global, para que el
+    // número mostrado y el que se guarda coincidan para todos los usuarios.
+    setSiguiente(peekNextId())
+    if (!solicitud) {
+      void reservarProximoCodigo().then((c) => {
+        if (c) setSiguiente(c)
+      })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, solicitud])
+
+  // Devuelve el código a usar: la reserva global ya existente, una recién
+  // obtenida del servidor o, si no hay conexión, la derivación local.
+  const asegurarSiguiente = async () => {
+    if (hayProximoReservado()) return siguiente
+    const c = await reservarProximoCodigo()
+    if (c) {
+      setSiguiente(c)
+      return c
+    }
+    return peekNextId()
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -284,7 +305,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
       return
     }
 
-    const idSolicitud = peekNextId()
+    const idSolicitud = await asegurarSiguiente()
     let adjuntosUrls = []
 
     try {
@@ -315,7 +336,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
 
   if (!open) return null
 
-  const siguienteId = modoEdicion ? solicitud.id : peekNextId()
+  const siguienteId = modoEdicion ? solicitud.id : siguiente
 
   return (
     <>

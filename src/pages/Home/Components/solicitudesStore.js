@@ -158,7 +158,72 @@ function siguienteNumero() {
   return Math.max(contadorLocal, maximoLista) + 1
 }
 
+// ---------------------------------------------------------------------------
+// CÓDIGO GLOBAL
+// El próximo ID se reserva en el servidor (RPC `proximo_codigo`, secuencia
+// atómica en Supabase) para que TODOS los usuarios vean y usen el mismo número,
+// aunque RLS no les permita leer las solicitudes de los demás. La reserva se
+// guarda en memoria + localStorage; al crear se consume y se vuelve a reservar.
+// Sin backend o sin conexión se usa la derivación local (siguienteNumero).
+// ---------------------------------------------------------------------------
+const RESERVADO_KEY = 'ctp_proximo_codigo'
+let reservado = null
+let avisoReservaDado = false
+
+function reservaGuardada() {
+  if (reservado) return reservado
+  try {
+    const r = localStorage.getItem(RESERVADO_KEY)
+    return r && /^CTPLOG-\d{5}$/.test(r) ? r : null
+  } catch {
+    return null
+  }
+}
+
+function consumirReserva() {
+  reservado = null
+  try {
+    localStorage.removeItem(RESERVADO_KEY)
+  } catch {
+    // ignorar
+  }
+}
+
+// Pide al servidor el siguiente código de forma atómica (cada llamada avanza la
+// secuencia, así que dos usuarios nunca reciben el mismo). Devuelve null si no
+// hay backend o falla la RPC → la app usa el derivo local.
+export async function reservarProximoCodigo() {
+  if (!backendActivo || !navigator.onLine) return null
+  try {
+    await iniciarSesion()
+    const { data, error } = await supabase.rpc('proximo_codigo')
+    if (error) {
+      if (!avisoReservaDado) {
+        avisoReservaDado = true
+        console.warn('[Supabase] no se pudo reservar el código (¿falta la función proximo_codigo?):', error.message)
+      }
+      return null
+    }
+    if (typeof data !== 'string' || !/^CTPLOG-\d{5}$/.test(data)) return null
+    reservado = data
+    try {
+      localStorage.setItem(RESERVADO_KEY, data)
+    } catch {
+      // ignorar
+    }
+    return data
+  } catch {
+    return null
+  }
+}
+
 function nextId() {
+  const reserva = reservaGuardada()
+  if (reserva) {
+    consumirReserva()
+    void reservarProximoCodigo().catch(() => {})
+    return reserva
+  }
   const counter = siguienteNumero()
   try {
     localStorage.setItem(COUNTER_KEY, String(counter))
@@ -278,10 +343,20 @@ function nowStamp() {
 }
 
 export function peekNextId() {
+  const reserva = reservaGuardada()
+  if (reserva) return reserva
   return `CTPLOG-${String(siguienteNumero()).padStart(5, '0')}`
 }
 
-export function saveSolicitud(data) {
+// ¿Hay ya una reserva global en caché sin consumir?
+export function hayProximoReservado() {
+  return Boolean(reservaGuardada())
+}
+
+export async function saveSolicitud(data) {
+  // Asegura una reserva global (online) antes de asignar el código, para que el
+  // ID del nuevo pedido sea el mismo que ven los demás usuarios.
+  if (!reservaGuardada()) await reservarProximoCodigo()
   const list = loadSolicitudes()
   const now = new Date()
   const entry = {

@@ -46,8 +46,8 @@ export default function Solicitudes() {
 
   const hasFilters = Boolean(filterEstado || filtroCliente || filtroZona)
 
-  const handleNewSolicitud = (data) => {
-    const siguiente = saveSolicitud(data)
+  const handleNewSolicitud = async (data) => {
+    const siguiente = await saveSolicitud(data)
     setSolicitudes(siguiente)
     solicitudCreada(siguiente[0])
     setModalOpen(false)
