@@ -276,28 +276,38 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
 
             {contactos.length > 0 && (
               <div className="rounded-xl bg-white/70 ring-1 ring-brand-cyan/30 px-3 py-2.5">
-                <p className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-brand-deep mb-1.5">
+                <label
+                  htmlFor="contacto-reciente"
+                  className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-brand-deep mb-1.5"
+                >
                   <MdHistory className="text-sm text-brand-cyan" />
-                  Contactos recientes — toca para llenar
-                </p>
-                <div className="flex flex-wrap gap-1.5">
+                  Contactos recientes — selecciona para llenar
+                </label>
+                <select
+                  id="contacto-reciente"
+                  value=""
+                  onChange={(e) => {
+                    const persona = contactos.find(
+                      (c) => `${c.nombre}|${c.cargo}|${c.correo}` === e.target.value
+                    )
+                    if (!persona) return
+                    setNombreEncuestado(String(persona.nombre || '').toUpperCase())
+                    setCargo(String(persona.cargo || '').toUpperCase())
+                    setCorreo(String(persona.correo || '').toUpperCase())
+                  }}
+                  className="w-full rounded-xl border border-brand-deep/20 bg-white px-3 py-2.5 text-sm text-brand-ink focus:outline-none focus:ring-2 focus:ring-brand-cyan/50"
+                >
+                  <option value="">Seleccionar contacto reciente…</option>
                   {contactos.map((c) => (
-                    <button
-                      key={`${c.nombre}|${c.cargo}|${c.correo}`}
-                      type="button"
-                      onClick={() => {
-                        setNombreEncuestado(String(c.nombre || '').toUpperCase())
-                        setCargo(String(c.cargo || '').toUpperCase())
-                        setCorreo(String(c.correo || '').toUpperCase())
-                      }}
-                      title={`${c.cargo || 'Sin cargo'} · ${c.correo || 'Sin correo'}`}
-                      className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 ring-1 ring-brand-cyan/40 px-2.5 py-1 text-[11px] font-bold text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors max-w-full"
-                    >
-                      <MdPerson className="text-sm shrink-0" />
-                      <span className="truncate max-w-[160px]">{c.nombre || c.correo}</span>
-                    </button>
+                    <option key={`${c.nombre}|${c.cargo}|${c.correo}`} value={`${c.nombre}|${c.cargo}|${c.correo}`}>
+                      {c.nombre || c.correo || 'Contacto'}
+                      {c.cargo ? ` — ${c.cargo}` : ''}
+                    </option>
                   ))}
-                </div>
+                </select>
+                <p className="mt-1 text-[11px] text-brand-ink/50">
+                  Al elegir un contacto se autocompletan nombre, cargo y correo.
+                </p>
               </div>
             )}
 
