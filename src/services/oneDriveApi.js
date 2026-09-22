@@ -31,10 +31,10 @@ function cabeceras(token, extra = {}) {
   return { Authorization: `Bearer ${token}`, ...extra }
 }
 
-// Vínculo oficial de la carpeta "solicitudes" (OneDrive de sistemas@ctpmedica.com).
+// Vínculo oficial de la carpeta compartida (SharePoint del grupo SolicitudesCTPPEDRO).
 // Se usa como último respaldo para ubicarla aunque no aparezca en "compartidos".
 const ENLACE_CARPETA =
-  'https://ctpmedica-my.sharepoint.com/:f:/p/sistemas/IgCqhcbGRW00SojY83hsdXT1ARxxGY1ZCZ3tkjv7xvA5uBk?e=vgsdbw'
+  'https://ctpmedica.sharepoint.com/:f:/s/SolicitudesCTPPEDRO/IgCjota-RxSTSJiB9FsbvKO5AQDZPmSpTBHWcWcmRg4BeX8?e=isXd1X'
 
 function base64Url(str) {
   const bytes = new TextEncoder().encode(str)
@@ -187,14 +187,10 @@ export async function subirAdjuntosOneDrive(archivos, correo, idSolicitud) {
 
   const token = await obtenerTokenGraph()
   const raiz = await raizPara(token)
-  const carpetaUsuario = sanitizarRuta(correo || 'sin-correo')
+  // Adjuntos directamente en la carpeta compartida, organizados por pedido
+  // (sin carpeta por usuario para que todos vean los mismos documentos).
   const carpetaSolicitud = sanitizarRuta(idSolicitud)
-  const idUsuario = await asegurarSubcarpeta(token, raiz, carpetaUsuario)
-  const idSolicitudCarpeta = await asegurarSubcarpeta(
-    token,
-    { driveId: raiz.driveId, rootId: idUsuario },
-    carpetaSolicitud
-  )
+  const idSolicitudCarpeta = await asegurarSubcarpeta(token, raiz, carpetaSolicitud)
 
   const resultados = []
   for (const archivo of archivos) {

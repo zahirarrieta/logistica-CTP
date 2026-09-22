@@ -57,6 +57,37 @@ async function resultado(item, token, mime, urlBase) {
   }
 }
 
+// Último recurso: busca el archivo por nombre dentro de la carpeta compartida
+// (baja hasta 2 niveles: subcarpetas), sin depender de la ruta guardada.
+async function buscarItemPorNombre(token, raiz, objetivo) {
+  if (!objetivo) return null
+  const cola = [{ itemId: raiz.rootId, prof: 0 }]
+  const vistos = new Set()
+  while (cola.length) {
+    const { itemId, prof } = cola.shift()
+    if (prof > 2 || vistos.has(itemId)) continue
+    vistos.add(itemId)
+    const lista = await graphJson(
+      `/drives/${raiz.driveId}/items/${itemId}/children?$select=id,name,folder,file,webUrl&$top=200`,
+      token
+    )
+    for (const c of lista.value || []) {
+      if (c.folder) {
+        cola.push({ itemId: c.id, prof: prof + 1 })
+        continue
+      }
+      if (
+        c.name === objetivo ||
+        c.name.endsWith(`_${objetivo}`) ||
+        c.name.includes(objetivo)
+      ) {
+        return c
+      }
+    }
+  }
+  return null
+}
+
 // Resuelve una referencia (URL de OneDrive, enlace compartido o nombre de archivo
 // guardado por versiones antiguas) a un blob reproducible en el navegador.
 export async function resolverArchivoOneDrive(url, { carpeta = '', mime = '' } = {}) {
@@ -70,12 +101,14 @@ export async function resolverArchivoOneDrive(url, { carpeta = '', mime = '' } =
 
   const token = await obtenerTokenGraph()
   const errores = []
+  const esHttp = /^https?:\/\//i.test(url)
 
+  // A) Métodos que usan la carpeta compartida (necesitan resolver la raíz).
   try {
     const raiz = await resolverCarpetaRaiz(token)
 
-    if (/^https?:\/\//i.test(url)) {
-      // 1) Ruta directa dentro de una carpeta conocida (OneDrive compartido)
+    if (esHttp) {
+      // 1) Ruta directa dentro de una carpeta conocida (OneDrive/SharePoint compartido)
       const match = url.match(new RegExp(`/${CARPETAS_CONOCIDAS}/([^/?&#]+)`, 'i'))
       if (match) {
         try {
@@ -89,6 +122,14 @@ export async function resolverArchivoOneDrive(url, { carpeta = '', mime = '' } =
           console.warn('[OneDrive] ruta directa falló:', err.message)
           errores.push(err.message)
         }
+      }
+      // 1b) Búsqueda por nombre dentro de la carpeta compartida.
+      try {
+        const item = await buscarItemPorNombre(token, raiz, nombre)
+        if (item) return await resultado(item, token, mime, url)
+      } catch (err) {
+        console.warn('[OneDrive] búsqueda por nombre falló:', err.message)
+        errores.push(err.message)
       }
     } else if (carpeta) {
       // 3) Referencias antiguas: solo se guardó el nombre del archivo.
@@ -116,20 +157,21 @@ export async function resolverArchivoOneDrive(url, { carpeta = '', mime = '' } =
         errores.push(err.message)
       }
     }
-
-    // 2) Enlace compartido (sirve aunque el archivo esté en el OneDrive de otro usuario)
-    if (/^https?:\/\//i.test(url)) {
-      try {
-        const item = await graphJson(`/shares/u!${base64Url(url)}/driveItem`, token)
-        return await resultado(item, token, mime, url)
-      } catch (err) {
-        console.warn('[OneDrive] enlace compartido falló:', err.message)
-        errores.push(err.message)
-      }
-    }
   } catch (err) {
     console.warn('[OneDrive] no se pudo resolver la carpeta compartida:', err.message)
     errores.push(err.message)
+  }
+
+  // B) Enlace compartido: funciona sin resolver la raíz y sirve para archivos
+  // que están en el OneDrive/SharePoint de cualquier usuario con permiso.
+  if (esHttp) {
+    try {
+      const item = await graphJson(`/shares/u!${base64Url(url)}/driveItem`, token)
+      return await resultado(item, token, mime, url)
+    } catch (err) {
+      console.warn('[OneDrive] enlace compartido falló:', err.message)
+      errores.push(err.message)
+    }
   }
 
   throw new Error(
