@@ -335,12 +335,28 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
 
   const openObs = (s) => setObsSolicitud(s)
   const openDetalle = (s) => setDetalleSolicitud(s)
-  const hasAcciones = Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick || onCorregirClick)
+
+  // Una fila tiene acción visible si alguno de los botones aplica a su estado.
+  const filaConAccion = (s) =>
+    Boolean(
+      (onCorregirClick && esDevolucion(s)) ||
+        (onAsignarClick && !esEntregado(s)) ||
+        (onCambiarEstadoClick && !esEntregado(s)) ||
+        (onEntregaDetallesClick && esEntregado(s)) ||
+        onEstadoClick ||
+        onEliminarClick
+    )
 
   const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1
   const page = Math.min(currentPage, totalPages)
   const startIndex = (page - 1) * ITEMS_PER_PAGE
   const currentItems = items.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+
+  // La columna de acciones solo se dibuja si al menos una fila de la página
+  // actual muestra algún botón; así no queda una columna en blanco junto a Estado.
+  const hasAcciones =
+    Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick || onCorregirClick || onEntregaDetallesClick) &&
+    currentItems.some(filaConAccion)
 
   if (items.length === 0) {
     return (

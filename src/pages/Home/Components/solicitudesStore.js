@@ -1,6 +1,6 @@
 import { msalInstance } from '../../../auth/msal.js'
 import { shortName } from '../../../auth/user.js'
-import { backendActivo } from '../../../services/supabaseClient.js'
+import { supabase, backendActivo, iniciarSesion } from '../../../services/supabaseClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../../../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud } from '../../../components/pdfUtils.js'
 
@@ -12,11 +12,70 @@ const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
 export const ESTADOS_ENTREGA = ['Entregado', 'Entregado Parcial']
 
+// Campos que el administrador puede marcar como «por corregir» al devolver una
+// solicitud al solicitante.
+export const CAMPOS_DEVOLUCION = [
+  { id: 'tipoSolicitud', etiqueta: 'TIPO DE SOLICITUD' },
+  { id: 'cliente', etiqueta: 'CLIENTE' },
+  { id: 'adjuntos', etiqueta: 'ADJUNTOS' },
+  { id: 'observaciones', etiqueta: 'OBSERVACIONES' },
+]
+
+const ETIQUETA_A_ID = Object.fromEntries(CAMPOS_DEVOLUCION.map((c) => [c.etiqueta, c.id]))
+const MOTIVO_PREFIJO = /^\[CORREGIR:\s*([^\]]*)\]\s*/
+
+// Codifica los campos marcados dentro de la nota del historial, que es lo único
+// que se sincroniza con la base, con el formato «[CORREGIR: A, B] texto».
+export function componerMotivoDevolucion(campos, texto) {
+  const etiquetas = (Array.isArray(campos) ? campos : [])
+    .map((id) => CAMPOS_DEVOLUCION.find((c) => c.id === id)?.etiqueta)
+    .filter(Boolean)
+  const limpio = (texto || '').trim()
+  if (etiquetas.length === 0) return limpio
+  return `[CORREGIR: ${etiquetas.join(', ')}] ${limpio}`.trim()
+}
+
+// Inverso de componerMotivoDevolucion: devuelve { campos: [ids], texto }.
+export function parsearMotivoDevolucion(nota) {
+  const crudo = typeof nota === 'string' ? nota : ''
+  const m = MOTIVO_PREFIJO.exec(crudo)
+  if (!m) return { campos: [], texto: crudo }
+  const campos = m[1]
+    .split(',')
+    .map((s) => ETIQUETA_A_ID[s.trim().toUpperCase()])
+    .filter(Boolean)
+  return { campos, texto: crudo.slice(m[0].length) }
+}
+
 // Caché en memoria: evita re-parsear y re-normalizar todo el localStorage en
 // cada llamada. Se invalida comparando el crudo guardado (detecta cambios de
 // otras pestañas o escrituras externas).
 let cache = null
 let cacheRaw = null
+
+// Suscriptores en vivo: las pantallas (Solicitudes, Administrador, Conductor)
+// se registran para recibir la lista actualizada cada vez que cambian los datos,
+// ya sea por una acción local o por un cambio remoto (Supabase Realtime).
+const suscriptores = new Set()
+
+export function suscribir(callback) {
+  if (typeof callback !== 'function') return () => {}
+  suscriptores.add(callback)
+  return () => suscriptores.delete(callback)
+}
+
+// Emite la lista vigente a todos los suscriptores.
+export function notificar() {
+  if (suscriptores.size === 0) return
+  const lista = loadSolicitudes()
+  suscriptores.forEach((cb) => {
+    try {
+      cb(lista)
+    } catch (error) {
+      console.warn('[Store] suscriptor falló:', error)
+    }
+  })
+}
 
 function escribir(list) {
   let raw = null
@@ -223,12 +282,14 @@ export function saveSolicitud(data) {
   }
   const next = escribir([entry, ...list])
   empujar(entry)
+  notificar()
   return next
 }
 
 export function updateEstado(id, estado) {
   const next = escribir(loadSolicitudes().map((s) => (s.id === id ? { ...s, estado } : s)))
   empujar({ id })
+  notificar()
   return next
 }
 
@@ -306,6 +367,7 @@ export function updateSolicitud(id, updates) {
   })
   escribir(next)
   empujar({ id })
+  notificar()
   return next
 }
 
@@ -322,6 +384,7 @@ export function corregirSolicitud(id, datos) {
 export function removeSolicitud(id) {
   const next = escribir(loadSolicitudes().filter((s) => s.id !== id))
   if (backendActivo) void borrarSolicitud(id).catch((error) => console.warn('[Supabase] no se pudo borrar en la base:', error))
+  notificar()
   return next
 }
 
@@ -335,6 +398,7 @@ export function clearSolicitudes() {
   }
   cache = []
   cacheRaw = ''
+  notificar()
   return cache
 }
 
@@ -378,6 +442,41 @@ export function eliminarBorradorEntrega(id) {
   }
 }
 
+// Contactos usados recientemente en la encuesta de satisfacción (nombre, cargo y
+// correo de quien recibe). Se recuerdan para que el conductor no vuelva a
+// escribir los mismos datos en la próxima entrega.
+const CONTACTOS_KEY = 'ctp_contactos_encuesta'
+
+function claveContacto(c) {
+  return `${(c?.nombre || '').trim().toLowerCase()}|${(c?.cargo || '').trim().toLowerCase()}|${(c?.correo || '').trim().toLowerCase()}`
+}
+
+export function cargarContactosEncuesta() {
+  try {
+    const raw = localStorage.getItem(CONTACTOS_KEY)
+    const list = raw ? JSON.parse(raw) : []
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+
+export function guardarContactoEncuesta(contacto) {
+  const nombre = (contacto?.nombre || '').trim()
+  const cargo = (contacto?.cargo || '').trim()
+  const correo = (contacto?.correo || '').trim()
+  if (!nombre && !correo) return cargarContactosEncuesta()
+  const nuevo = { nombre, cargo, correo }
+  const clave = claveContacto(nuevo)
+  const lista = [nuevo, ...cargarContactosEncuesta().filter((c) => claveContacto(c) !== clave)].slice(0, 10)
+  try {
+    localStorage.setItem(CONTACTOS_KEY, JSON.stringify(lista))
+  } catch {
+    // ignorar
+  }
+  return lista
+}
+
 export function marcarPendienteSync(id) {
   return pendiente(id)
 }
@@ -397,6 +496,7 @@ export async function sincronizarPendientes() {
       break
     }
   }
+  if (subidas > 0) notificar()
   return subidas
 }
 
@@ -476,5 +576,61 @@ export async function sincronizarInicial() {
   guardarWatermark(watermark)
   sembrarContador(fusion)
   void sincronizarPendientes()
+  notificar()
   return fusion
+}
+
+// ---------------------------------------------------------------------------
+// TIEMPO REAL
+// Se suscribe a los cambios de la tabla `solicitudes` en Supabase. Cuando otro
+// usuario (solicitante, conductor, administrador o superadmin) crea o modifica
+// algo, recibimos el evento, re-sincronizamos de forma incremental y avisamos a
+// las pantallas abiertas para que tablas y modales se actualicen al instante.
+// Requiere que la tabla esté en la publication `supabase_realtime` (ver
+// supabase/schema.sql). RLS filtra qué eventos recibe cada usuario.
+// ---------------------------------------------------------------------------
+let canalRealtime = null
+let resyncTimer = null
+
+function programarResync() {
+  if (resyncTimer) clearTimeout(resyncTimer)
+  resyncTimer = setTimeout(() => {
+    resyncTimer = null
+    if (!navigator.onLine) return
+    void sincronizarInicial().catch((error) =>
+      console.warn('[Realtime] no se pudo re-sincronizar:', error)
+    )
+  }, 600)
+}
+
+export function iniciarTiempoReal() {
+  if (!backendActivo || canalRealtime) return
+  void iniciarSesion()
+    .then(() => {
+      if (canalRealtime) return
+      canalRealtime = supabase
+        .channel('solicitudes-tiempo-real')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'solicitudes' },
+          () => programarResync()
+        )
+        .subscribe((estado) => {
+          // Al (re)conectarse, sincroniza para no perder cambios ocurridos fuera de línea.
+          if (estado === 'SUBSCRIBED') programarResync()
+        })
+      console.info('[Realtime] suscrito a cambios de solicitudes')
+    })
+    .catch((error) => console.warn('[Realtime] no se pudo iniciar:', error))
+}
+
+export function detenerTiempoReal() {
+  if (resyncTimer) {
+    clearTimeout(resyncTimer)
+    resyncTimer = null
+  }
+  if (canalRealtime && supabase) {
+    void supabase.removeChannel(canalRealtime)
+    canalRealtime = null
+  }
 }

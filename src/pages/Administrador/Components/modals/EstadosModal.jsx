@@ -4,6 +4,7 @@ import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../Home/Components/estadoColors.js'
 import { subirFacturaRemisionOneDrive } from '../../../../services/oneDriveApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida, solicitudDevuelta } from '../../../../services/notificaciones.jsx'
+import { CAMPOS_DEVOLUCION, componerMotivoDevolucion } from '../../../Home/Components/solicitudesStore.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const ESTADO_DEVOLUCION = 'Devolución a Solicitante'
@@ -24,6 +25,7 @@ function Requisito({ listo, label }) {
 export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsignarConductorClick, permitidos }) {
   const [estado, setEstado] = useState('Abierto')
   const [nota, setNota] = useState('')
+  const [camposCorregir, setCamposCorregir] = useState([])
   const [numeroRef, setNumeroRef] = useState('')
   const [adjuntoTramite, setAdjuntoTramite] = useState([])
   const [guardado, setGuardado] = useState(false)
@@ -48,6 +50,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     abiertoRef.current = true
     setEstado(solicitud.estado || 'Abierto')
     setNota('')
+    setCamposCorregir([])
     setNumeroRef(solicitud.numeroReferencia || '')
     setAdjuntoTramite([])
     setGuardado(false)
@@ -112,12 +115,13 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const numeroRefValido = numeroRef.trim().length > 0 && adjuntoTramite.length > 0
   const esDevolucion = estado === ESTADO_DEVOLUCION
   const notaObligatoria = esDevolucion && nota.trim().length > 0
+  const camposObligatorios = esDevolucion && camposCorregir.length > 0
   const puedeGuardar =
     !subiendo &&
     (estado === 'En Trámite'
       ? numeroRefValido
       : esDevolucion
-        ? esSeleccionado && notaObligatoria
+        ? esSeleccionado && notaObligatoria && camposObligatorios
         : esSeleccionado
           ? !esTransitoSeleccionado || transporteListo
           : esTransitoActual && transporteListo)
@@ -126,15 +130,25 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     if (isCurrent(e)) return
     setEstado(e)
     setNota('')
+    setCamposCorregir([])
     setNumeroRef('')
     setAdjuntoTramite([])
     setErrorSubida('')
   }
 
+  const alternarCampo = (id) => {
+    setCamposCorregir((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    )
+  }
+
   const handleSave = async () => {
     if (!puedeGuardar) return
     setErrorSubida('')
-    const updates = { estado, notaEstado: nota.trim() }
+    const updates = {
+      estado,
+      notaEstado: esDevolucion ? componerMotivoDevolucion(camposCorregir, nota.trim()) : nota.trim(),
+    }
     if (estado === 'En Trámite') {
       if (!numeroRef.trim() || adjuntoTramite.length === 0) return
       setSubiendo(true)
@@ -159,9 +173,11 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     }
     onUpdate(solicitud.id, updates)
     if (esDevolucion) {
-      solicitudDevuelta(solicitud.id, nota.trim())
+      const motivo = componerMotivoDevolucion(camposCorregir, nota.trim())
+      solicitudDevuelta(solicitud.id, motivo)
     }
     setNota('')
+    setCamposCorregir([])
     setNumeroRef('')
     setAdjuntoTramite([])
     setGuardado(true)
@@ -291,6 +307,42 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                         {e === ESTADO_DEVOLUCION ? 'Motivo de la devolución — qué debe corregir' : 'Observaciones del cambio'}
                         {e === ESTADO_DEVOLUCION && <span className="text-red-500">*</span>}
                       </label>
+                      {e === ESTADO_DEVOLUCION && (
+                        <div className="mb-2.5">
+                          <p className="text-[11px] font-extrabold text-brand-deep uppercase tracking-wide mb-1.5">
+                            Campos que debe corregir el solicitante <span className="text-red-500">*</span>
+                          </p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {CAMPOS_DEVOLUCION.map((c) => {
+                              const marcado = camposCorregir.includes(c.id)
+                              return (
+                                <label
+                                  key={c.id}
+                                  className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide cursor-pointer transition-all select-none ${
+                                    marcado
+                                      ? 'border-brand-cyan bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/40'
+                                      : 'border-brand-deep/20 bg-white text-brand-ink/70 hover:border-brand-cyan/50 hover:bg-brand-cyan/5'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={marcado}
+                                    onChange={() => alternarCampo(c.id)}
+                                    className="size-4 shrink-0 accent-brand-cyan"
+                                  />
+                                  <span className="truncate">{c.etiqueta}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                          {camposCorregir.length === 0 && (
+                            <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
+                              <MdInfoOutline className="text-sm shrink-0" />
+                              Marca al menos un campo que el solicitante debe corregir.
+                            </p>
+                          )}
+                        </div>
+                      )}
                       <textarea
                         value={nota}
                         onChange={(ev) => setNota(ev.target.value.toUpperCase())}
@@ -457,7 +509,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                   ? 'Completa número de factura o remisión y adjúntala para poder guardar'
                   : esDevolucion && !notaObligatoria
                     ? 'Escribe el motivo de la devolución para poder guardar'
-                    : 'Debes guardar el cambio de estado para poder cerrar'}
+                    : esDevolucion && !camposObligatorios
+                      ? 'Marca al menos un campo que debe corregir el solicitante'
+                      : 'Debes guardar el cambio de estado para poder cerrar'}
               </span>
             )}
             <button

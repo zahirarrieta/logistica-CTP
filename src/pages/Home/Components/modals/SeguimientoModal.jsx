@@ -11,10 +11,11 @@ import {
   MdDoneAll,
   MdVerified,
   MdMap,
+  MdCheck,
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../estadoColors.js'
-import { nombreDeAsignado, buscarEntrega, buscarDevolucion } from '../solicitudesStore.js'
+import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../solicitudesStore.js'
 import NotificationsPanel from '../../../../components/NotificationsPanel.jsx'
 import EntregaInfo from '../../../../components/EntregaInfo.jsx'
 import imgAbierto from '../EstadoI/Abierto.png'
@@ -60,6 +61,10 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const entrega = buscarEntrega(solicitud)
   const esDev = estado === 'Devolución a Solicitante'
   const devolucion = esDev ? buscarDevolucion(solicitud) : null
+  const { campos: camposCorregir, texto: textoMotivo } = parsearMotivoDevolucion(devolucion?.nota)
+  const etiquetasCorregir = camposCorregir
+    .map((id) => CAMPOS_DEVOLUCION.find((c) => c.id === id)?.etiqueta)
+    .filter(Boolean)
   const imagen =
     enTransito && esElite
       ? imgTransitoElite
@@ -117,7 +122,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
               <NotificationsPanel solicitudes={solicitudes || []} glow solicitudId={solicitud.id} paginado fixed />
             </div>
             <div className="overflow-y-auto p-4 sm:p-6 pt-14 sm:pt-14 max-h-[calc(92vh-4.5rem)]">
-              <EntregaInfo solicitud={solicitud} entrega={entrega} mostrarEncuesta={false} />
+              <EntregaInfo solicitud={solicitud} entrega={entrega} mostrarEncuesta />
             </div>
           </div>
         ) : (
@@ -172,8 +177,26 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
                   <MdAssignmentReturn className="text-base" />
                   Solicitud devuelta para corrección
                 </p>
-                {devolucion?.nota ? (
-                  <p className="mt-1.5 text-sm font-semibold text-fuchsia-900">Motivo: {devolucion.nota}</p>
+                {etiquetasCorregir.length > 0 && (
+                  <div className="mt-1.5">
+                    <p className="text-[11px] font-extrabold uppercase tracking-wide text-fuchsia-700/80">
+                      Debes corregir:
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {etiquetasCorregir.map((et) => (
+                        <span
+                          key={et}
+                          className="inline-flex items-center gap-1 rounded-full bg-fuchsia-600/15 ring-1 ring-fuchsia-400/50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-fuchsia-800"
+                        >
+                          <MdCheck className="text-sm" />
+                          {et}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {textoMotivo ? (
+                  <p className="mt-1.5 text-sm font-semibold text-fuchsia-900">Motivo: {textoMotivo}</p>
                 ) : (
                   <p className="mt-1.5 text-sm font-medium text-fuchsia-800/80">El administrador devolvió esta solicitud. Revisa los datos y vuelve a enviarla.</p>
                 )}

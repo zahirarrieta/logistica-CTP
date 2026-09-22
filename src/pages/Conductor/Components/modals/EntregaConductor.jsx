@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MdClose, MdCheckCircle, MdNotes, MdPhotoCamera, MdPerson, MdWorkOutline, MdEmail } from 'react-icons/md'
+import { MdClose, MdCheckCircle, MdNotes, MdPhotoCamera, MdPerson, MdWorkOutline, MdEmail, MdHistory } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
@@ -9,6 +9,8 @@ import {
   guardarBorradorEntrega,
   cargarBorradorEntrega,
   eliminarBorradorEntrega,
+  cargarContactosEncuesta,
+  guardarContactoEncuesta,
 } from '../../../Home/Components/solicitudesStore.js'
 
 function dataUrlABlob(dataUrl) {
@@ -21,14 +23,14 @@ function dataUrlABlob(dataUrl) {
 }
 
 const PREGUNTAS = [
-  'Atención recibida en la entrega',
-  'Estado en el que llegó la mercancía',
-  'Puntualidad de la entrega',
-  'Presentación del mensajero',
-  'Satisfacción general con el servicio',
+  'TIEMPO EN ENTREGA',
+  'ESTADO DEL PRODUCTO',
+  'DISPONIBILIDAD DE LA INFORMACIÓN',
+  'AMABILIDAD Y ACTITUD DEL SERVICIO',
+  'ATENCIÓN DE UN RECLAMO (VISITA, SEGUIMIENTO)',
 ]
 
-const CALIFICACIONES = [' Muy malo', ' Malo', ' Regular', ' Bueno', ' Muy bueno']
+const CALIFICACIONES = ['Malo', 'Regular', 'Bueno']
 
 export default function EntregaConductor({ solicitud, open, onClose, onUpdate, destino }) {
   const [observaciones, setObservaciones] = useState('')
@@ -38,6 +40,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
   const [correo, setCorreo] = useState('')
   const [puntuaciones, setPuntuaciones] = useState({})
   const [guardando, setGuardando] = useState(false)
+  const [contactos, setContactos] = useState([])
   const fileRef = useRef(null)
   const abiertoRef = useRef(false)
 
@@ -53,11 +56,15 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     abiertoRef.current = true
     setGuardando(false)
     const borrador = solicitud ? cargarBorradorEntrega(solicitud.id) : null
+    const recientes = cargarContactosEncuesta()
+    const ultimo = recientes[0]
+    setContactos(recientes)
     setObservaciones(borrador?.observaciones || '')
     setEvidencia(borrador?.evidencia || '')
-    setNombreEncuestado(borrador?.nombreEncuestado || '')
-    setCargo(borrador?.cargo || '')
-    setCorreo(borrador?.correo || '')
+    // Si no hay borrador, precarga el último contacto usado para no repetir datos.
+    setNombreEncuestado(borrador?.nombreEncuestado || ultimo?.nombre || '')
+    setCargo(borrador?.cargo || ultimo?.cargo || '')
+    setCorreo(borrador?.correo || ultimo?.correo || '')
     setPuntuaciones(borrador?.puntuaciones || {})
   }, [open, solicitud])
 
@@ -137,6 +144,13 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     }
     eliminarBorradorEntrega(solicitud.id)
     const preguntas = PREGUNTAS.map((p) => ({ pregunta: p, puntuacion: puntuaciones[p] || 0 }))
+    setContactos(
+      guardarContactoEncuesta({
+        nombre: nombreEncuestado.trim(),
+        cargo: cargo.trim(),
+        correo: correo.trim(),
+      })
+    )
     onUpdate(solicitud.id, {
       estado: estadoEntrega,
       notaEstado: observaciones.trim(),
@@ -260,6 +274,33 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
               <p className="text-xs text-brand-ink/60 mt-0.5">Los campos con * son obligatorios para finalizar la entrega.</p>
             </div>
 
+            {contactos.length > 0 && (
+              <div className="rounded-xl bg-white/70 ring-1 ring-brand-cyan/30 px-3 py-2.5">
+                <p className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-brand-deep mb-1.5">
+                  <MdHistory className="text-sm text-brand-cyan" />
+                  Contactos recientes — toca para llenar
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {contactos.map((c) => (
+                    <button
+                      key={`${c.nombre}|${c.cargo}|${c.correo}`}
+                      type="button"
+                      onClick={() => {
+                        setNombreEncuestado(c.nombre || '')
+                        setCargo(c.cargo || '')
+                        setCorreo(c.correo || '')
+                      }}
+                      title={`${c.cargo || 'Sin cargo'} · ${c.correo || 'Sin correo'}`}
+                      className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 ring-1 ring-brand-cyan/40 px-2.5 py-1 text-[11px] font-bold text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors max-w-full"
+                    >
+                      <MdPerson className="text-sm shrink-0" />
+                      <span className="truncate max-w-[160px]">{c.nombre || c.correo}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2.5">
               <div>
                 <label className="block text-[11px] font-bold text-brand-ink/70 mb-1">Nombre del encuestado *</label>
@@ -303,18 +344,19 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
             <div className="border-t border-brand-ink/10 pt-3 space-y-4">
               <div className="flex items-center justify-between text-[11px] font-bold text-brand-ink/50 px-0.5">
                 <span>1 = Malo</span>
-                <span>3 = Regular</span>
-                <span>5 = Excelente</span>
+                <span>2 = Regular</span>
+                <span>3 = Bueno</span>
               </div>
               {PREGUNTAS.map((p, i) => {
                 const rating = puntuaciones[p] || 0
                 return (
                   <div key={p} className="space-y-2 flex flex-col items-center">
-                    <span className="block text-xs font-semibold text-brand-ink/70 text-center">
+                    <span className="block text-xs font-semibold text-brand-ink/70 text-center uppercase">
                       {i + 1}. {p} *
                     </span>
                     <StarRating
                       value={rating}
+                      max={3}
                       onChange={(n) => setPuntuaciones((prev) => ({ ...prev, [p]: n }))}
                     />
                     <span className="block text-[10px] font-bold text-brand-ink/40 text-center">

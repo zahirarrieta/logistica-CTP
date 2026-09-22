@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew } from 'react-icons/md'
+import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
-import { peekNextId, buscarDevolucion } from '../solicitudesStore.js'
+import { peekNextId, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../solicitudesStore.js'
 import { nombrePdfFromUrl } from '../../../../components/pdfUtils.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
@@ -66,6 +66,12 @@ function formatearBytes(bytes) {
 export default function SolicitudModal({ open, onClose, onSubmit, solicitud = null, onEditSubmit }) {
   const { account } = useAuth()
   const modoEdicion = Boolean(solicitud)
+  const devolucion = modoEdicion ? buscarDevolucion(solicitud) : null
+  const { campos: camposCorregir, texto: textoMotivo } = parsearMotivoDevolucion(devolucion?.nota)
+  const etiquetasCorregir = camposCorregir
+    .map((id) => CAMPOS_DEVOLUCION.find((c) => c.id === id)?.etiqueta)
+    .filter(Boolean)
+  const corregirCliente = camposCorregir.includes('cliente')
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
   const [formData, setFormData] = useState({
     nombreCompleto: account?.name || '',
@@ -263,6 +269,14 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
           tipoSolicitud: formData.tipoSolicitud,
           observaciones: formData.observaciones,
           adjuntos: [...existentes, ...urlsNuevas],
+          ...(corregirCliente
+            ? {
+                cliente: formData.cliente,
+                bodega: formData.bodega,
+                nit: formData.nit,
+                zona: formData.zona,
+              }
+            : {}),
         })
       }
       resetForm()
@@ -302,7 +316,6 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
   if (!open) return null
 
   const siguienteId = modoEdicion ? solicitud.id : peekNextId()
-  const devolucion = modoEdicion ? buscarDevolucion(solicitud) : null
 
   return (
     <>
@@ -348,13 +361,33 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
                 <MdAssignmentReturn className="text-base" />
                 Solicitud devuelta — corrige y reenvía
               </p>
-              {devolucion?.nota ? (
-                <p className="mt-1 font-semibold">Motivo: {devolucion.nota}</p>
+              {etiquetasCorregir.length > 0 && (
+                <div className="mt-1.5">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-fuchsia-700/80">
+                    Debes corregir:
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {etiquetasCorregir.map((et) => (
+                      <span
+                        key={et}
+                        className="inline-flex items-center gap-1 rounded-full bg-fuchsia-600/15 ring-1 ring-fuchsia-400/50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-fuchsia-800"
+                      >
+                        <MdCheck className="text-sm" />
+                        {et}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {textoMotivo ? (
+                <p className="mt-1.5 font-semibold">Motivo: {textoMotivo}</p>
               ) : (
                 <p className="mt-1 font-medium text-fuchsia-700/80">Revisa los datos y vuelve a enviar la solicitud.</p>
               )}
               <p className="mt-1 text-xs text-fuchsia-700/70">
-                Puedes editar el tipo de solicitud, las observaciones y los adjuntos. Al guardar volverá a estado Abierto.
+                {corregirCliente
+                  ? 'Puedes editar el cliente, el tipo de solicitud, las observaciones y los adjuntos. Al guardar volverá a estado Abierto.'
+                  : 'Puedes editar el tipo de solicitud, las observaciones y los adjuntos. Al guardar volverá a estado Abierto.'}
               </p>
             </div>
           )}
@@ -415,7 +448,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
                 icon={<MdBusiness className="text-sm" />}
                 invalid={errores.includes('Cliente')}
               />
-              {!modoEdicion && (
+              {(!modoEdicion || corregirCliente) && (
                 <button
                   type="button"
                   onClick={() => setClientPickerOpen(true)}

@@ -18,14 +18,13 @@ import StarRating from './StarRating.jsx'
 import EvidenciaVisor from './EvidenciaVisor.jsx'
 import { safeText } from '../pages/Home/Components/solicitudesStore.js'
 
-const CALIFICACIONES = ['Muy malo', 'Malo', 'Regular', 'Bueno', 'Muy bueno']
+const CALIFICACIONES = ['Malo', 'Regular', 'Bueno']
 
+// Índice = puntuación (0 = sin puntuar, 1 = Malo, 2 = Regular, 3 = Bueno).
 const PUNTAJE_COLOR = [
-  'bg-red-100 text-red-700',
+  'bg-gray-100 text-gray-600',
   'bg-red-100 text-red-700',
   'bg-orange-100 text-orange-700',
-  'bg-amber-100 text-amber-800',
-  'bg-green-100 text-green-700',
   'bg-green-100 text-green-700',
 ]
 
@@ -167,8 +166,8 @@ export default function EntregaInfo({ solicitud, entrega, mostrarEncuesta = true
                   <span className="grid place-items-center size-6 shrink-0 rounded-full bg-brand-cyan/20 text-[11px] font-extrabold text-brand-deep">
                     {i + 1}
                   </span>
-                  <span className="min-w-0 flex-1 text-xs font-semibold text-brand-ink/80">{p.pregunta}</span>
-                  <StarRating value={puntaje} disabled compact />
+                  <span className="min-w-0 flex-1 text-xs font-semibold text-brand-ink/80 uppercase">{p.pregunta}</span>
+                  <StarRating value={puntaje} max={3} disabled compact />
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${PUNTAJE_COLOR[puntaje]}`}
                   >
@@ -181,13 +180,13 @@ export default function EntregaInfo({ solicitud, entrega, mostrarEncuesta = true
             {promedio !== null && (
               <div className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 ring-2 ring-brand-cyan/50 shadow-sm">
                 <span className="text-2xl font-black text-brand-deep tabular-nums">{promedio.toFixed(1)}</span>
-                <StarRating value={Math.round(promedio)} disabled compact />
+                <StarRating value={Math.round(promedio)} max={3} disabled compact />
                 <span className="ml-auto text-right">
                   <span className="block text-[10px] font-extrabold uppercase tracking-wide text-brand-ink/50">
                     Promedio
                   </span>
                   <span className="block text-xs font-extrabold text-brand-deep">
-                    {CALIFICACIONES[Math.min(4, Math.max(0, Math.round(promedio) - 1))]}
+                    {CALIFICACIONES[Math.min(2, Math.max(0, Math.round(promedio) - 1))]}
                   </span>
                 </span>
               </div>
