@@ -131,7 +131,9 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
       try {
         const subida = await subirDocEntregaOneDrive(
           dataUrlABlob(evidencia),
-          solicitud.numeroReferencia || solicitud.id
+          solicitud.numeroReferencia || solicitud.id,
+          solicitud.nombreCompleto,
+          solicitud.id
         )
         if (subida?.url) {
           evidenciaFinal = subida.url

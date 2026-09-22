@@ -260,7 +260,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
       if (nuevos.length > 0) {
         try {
           setSubiendoMsg(`Subiendo ${nuevos.length} archivo(s) a OneDrive…`)
-          const subidos = await subirAdjuntosOneDrive(nuevos, formData.correo, solicitud.id)
+          const subidos = await subirAdjuntosOneDrive(nuevos, formData.nombreCompleto, solicitud.id)
           urlsNuevas = subidos.map((s) => s.url).filter(Boolean)
           documentosSubidos({ id: solicitud.id, nombres: nuevos.map((f) => f.name) })
           setSubiendoMsg('')
@@ -303,7 +303,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
       setSubiendoMsg(`Subiendo ${formData.adjuntos.length} archivo(s) a OneDrive…`)
       const subidos = await subirAdjuntosOneDrive(
         formData.adjuntos,
-        formData.correo,
+        formData.nombreCompleto,
         idSolicitud,
       )
       adjuntosUrls = subidos.map((s) => s.url).filter(Boolean)

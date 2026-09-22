@@ -182,22 +182,34 @@ async function subirArchivo(token, driveId, padreId, nombre, body, mime) {
   return { nombre: data.name || nombre, url: data.webUrl || data['@microsoft.graph.downloadUrl'] || '' }
 }
 
-export async function subirAdjuntosOneDrive(archivos, correo, idSolicitud) {
+// Asegura la ruta solicitudes/{usuario}/{idSolicitud}[/{sub}] bajo la carpeta
+// compartida y devuelve el contenedor final (cofre del expediente del pedido).
+async function asegurarCarpetaSolicitud(token, raiz, usuario, idSolicitud, sub = '') {
+  let padre = raiz
+  const niveles = [sanitizarRuta(usuario || 'SinUsuario'), sanitizarRuta(idSolicitud)]
+  if (sub) niveles.push(sub)
+  for (const nivel of niveles) {
+    const id = await asegurarSubcarpeta(token, padre, nivel)
+    padre = { driveId: raiz.driveId, rootId: id }
+  }
+  return { driveId: raiz.driveId, rootId: padre.rootId }
+}
+
+export async function subirAdjuntosOneDrive(archivos, usuario, idSolicitud) {
   if (!Array.isArray(archivos) || archivos.length === 0) return []
 
   const token = await obtenerTokenGraph()
   const raiz = await raizPara(token)
-  // Adjuntos directamente en la carpeta compartida, organizados por pedido
-  // (sin carpeta por usuario para que todos vean los mismos documentos).
-  const carpetaSolicitud = sanitizarRuta(idSolicitud)
-  const idSolicitudCarpeta = await asegurarSubcarpeta(token, raiz, carpetaSolicitud)
+  // El expediente completo del pedido vive en solicitudes/{usuario}/{idSolicitud}:
+  // al abrir la carpeta del solicitante se ve todo junto, por pedido.
+  const carpeta = await asegurarCarpetaSolicitud(token, raiz, usuario, idSolicitud)
 
   const resultados = []
   for (const archivo of archivos) {
     const subido = await subirArchivo(
       token,
-      raiz.driveId,
-      idSolicitudCarpeta,
+      carpeta.driveId,
+      carpeta.rootId,
       sanitizarRuta(archivo.name),
       archivo,
       archivo.type || 'application/octet-stream'
@@ -208,39 +220,34 @@ export async function subirAdjuntosOneDrive(archivos, correo, idSolicitud) {
       tamaño: archivo.size,
       tipo: archivo.type,
     })
-    console.info(`[OneDrive] subido ${archivo.name} a la carpeta compartida → ${subido.url || '(sin webUrl)'}`)
+    console.info(`[OneDrive] adjunto subido a la carpeta compartida → ${subido.url || '(sin webUrl)'}`)
   }
 
   return resultados
 }
 
-export async function asegurarCarpetaFacturas(token) {
-  const raiz = await raizPara(token)
-  return asegurarSubcarpeta(token, raiz, CARPETA_FACTURAS)
-}
-
-export async function asegurarCarpetaEntregas(token) {
-  const raiz = await raizPara(token)
-  return asegurarSubcarpeta(token, raiz, CARPETA_ENTREGAS)
-}
-
-export async function subirFacturaRemisionOneDrive(archivos, numeroFactura) {
+export async function subirFacturaRemisionOneDrive(archivos, numeroFactura, usuario, idSolicitud) {
   if (!Array.isArray(archivos) || archivos.length === 0) return []
 
   const token = await obtenerTokenGraph()
   const raiz = await raizPara(token)
-  const idFacturas = await asegurarSubcarpeta(token, raiz, CARPETA_FACTURAS)
+  const carpeta = await asegurarCarpetaSolicitud(
+    token,
+    raiz,
+    usuario,
+    idSolicitud,
+    CARPETA_FACTURAS
+  )
 
   const numero = sanitizarRuta(String(numeroFactura || '').trim() || 'SinNumero')
   const resultados = []
 
   for (const archivo of archivos) {
-    const nombreArchivo = sanitizarRuta(archivo.name)
-    const nombreDestino = `${numero}_${nombreArchivo}`
+    const nombreDestino = `${numero}_${sanitizarRuta(archivo.name)}`
     const subido = await subirArchivo(
       token,
-      raiz.driveId,
-      idFacturas,
+      carpeta.driveId,
+      carpeta.rootId,
       nombreDestino,
       archivo,
       archivo.type || 'application/pdf'
@@ -257,22 +264,27 @@ export async function subirFacturaRemisionOneDrive(archivos, numeroFactura) {
   return resultados
 }
 
-export async function subirDocEntregaOneDrive(blob, referencia) {
+export async function subirDocEntregaOneDrive(blob, referencia, usuario, idSolicitud) {
   if (!blob) return null
 
   const token = await obtenerTokenGraph()
   const raiz = await raizPara(token)
-  const idEntregas = await asegurarSubcarpeta(token, raiz, CARPETA_ENTREGAS)
+  const carpeta = await asegurarCarpetaSolicitud(
+    token,
+    raiz,
+    usuario,
+    idSolicitud,
+    CARPETA_ENTREGAS
+  )
 
   const base = sanitizarRuta(String(referencia || '').trim() || 'SinReferencia')
   const extension = (blob.type || '').includes('png') ? 'png' : 'jpg'
-  const sufijo = Date.now().toString().slice(-6)
-  const nombreDestino = `${base}_${sufijo}.${extension}`
+  const nombreDestino = `${base}_${Date.now().toString().slice(-6)}.${extension}`
 
   const subido = await subirArchivo(
     token,
-    raiz.driveId,
-    idEntregas,
+    carpeta.driveId,
+    carpeta.rootId,
     nombreDestino,
     blob,
     blob.type || 'image/jpeg'

@@ -153,7 +153,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
       if (!numeroRef.trim() || adjuntoTramite.length === 0) return
       setSubiendo(true)
       try {
-        const subidos = await subirFacturaRemisionOneDrive(adjuntoTramite, numeroRef.trim())
+        const subidos = await subirFacturaRemisionOneDrive(adjuntoTramite, numeroRef.trim(), solicitud.nombreCompleto, solicitud.id)
         updates.numeroReferencia = numeroRef.trim()
         updates.adjuntosTramite = adjuntoTramite.map((f) => f.name)
         const urls = subidos.map((s) => s.url).filter(Boolean)

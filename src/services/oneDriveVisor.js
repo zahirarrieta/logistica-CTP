@@ -1,7 +1,6 @@
 import { obtenerTokenGraph, resolverCarpetaRaiz } from './oneDriveApi.js'
 
 const RAIZ = 'solicitudes'
-const CARPETAS_CONOCIDAS = '(FacturasoRemisiones|DocEntregas)'
 
 export function esUrlOneDrive(url) {
   return (
@@ -58,14 +57,15 @@ async function resultado(item, token, mime, urlBase) {
 }
 
 // Último recurso: busca el archivo por nombre dentro de la carpeta compartida
-// (baja hasta 2 niveles: subcarpetas), sin depender de la ruta guardada.
+// (puede estar en solicitudes/{usuario}/{idSolicitud}/.…). Sin depender de la
+// ruta guardada.
 async function buscarItemPorNombre(token, raiz, objetivo) {
   if (!objetivo) return null
   const cola = [{ itemId: raiz.rootId, prof: 0 }]
   const vistos = new Set()
   while (cola.length) {
     const { itemId, prof } = cola.shift()
-    if (prof > 2 || vistos.has(itemId)) continue
+    if (prof > 4 || vistos.has(itemId)) continue
     vistos.add(itemId)
     const lista = await graphJson(
       `/drives/${raiz.driveId}/items/${itemId}/children?$select=id,name,folder,file,webUrl&$top=200`,
@@ -108,13 +108,15 @@ export async function resolverArchivoOneDrive(url, { carpeta = '', mime = '' } =
     const raiz = await resolverCarpetaRaiz(token)
 
     if (esHttp) {
-      // 1) Ruta directa dentro de una carpeta conocida (OneDrive/SharePoint compartido)
-      const match = url.match(new RegExp(`/${CARPETAS_CONOCIDAS}/([^/?&#]+)`, 'i'))
-      if (match) {
+      // 1) Ruta directa: si la URL apunta dentro de la carpeta compartida
+      //    'solicitudes', se resuelve la parte relativa (sirve para cualquier
+      //    profundidad: solicitudes/{usuario}/{idSolicitud}/{sub}/{archivo}).
+      const idx = url.toLowerCase().indexOf('/solicitudes/')
+      if (idx >= 0) {
         try {
-          const archivo = decodeURIComponent(match[2]).split('?')[0]
+          const relativo = url.slice(idx + '/solicitudes/'.length).split(/[?#]/)[0]
           const item = await graphJson(
-            `/drives/${raiz.driveId}/items/${raiz.rootId}:/${match[1]}/${encodeURIComponent(archivo)}`,
+            `/drives/${raiz.driveId}/items/${raiz.rootId}:/${relativo}`,
             token
           )
           return await resultado(item, token, mime, url)
