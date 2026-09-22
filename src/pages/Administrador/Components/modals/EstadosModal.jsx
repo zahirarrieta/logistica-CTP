@@ -3,9 +3,10 @@ import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers
 import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../Home/Components/estadoColors.js'
 import { subirFacturaRemisionOneDrive } from '../../../../services/oneDriveApi.js'
-import { documentosSubidos, errorSubida as notificarErrorSubida } from '../../../../services/notificaciones.jsx'
+import { documentosSubidos, errorSubida as notificarErrorSubida, solicitudDevuelta } from '../../../../services/notificaciones.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
+const ESTADO_DEVOLUCION = 'Devolución a Solicitante'
 
 function Requisito({ listo, label }) {
   return (
@@ -109,13 +110,17 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const transporteListo = Boolean(solicitud.conductor && solicitud.vehiculo && solicitud.placa)
   const bloqueadoCerrar = !guardado
   const numeroRefValido = numeroRef.trim().length > 0 && adjuntoTramite.length > 0
+  const esDevolucion = estado === ESTADO_DEVOLUCION
+  const notaObligatoria = esDevolucion && nota.trim().length > 0
   const puedeGuardar =
     !subiendo &&
     (estado === 'En Trámite'
       ? numeroRefValido
-      : esSeleccionado
-        ? !esTransitoSeleccionado || transporteListo
-        : esTransitoActual && transporteListo)
+      : esDevolucion
+        ? esSeleccionado && notaObligatoria
+        : esSeleccionado
+          ? !esTransitoSeleccionado || transporteListo
+          : esTransitoActual && transporteListo)
 
   const handleSelect = (e) => {
     if (isCurrent(e)) return
@@ -153,6 +158,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
       setSubiendo(false)
     }
     onUpdate(solicitud.id, updates)
+    if (esDevolucion) {
+      solicitudDevuelta(solicitud.id, nota.trim())
+    }
     setNota('')
     setNumeroRef('')
     setAdjuntoTramite([])
@@ -280,15 +288,26 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                     <div className="mt-1.5 rounded-xl bg-brand-ink/5 border border-brand-cyan/30 p-3 animate-fadeIn">
                       <label className="flex items-center gap-2 text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-2">
                         <MdNotes className="text-base text-brand-cyan" />
-                        Observaciones del cambio
+                        {e === ESTADO_DEVOLUCION ? 'Motivo de la devolución — qué debe corregir' : 'Observaciones del cambio'}
+                        {e === ESTADO_DEVOLUCION && <span className="text-red-500">*</span>}
                       </label>
                       <textarea
                         value={nota}
-                        onChange={(e) => setNota(e.target.value.toUpperCase())}
+                        onChange={(ev) => setNota(ev.target.value.toUpperCase())}
                         rows={3}
-                        placeholder="ESCRIBE LAS OBSERVACIONES DEL CAMBIO DE ESTADO…"
-                        className="w-full rounded-xl border border-brand-deep/20 bg-white px-3 py-2.5 text-sm uppercase text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all resize-none"
+                        placeholder={e === ESTADO_DEVOLUCION ? 'ESCRIBE QUÉ ESTÁ MAL Y QUÉ DEBE CORREGIR EL SOLICITANTE…' : 'ESCRIBE LAS OBSERVACIONES DEL CAMBIO DE ESTADO…'}
+                        className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm uppercase text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:ring-4 focus:outline-none transition-all resize-none ${
+                          e === ESTADO_DEVOLUCION && !nota.trim()
+                            ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
+                            : 'border-brand-deep/20 focus:border-brand-deep/60 focus:ring-brand-deep/10'
+                        }`}
                       />
+                      {e === ESTADO_DEVOLUCION && !nota.trim() && (
+                        <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
+                          <MdInfoOutline className="text-sm shrink-0" />
+                          Indica el motivo para poder devolver la solicitud al solicitante.
+                        </p>
+                      )}
                       {e === 'En Trámite' && (
                         <div className="mt-2 space-y-2">
                           <div>
@@ -436,7 +455,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                 <MdInfoOutline className="text-base shrink-0" />
                 {estado === 'En Trámite' && !numeroRefValido
                   ? 'Completa número de factura o remisión y adjúntala para poder guardar'
-                  : 'Debes guardar el cambio de estado para poder cerrar'}
+                  : esDevolucion && !notaObligatoria
+                    ? 'Escribe el motivo de la devolución para poder guardar'
+                    : 'Debes guardar el cambio de estado para poder cerrar'}
               </span>
             )}
             <button

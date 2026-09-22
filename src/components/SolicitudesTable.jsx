@@ -25,6 +25,7 @@ import {
   MdMap,
   MdDescription,
   MdDeleteOutline,
+  MdAssignmentReturn,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../pages/Home/Components/estadoColors.js'
 import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
@@ -38,6 +39,7 @@ const ITEMS_PER_PAGE = 10
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const enTransito = (s) => ESTADOS_TRANSITO.includes(s.estado)
 const esEntregado = (s) => ['Entregado', 'Entregado Parcial'].includes(s.estado)
+const esDevolucion = (s) => s.estado === 'Devolución a Solicitante'
 const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !== '')
 
 function Row({ icon, label, value }) {
@@ -107,11 +109,12 @@ function HistorialButton({ onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const cardBg = colorRow ? getEstadoBg(s.estado) : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
-  const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick || onSeguimientoClick || onEliminarClick)
+  const mostrarCorregir = Boolean(onCorregirClick) && esDevolucion(s)
+  const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick || onSeguimientoClick || onEliminarClick || mostrarCorregir)
 
   return (
     <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${cardBg}`}>
@@ -200,6 +203,21 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
           </div>
           {hasCardAcciones && (
             <div className="flex flex-col items-stretch sm:grid sm:grid-cols-4 gap-2 pt-2">
+              {mostrarCorregir && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onCorregirClick(s)
+                  }}
+                  title="Corregir y reenviar solicitud"
+                  aria-label="Corregir solicitud"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-500 hover:text-white transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdAssignmentReturn className="text-lg" />
+                  Corregir
+                </button>
+              )}
               {onAsignarClick && !esEntregado(s) && (
                 <button
                   type="button"
@@ -301,7 +319,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
   )
 }
 
-export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, cardActions, empty, colorRowsPorEstado }) {
+export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCorregirClick, cardActions, empty, colorRowsPorEstado }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [obsSolicitud, setObsSolicitud] = useState(null)
@@ -317,7 +335,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
 
   const openObs = (s) => setObsSolicitud(s)
   const openDetalle = (s) => setDetalleSolicitud(s)
-  const hasAcciones = Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick)
+  const hasAcciones = Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick || onCorregirClick)
 
   const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1
   const page = Math.min(currentPage, totalPages)
@@ -353,6 +371,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
             onSeguimientoClick={onSeguimientoClick}
             onEntregaDetallesClick={onEntregaDetallesClick}
             onEliminarClick={onEliminarClick}
+            onCorregirClick={onCorregirClick}
             onClickObs={openObs}
             onVerAdjuntosClick={setAdjuntosSolicitud}
             colorRow={colorRowsPorEstado}
@@ -486,6 +505,20 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                   {hasAcciones && (
                     <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${colorRowsPorEstado ? getEstadoBg(s.estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')}`}>
                       <div className="flex items-center justify-center gap-1.5">
+                        {onCorregirClick && esDevolucion(s) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onCorregirClick(s)
+                            }}
+                            title="Corregir y reenviar solicitud"
+                            aria-label="Corregir solicitud"
+                            className="grid place-items-center size-9 rounded-full bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-500 hover:text-white transition-colors"
+                          >
+                            <MdAssignmentReturn className="text-xl" />
+                          </button>
+                        )}
                         {onAsignarClick && !esEntregado(s) && (
                           <button
                             type="button"

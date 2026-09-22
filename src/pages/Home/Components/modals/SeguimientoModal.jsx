@@ -14,7 +14,7 @@ import {
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../estadoColors.js'
-import { nombreDeAsignado, buscarEntrega } from '../solicitudesStore.js'
+import { nombreDeAsignado, buscarEntrega, buscarDevolucion } from '../solicitudesStore.js'
 import NotificationsPanel from '../../../../components/NotificationsPanel.jsx'
 import EntregaInfo from '../../../../components/EntregaInfo.jsx'
 import imgAbierto from '../EstadoI/Abierto.png'
@@ -50,7 +50,7 @@ const ICONOS_POR_ESTADO = {
   Entregado: MdVerified,
 }
 
-export default function SeguimientoModal({ solicitud, open, onClose, solicitudes }) {
+export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir }) {
   if (!open || !solicitud) return null
 
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
@@ -58,6 +58,8 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const esElite = conductor.toLowerCase() === 'elite'
   const estado = solicitud.estado || 'Abierto'
   const entrega = buscarEntrega(solicitud)
+  const esDev = estado === 'Devolución a Solicitante'
+  const devolucion = esDev ? buscarDevolucion(solicitud) : null
   const imagen =
     enTransito && esElite
       ? imgTransitoElite
@@ -163,6 +165,30 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
               <NotificationsPanel solicitudes={solicitudes || []} glow solicitudId={solicitud.id} paginado fixed />
             </div>
             </div>
+
+            {esDev && (
+              <div className="m-4 sm:m-6 rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-4 py-3">
+                <p className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-fuchsia-700">
+                  <MdAssignmentReturn className="text-base" />
+                  Solicitud devuelta para corrección
+                </p>
+                {devolucion?.nota ? (
+                  <p className="mt-1.5 text-sm font-semibold text-fuchsia-900">Motivo: {devolucion.nota}</p>
+                ) : (
+                  <p className="mt-1.5 text-sm font-medium text-fuchsia-800/80">El administrador devolvió esta solicitud. Revisa los datos y vuelve a enviarla.</p>
+                )}
+                {onCorregir && (
+                  <button
+                    type="button"
+                    onClick={() => onCorregir(solicitud)}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full bg-fuchsia-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-fuchsia-700 hover:-translate-y-0.5 transition-all"
+                  >
+                    <MdAssignmentReturn className="text-lg" />
+                    Corregir y reenviar
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

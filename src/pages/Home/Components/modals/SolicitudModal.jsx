@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility } from 'react-icons/md'
+import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
-import { peekNextId } from '../solicitudesStore.js'
+import { peekNextId, buscarDevolucion } from '../solicitudesStore.js'
+import { nombrePdfFromUrl } from '../../../../components/pdfUtils.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
 import { subirAdjuntosOneDrive } from '../../../../services/oneDriveApi.js'
@@ -19,9 +20,18 @@ const TIPO_SOLICITUD_OPTIONS = [
   { value: 'RECOLECCIÓN DE DISPOSITIVOS', label: 'RECOLECCIÓN DE DISPOSITIVOS' },
 ]
 
+function nombreAdjunto(item) {
+  if (typeof item === 'string') return nombrePdfFromUrl(item, 'Adjunto')
+  return item?.name || ''
+}
+
+function esUrlAdjunto(item) {
+  return typeof item === 'string'
+}
+
 function iconoArchivo(archivo) {
-  const nombre = archivo.name || ''
-  const tipo = archivo.type || ''
+  const nombre = nombreAdjunto(archivo)
+  const tipo = esUrlAdjunto(archivo) ? '' : archivo.type || ''
   if (tipo.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(nombre)) {
     return <MdImage className="text-blue-500" />
   }
@@ -35,14 +45,14 @@ function iconoArchivo(archivo) {
 }
 
 function esImagen(archivo) {
-  const tipo = archivo.type || ''
-  const nombre = archivo.name || ''
+  const tipo = esUrlAdjunto(archivo) ? '' : archivo.type || ''
+  const nombre = nombreAdjunto(archivo)
   return tipo.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(nombre)
 }
 
 function esPdf(archivo) {
-  const tipo = archivo.type || ''
-  const nombre = archivo.name || ''
+  const tipo = esUrlAdjunto(archivo) ? '' : archivo.type || ''
+  const nombre = nombreAdjunto(archivo)
   return tipo === 'application/pdf' || /\.pdf$/i.test(nombre)
 }
 
@@ -53,8 +63,9 @@ function formatearBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function SolicitudModal({ open, onClose, onSubmit }) {
+export default function SolicitudModal({ open, onClose, onSubmit, solicitud = null, onEditSubmit }) {
   const { account } = useAuth()
+  const modoEdicion = Boolean(solicitud)
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
   const [formData, setFormData] = useState({
     nombreCompleto: account?.name || '',
@@ -91,6 +102,44 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
       urlsRef.current.delete(file)
     }
   }
+
+  // Al abrir el modal: en edición precarga los datos de la solicitud devuelta;
+  // en creación deja el formulario en blanco con los datos del usuario.
+  useEffect(() => {
+    if (!open) return
+    urlsRef.current.forEach((u) => URL.revokeObjectURL(u))
+    urlsRef.current.clear()
+    setPreviewAbierto(null)
+    setErrores([])
+    setLoading(false)
+    setSubiendoMsg('')
+    if (solicitud) {
+      setFormData({
+        nombreCompleto: solicitud.nombreCompleto || account?.name || '',
+        correo: solicitud.correo || account?.username || '',
+        tipoSolicitud: solicitud.tipoSolicitud || '',
+        cliente: solicitud.cliente || '',
+        bodega: solicitud.bodega || '',
+        nit: solicitud.nit || '',
+        zona: solicitud.zona || '',
+        adjuntos: Array.isArray(solicitud.adjuntos) ? [...solicitud.adjuntos] : [],
+        observaciones: solicitud.observaciones || '',
+      })
+    } else {
+      setFormData({
+        nombreCompleto: account?.name || '',
+        correo: account?.username || '',
+        tipoSolicitud: '',
+        cliente: '',
+        bodega: '',
+        nit: '',
+        zona: '',
+        adjuntos: [],
+        observaciones: '',
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, solicitud])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -187,6 +236,40 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
     setErrores([])
     setLoading(true)
 
+    if (modoEdicion) {
+      // En edición los adjuntos pueden ser URLs ya subidas (string) y/o archivos
+      // nuevos (File). Solo se suben a OneDrive los archivos nuevos.
+      const existentes = formData.adjuntos.filter((a) => esUrlAdjunto(a))
+      const nuevos = formData.adjuntos.filter((a) => !esUrlAdjunto(a))
+      let urlsNuevas = []
+      if (nuevos.length > 0) {
+        try {
+          setSubiendoMsg(`Subiendo ${nuevos.length} archivo(s) a OneDrive…`)
+          const subidos = await subirAdjuntosOneDrive(nuevos, formData.correo, solicitud.id)
+          urlsNuevas = subidos.map((s) => s.url).filter(Boolean)
+          documentosSubidos({ id: solicitud.id, nombres: nuevos.map((f) => f.name) })
+          setSubiendoMsg('')
+        } catch (err) {
+          console.error('[SolicitudModal] error subiendo a OneDrive (edición):', err)
+          setSubiendoMsg('')
+          setLoading(false)
+          setErrores([`Error subiendo archivos: ${err.message}`])
+          notificarErrorSubida(err.message, solicitud.id)
+          return
+        }
+      }
+      if (onEditSubmit) {
+        onEditSubmit(solicitud.id, {
+          tipoSolicitud: formData.tipoSolicitud,
+          observaciones: formData.observaciones,
+          adjuntos: [...existentes, ...urlsNuevas],
+        })
+      }
+      resetForm()
+      onClose()
+      return
+    }
+
     const idSolicitud = peekNextId()
     let adjuntosUrls = []
 
@@ -218,7 +301,8 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
 
   if (!open) return null
 
-  const siguienteId = peekNextId()
+  const siguienteId = modoEdicion ? solicitud.id : peekNextId()
+  const devolucion = modoEdicion ? buscarDevolucion(solicitud) : null
 
   return (
     <>
@@ -231,17 +315,17 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="Nueva solicitud"
+        aria-label={modoEdicion ? 'Editar solicitud' : 'Nueva solicitud'}
       >
         {/* Header del modal */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-brand-navy to-brand-deep flex items-center justify-between gap-3 shrink-0">
           <h3 className="text-white font-extrabold text-base sm:text-lg inline-flex items-center gap-2">
             <MdSend className="text-brand-cyan" />
-            NUEVA SOLICITUD
+            {modoEdicion ? 'EDITAR SOLICITUD' : 'NUEVA SOLICITUD'}
           </h3>
           <div className="flex items-center gap-2">
             <span
-              title="Número de la siguiente solicitud"
+              title={modoEdicion ? 'Número de la solicitud' : 'Número de la siguiente solicitud'}
               className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 ring-1 ring-brand-cyan/40 text-brand-cyan px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-bold tracking-wide select-none shadow-[0_0_14px_rgba(0,229,255,0.25)]">
               <MdTag className="text-xs sm:text-sm" />
               {siguienteId}
@@ -258,6 +342,22 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
 
         {/* Cuerpo del formulario */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
+          {modoEdicion && (
+            <div className="rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-3 py-2.5 text-sm text-fuchsia-800">
+              <p className="inline-flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px]">
+                <MdAssignmentReturn className="text-base" />
+                Solicitud devuelta — corrige y reenvía
+              </p>
+              {devolucion?.nota ? (
+                <p className="mt-1 font-semibold">Motivo: {devolucion.nota}</p>
+              ) : (
+                <p className="mt-1 font-medium text-fuchsia-700/80">Revisa los datos y vuelve a enviar la solicitud.</p>
+              )}
+              <p className="mt-1 text-xs text-fuchsia-700/70">
+                Puedes editar el tipo de solicitud, las observaciones y los adjuntos. Al guardar volverá a estado Abierto.
+              </p>
+            </div>
+          )}
           {errores.length > 0 && (
             <div
               role="alert"
@@ -315,15 +415,17 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
                 icon={<MdBusiness className="text-sm" />}
                 invalid={errores.includes('Cliente')}
               />
-              <button
-                type="button"
-                onClick={() => setClientPickerOpen(true)}
-                title="Buscar y seleccionar cliente"
-                aria-label="Seleccionar cliente"
-                className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
-              >
-                <MdSearch className="text-lg" />
-              </button>
+              {!modoEdicion && (
+                <button
+                  type="button"
+                  onClick={() => setClientPickerOpen(true)}
+                  title="Buscar y seleccionar cliente"
+                  aria-label="Seleccionar cliente"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                >
+                  <MdSearch className="text-lg" />
+                </button>
+              )}
             </div>
             <FormField
               label="Bodega"
@@ -381,34 +483,51 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
             {formData.adjuntos.length > 0 && (
               <div className="mt-3 space-y-2">
                 {formData.adjuntos.map((archivo, i) => {
+                  const esUrl = esUrlAdjunto(archivo)
+                  const nombre = nombreAdjunto(archivo)
                   const abierto = previewAbierto === archivo
-                  const puedePrevisualizar = esImagen(archivo) || esPdf(archivo)
+                  const puedePrevisualizar = !esUrl && (esImagen(archivo) || esPdf(archivo))
                   return (
                     <div key={i} className="rounded-lg bg-brand-mist/50 border border-brand-ink/10 overflow-hidden">
                       <div className="flex items-center justify-between gap-2 px-3 py-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-xl shrink-0">{iconoArchivo(archivo)}</span>
                           <span className="min-w-0">
-                            <span className="block text-sm text-brand-ink truncate">{archivo.name}</span>
-                            <span className="block text-[11px] text-brand-ink/50">{formatearBytes(archivo.size)}</span>
+                            <span className="block text-sm text-brand-ink truncate">{nombre}</span>
+                            <span className="block text-[11px] text-brand-ink/50">
+                              {esUrl ? 'Ya subido a OneDrive' : formatearBytes(archivo.size)}
+                            </span>
                           </span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          {puedePrevisualizar && (
-                            <button
-                              type="button"
-                              onClick={() => setPreviewAbierto(abierto ? null : archivo)}
-                              aria-label={abierto ? `Ocultar vista previa de ${archivo.name}` : `Ver vista previa de ${archivo.name}`}
-                              title={abierto ? 'Ocultar vista previa' : 'Ver vista previa'}
+                          {esUrl ? (
+                            <a
+                              href={archivo}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label={`Abrir ${nombre}`}
+                              title="Abrir archivo"
                               className="grid place-items-center size-7 rounded-full text-brand-deep bg-brand-cyan/15 hover:bg-brand-cyan hover:text-brand-ink transition-colors"
                             >
-                              <MdVisibility className="text-lg" />
-                            </button>
+                              <MdOpenInNew className="text-lg" />
+                            </a>
+                          ) : (
+                            puedePrevisualizar && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewAbierto(abierto ? null : archivo)}
+                                aria-label={abierto ? `Ocultar vista previa de ${nombre}` : `Ver vista previa de ${nombre}`}
+                                title={abierto ? 'Ocultar vista previa' : 'Ver vista previa'}
+                                className="grid place-items-center size-7 rounded-full text-brand-deep bg-brand-cyan/15 hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                              >
+                                <MdVisibility className="text-lg" />
+                              </button>
+                            )
                           )}
                           <button
                             type="button"
                             onClick={() => eliminarArchivo(i)}
-                            aria-label={`Eliminar ${archivo.name}`}
+                            aria-label={`Eliminar ${nombre}`}
                             title="Eliminar archivo"
                             className="grid place-items-center size-7 rounded-full text-brand-ink/50 hover:bg-red-100 hover:text-red-600 transition-colors"
                           >
@@ -420,14 +539,14 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
                         esImagen(archivo) ? (
                           <img
                             src={urlPara(archivo)}
-                            alt={`Vista previa de ${archivo.name}`}
+                            alt={`Vista previa de ${nombre}`}
                             className="w-full max-h-72 object-contain border-t border-brand-ink/10 bg-brand-ink/5"
                           />
                         ) : (
                           <object
                             data={urlPara(archivo)}
                             type="application/pdf"
-                            aria-label={`Vista previa de ${archivo.name}`}
+                            aria-label={`Vista previa de ${nombre}`}
                             className="w-full h-64 border-t border-brand-ink/10 bg-brand-ink/5"
                           >
                             <p className="p-3 text-xs text-brand-ink/60">
@@ -485,7 +604,7 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
                 alt="Truck"
                 className="w-6 h-6 object-contain transition-all duration-500 ease-out group-hover:translate-x-2 group-hover:scale-110 group-hover:drop-shadow-[0_4px_8px_rgba(0,0,0,0.25)] group-hover:animate-truckMove"
               />
-              <span className="font-bold tracking-wide text-brand-ink">GUARDAR</span>
+              <span className="font-bold tracking-wide text-brand-ink">{modoEdicion ? 'GUARDAR CAMBIOS' : 'GUARDAR'}</span>
             </button>
           </div>
         </form>

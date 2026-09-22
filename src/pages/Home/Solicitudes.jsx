@@ -7,28 +7,40 @@ import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
-import { loadSolicitudes, saveSolicitud } from './Components/solicitudesStore.js'
-import { solicitudCreada } from '../../services/notificaciones.jsx'
+import { loadSolicitudes, saveSolicitud, corregirSolicitud } from './Components/solicitudesStore.js'
+import { useAuth } from '../../auth/AuthContext.jsx'
+import { solicitudCreada, solicitudCorregida } from '../../services/notificaciones.jsx'
 
 export default function Solicitudes() {
+  const { account } = useAuth()
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [modalOpen, setModalOpen] = useState(false)
+  const [editarSolicitud, setEditarSolicitud] = useState(null)
   const [detalleSolicitud, setDetalleSolicitud] = useState(null)
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
 
+  // «MIS SOLICITUDES» solo muestra las solicitudes creadas por el usuario
+  // conectado (comparando por su correo). Los admin/superadmin ven el total
+  // únicamente en el módulo Administrador.
+  const correoActual = (account?.username || '').trim().toLowerCase()
+  const mias = useMemo(
+    () => solicitudes.filter((s) => (s.correo || '').trim().toLowerCase() === correoActual),
+    [solicitudes, correoActual]
+  )
+
   const filtered = useMemo(() => {
     const cliente = filtroCliente.toLowerCase()
     const zona = filtroZona.toLowerCase()
-    return solicitudes.filter((s) => {
+    return mias.filter((s) => {
       const e = s.estado || 'Abierto'
       if (filterEstado && e !== filterEstado) return false
       if (cliente && !(s.cliente || '').toLowerCase().includes(cliente)) return false
       if (zona && !(s.zona || '').toLowerCase().includes(zona)) return false
       return true
     })
-  }, [solicitudes, filterEstado, filtroCliente, filtroZona])
+  }, [mias, filterEstado, filtroCliente, filtroZona])
 
   const hasFilters = Boolean(filterEstado || filtroCliente || filtroZona)
 
@@ -37,6 +49,21 @@ export default function Solicitudes() {
     setSolicitudes(siguiente)
     solicitudCreada(siguiente[0])
     setModalOpen(false)
+  }
+
+  const esMia = (s) => Boolean(correoActual) && (s.correo || '').trim().toLowerCase() === correoActual
+
+  const handleCorregir = (s) => {
+    if (!esMia(s)) return
+    setDetalleSolicitud(null)
+    setEditarSolicitud(s)
+  }
+
+  const handleEditSubmit = (id, datos) => {
+    const siguiente = corregirSolicitud(id, datos)
+    setSolicitudes(siguiente)
+    setEditarSolicitud(null)
+    solicitudCorregida(id)
   }
 
   return (
@@ -70,9 +97,9 @@ export default function Solicitudes() {
             </div>
           </div>
 
-          {solicitudes.length > 0 && (
+          {mias.length > 0 && (
             <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
-              <EstadoFilter solicitudes={solicitudes} value={filterEstado} onChange={setFilterEstado} />
+              <EstadoFilter solicitudes={mias} value={filterEstado} onChange={setFilterEstado} />
               <SearchFilters
                 cliente={filtroCliente}
                 zona={filtroZona}
@@ -86,6 +113,7 @@ export default function Solicitudes() {
             items={filtered}
             onRowClick={(s) => setDetalleSolicitud(s)}
             onSeguimientoClick={(s) => setDetalleSolicitud(s)}
+            onCorregirClick={handleCorregir}
             empty={
               hasFilters
                 ? {
@@ -111,11 +139,19 @@ export default function Solicitudes() {
         onSubmit={handleNewSolicitud}
       />
 
+      <SolicitudModal
+        open={editarSolicitud !== null}
+        solicitud={editarSolicitud}
+        onClose={() => setEditarSolicitud(null)}
+        onEditSubmit={handleEditSubmit}
+      />
+
       <SeguimientoModal
         solicitud={detalleSolicitud}
         open={detalleSolicitud !== null}
         onClose={() => setDetalleSolicitud(null)}
-        solicitudes={solicitudes}
+        solicitudes={mias}
+        onCorregir={handleCorregir}
       />
     </div>
   )

@@ -1,6 +1,7 @@
 import { sileo } from 'sileo'
 import {
   MdAssignmentInd,
+  MdAssignmentReturn,
   MdCloudDone,
   MdCloudUpload,
   MdErrorOutline,
@@ -88,6 +89,30 @@ export function solicitudAsignada(id, asignadoA) {
         Asignada a «<span className="text-brand-cyan">{asignadoA || 'Sin asignar'}</span>».
       </span>
     ),
+  })
+}
+
+export function solicitudDevuelta(id, motivo) {
+  sileo.warning({
+    ...BASE,
+    duration: 6500,
+    title: titulo(id, 'Solicitud devuelta'),
+    icon: <MdAssignmentReturn />,
+    description: (
+      <>
+        {linea('Devuelta al solicitante para corrección.')}
+        {motivo && detalle(`Motivo: ${motivo}`)}
+      </>
+    ),
+  })
+}
+
+export function solicitudCorregida(id) {
+  sileo.success({
+    ...BASE,
+    title: titulo(id, 'Solicitud corregida'),
+    icon: <MdSend />,
+    description: linea('Tu corrección se envió y la solicitud volvió a estado Abierto.'),
   })
 }
 

@@ -67,6 +67,17 @@ export function buscarEntrega(solicitud) {
   )
 }
 
+// Devuelve la última entrada de historial que marcó la devolución al solicitante,
+// para poder mostrar el motivo indicado por el administrador.
+export function buscarDevolucion(solicitud) {
+  const historial = Array.isArray(solicitud?.historial) ? solicitud.historial : []
+  return (
+    [...historial]
+      .reverse()
+      .find((h) => h.campo === 'estado' && h.nuevo === 'Devolución a Solicitante') || null
+  )
+}
+
 function currentPersona() {
   const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0]
   return shortName(account)
@@ -296,6 +307,16 @@ export function updateSolicitud(id, updates) {
   escribir(next)
   empujar({ id })
   return next
+}
+
+// Corrección tras una devolución: actualiza los campos editables, devuelve la
+// solicitud a estado 'Abierto' y deja constancia en el historial.
+export function corregirSolicitud(id, datos) {
+  return updateSolicitud(id, {
+    ...datos,
+    estado: 'Abierto',
+    notaEstado: 'SOLICITUD CORREGIDA Y REENVIADA POR EL SOLICITANTE',
+  })
 }
 
 export function removeSolicitud(id) {
