@@ -123,6 +123,7 @@ const TEXT_FIELDS = [
   'numeroReferencia',
   'estado',
   'asignadoA',
+  'asignadoCorreo',
   'conductor',
   'vehiculo',
   'placa',
@@ -205,6 +206,7 @@ export function saveSolicitud(data) {
     horaSubida: now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
     estado: 'Abierto',
     asignadoA: '',
+    asignadoCorreo: '',
     historial: [],
     ...data,
   }

@@ -9,6 +9,7 @@ import { saveSolicitud } from './Components/solicitudesStore.js'
 import { solicitudCreada } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { shortName } from '../../auth/user.js'
+import { esConductor } from '../../auth/roles.js'
 
 
 
@@ -25,8 +26,9 @@ const ASSETS = {
 const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional', 'Logística inversa']
 
 function Home() {
-  const { account } = useAuth()
+  const { account, rol } = useAuth()
   const navigate = useNavigate()
+  const conductor = esConductor(rol)
   const [showModal, setShowModal] = useState(false)
   const [solicitudModalOpen, setSolicitudModalOpen] = useState(false)
   const [email, setEmail] = useState('')
@@ -111,7 +113,7 @@ function Home() {
                   <div className="mt-8 sm:mt-10 flex flex-wrap justify-start gap-3">
                     <button
                       type="button"
-                      onClick={() => setSolicitudModalOpen(true)}
+                      onClick={() => (conductor ? navigate('/conductor') : setSolicitudModalOpen(true))}
                       className="group relative inline-flex items-center justify-center rounded-2xl px-10 py-4 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40"
                     >
                       <span className="relative z-10 flex w-full items-center gap-3 transition-all duration-500 group-hover:gap-10">
@@ -121,7 +123,7 @@ function Home() {
                           className="order-1 w-7 h-7 object-contain transition-all duration-500 ease-out group-hover:order-2 group-hover:ml-auto group-hover:translate-x-4 group-hover:scale-110 group-hover:drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)] group-hover:animate-truckMove"
                         />
                         <span className="order-2 flex flex-col items-center tracking-wide text-brand-ink">
-                          NUEVA SOLICITUD
+                          {conductor ? 'MÓDULO CONDUCTOR' : 'NUEVA SOLICITUD'}
                           <span className="mt-1 h-[3px] w-0 rounded-full bg-brand-ink/50 transition-all duration-300 group-hover:w-full group-hover:bg-brand-ink" />
                         </span>
                       </span>

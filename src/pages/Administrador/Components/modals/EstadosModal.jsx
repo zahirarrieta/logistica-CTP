@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers, MdCloudUpload, MdInfoOutline } from 'react-icons/md'
+import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers, MdCloudUpload, MdInfoOutline, MdPictureAsPdf, MdVisibility, MdDeleteOutline } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../Home/Components/estadoColors.js'
 import { subirFacturaRemisionOneDrive } from '../../../../services/oneDriveApi.js'
@@ -30,11 +30,17 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const [editarConductor, setEditarConductor] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [errorSubida, setErrorSubida] = useState('')
+  const [previewAbierto, setPreviewAbierto] = useState(null)
   const abiertoRef = useRef(false)
+  const urlsRef = useRef(new Map())
+  const inputRef = useRef(null)
 
   useEffect(() => {
     if (!open) {
       abiertoRef.current = false
+      urlsRef.current.forEach((u) => URL.revokeObjectURL(u))
+      urlsRef.current.clear()
+      setPreviewAbierto(null)
       return
     }
     if (abiertoRef.current || !solicitud) return
@@ -48,9 +54,51 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setEditarConductor(false)
     setSubiendo(false)
     setErrorSubida('')
+    setPreviewAbierto(null)
   }, [open, solicitud])
 
+  // Libera las URLs de vista previa al desmontar el modal.
+  useEffect(() => () => {
+    urlsRef.current.forEach((u) => URL.revokeObjectURL(u))
+    urlsRef.current.clear()
+  }, [])
+
   if (!open || !solicitud) return null
+
+  const claveArchivo = (f) => `${f.name}|${f.size}|${f.lastModified}`
+  const urlPara = (file) => {
+    if (!urlsRef.current.has(file)) urlsRef.current.set(file, URL.createObjectURL(file))
+    return urlsRef.current.get(file)
+  }
+  const agregarArchivos = (nuevos) => {
+    const lista = Array.from(nuevos || [])
+    if (lista.length === 0) return
+    // Solo se permite UN adjunto: el nuevo reemplaza al anterior.
+    const archivo = lista[0]
+    adjuntoTramite.forEach((f) => {
+      const url = urlsRef.current.get(f)
+      if (url) {
+        URL.revokeObjectURL(url)
+        urlsRef.current.delete(f)
+      }
+    })
+    setAdjuntoTramite([archivo])
+    setPreviewAbierto(null)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+  const quitarArchivo = (file) => {
+    const url = urlsRef.current.get(file)
+    if (url) {
+      URL.revokeObjectURL(url)
+      urlsRef.current.delete(file)
+    }
+    setPreviewAbierto((prev) => (prev === file ? null : prev))
+    setAdjuntoTramite((prev) => prev.filter((f) => f !== file))
+  }
+  const formatearBytes = (n) => {
+    const kb = (n || 0) / 1024
+    return kb < 1024 ? `${Math.max(1, Math.round(kb))} KB` : `${(kb / 1024).toFixed(1)} MB`
+  }
 
   const listaEstados = permitidos || ESTADOS
 
@@ -236,10 +284,10 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                       </label>
                       <textarea
                         value={nota}
-                        onChange={(e) => setNota(e.target.value)}
+                        onChange={(e) => setNota(e.target.value.toUpperCase())}
                         rows={3}
-                        placeholder="Escribe las observaciones del cambio de estado…"
-                        className="w-full rounded-xl border border-brand-deep/20 bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all resize-none"
+                        placeholder="ESCRIBE LAS OBSERVACIONES DEL CAMBIO DE ESTADO…"
+                        className="w-full rounded-xl border border-brand-deep/20 bg-white px-3 py-2.5 text-sm uppercase text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all resize-none"
                       />
                       {e === 'En Trámite' && (
                         <div className="mt-2 space-y-2">
@@ -267,17 +315,65 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                               <MdCloudUpload className="text-2xl text-brand-cyan" />
                               <span className="text-xs font-medium">
                                 {adjuntoTramite.length > 0
-                                  ? `${adjuntoTramite.length} archivo(s) seleccionado(s)`
-                                  : 'Haz clic para adjuntar el documento'}
+                                  ? 'Reemplazar el PDF adjunto'
+                                  : 'Haz clic para adjuntar un PDF'}
                               </span>
-<input
-  type="file"
-  multiple
-  accept=".pdf,application/pdf"
-  onChange={(ev) => setAdjuntoTramite(Array.from(ev.target.files || []))}
-  className="hidden"
-/>
+                              <input
+                                ref={inputRef}
+                                type="file"
+                                accept=".pdf,application/pdf"
+                                onChange={(ev) => agregarArchivos(ev.target.files)}
+                                className="hidden"
+                              />
                             </label>
+
+                            {adjuntoTramite.length > 0 && (
+                              <ul className="mt-2 space-y-1.5">
+                                {adjuntoTramite.map((f) => {
+                                  const abierto = previewAbierto === f
+                                  return (
+                                    <li key={claveArchivo(f)} className="rounded-xl border border-brand-deep/15 bg-white overflow-hidden">
+                                      <div className="flex items-center gap-2 px-2.5 py-2">
+                                        <MdPictureAsPdf className="text-xl text-red-500 shrink-0" />
+                                        <span className="min-w-0 flex-1">
+                                          <span className="block truncate text-xs font-bold text-brand-ink">{f.name}</span>
+                                          <span className="block text-[11px] font-medium text-brand-ink/50">{formatearBytes(f.size)}</span>
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setPreviewAbierto(abierto ? null : f)}
+                                          title={abierto ? 'Ocultar vista previa' : 'Ver vista previa'}
+                                          className="grid place-items-center size-7 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition shrink-0"
+                                        >
+                                          <MdVisibility className="text-base" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => quitarArchivo(f)}
+                                          title="Quitar archivo"
+                                          className="grid place-items-center size-7 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition shrink-0"
+                                        >
+                                          <MdDeleteOutline className="text-base" />
+                                        </button>
+                                      </div>
+                                      {abierto && (
+                                        <object
+                                          data={urlPara(f)}
+                                          type="application/pdf"
+                                          aria-label={`Vista previa de ${f.name}`}
+                                          className="w-full h-64 border-t border-brand-deep/15 bg-brand-ink/5"
+                                        >
+                                          <p className="p-3 text-xs text-brand-ink/60">
+                                            Tu navegador no muestra la vista previa.{' '}
+                                            <a className="font-bold text-brand-deep underline" href={urlPara(f)} target="_blank" rel="noopener noreferrer">Abrir PDF</a>.
+                                          </p>
+                                        </object>
+                                      )}
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            )}
                           </div>
                         </div>
                       )}

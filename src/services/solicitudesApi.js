@@ -34,6 +34,7 @@ function filaDe(s) {
     solicitante_correo: (s.correo || '').toLowerCase(),
     estado: s.estado || 'Abierto',
     asignado_a: s.asignadoA || '',
+    asignado_correo: (s.asignadoCorreo || '').toLowerCase(),
     conductor: s.conductor || '',
     vehiculo: s.vehiculo || '',
     placa: s.placa || '',
@@ -59,6 +60,7 @@ function aLocal(fila, historial) {
     adjuntos: soloAdjuntosSolicitud(fila.adjuntos),
     estado: fila.estado,
     asignadoA: fila.asignado_a,
+    asignadoCorreo: fila.asignado_correo || '',
     conductor: fila.conductor,
     vehiculo: fila.vehiculo,
     placa: fila.placa,
@@ -272,7 +274,7 @@ export async function cargarUsuarios() {
   await iniciarSesion()
   const { data, error } = await supabase
     .from('usuarios')
-    .select('correo, nombre, rol')
+    .select('correo, nombre, rol, vehiculo, placa, es_conductor')
     .eq('activo', true)
     .order('nombre')
   if (error) {
@@ -281,4 +283,23 @@ export async function cargarUsuarios() {
   }
   console.info(`[Supabase] cargados ${data.length} usuario(s)`)
   return data
+}
+
+// Devuelve { correo, nombre, rol } del usuario autenticado actual, o null si no
+// está registrado en la tabla usuarios. RLS limita la lectura a su propia fila.
+export async function cargarUsuarioActual() {
+  if (!backendActivo) return null
+  await preparar()
+  const { correo } = datosUsuario()
+  if (!correo) return null
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('correo, nombre, rol')
+    .eq('correo', correo)
+    .maybeSingle()
+  if (error) {
+    console.warn('[Supabase] no se pudo leer el rol del usuario actual:', error.message)
+    return null
+  }
+  return data || null
 }

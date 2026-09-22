@@ -14,12 +14,23 @@ create table if not exists public.usuarios (
   correo     text not null unique,
   nombre     text not null default '',
   rol        text not null default 'solicitante'
-             check (rol in ('solicitante', 'administrador', 'conductor')),
+             check (rol in ('solicitante', 'administrador', 'conductor', 'superadmin')),
   vehiculo   text not null default '',
   placa      text not null default '',
+  es_conductor boolean not null default false,
   activo     boolean not null default true,
   creado_en  timestamptz not null default now()
 );
+
+-- Permite volver a correr sobre una BD existente: amplía el check para aceptar
+-- el rol 'superadmin' (ve todos los módulos y todas las solicitudes).
+alter table public.usuarios drop constraint if exists usuarios_rol_check;
+alter table public.usuarios add constraint usuarios_rol_check
+  check (rol in ('solicitante', 'administrador', 'conductor', 'superadmin'));
+
+-- Marca usuarios que además conducen (p. ej. administradores que también hacen
+-- entregas). Aparecen en la lista de conductores sin dejar de ser administradores.
+alter table public.usuarios add column if not exists es_conductor boolean not null default false;
 
 -- ----------------------------------------------------------------------------
 -- 2. CLIENTES (los 224 registros de clientesData.js, se cargan una sola vez)
@@ -69,6 +80,7 @@ create table if not exists public.solicitudes (
                        'Entregado Parcial',
                        'Entregado')),
   asignado_a         text not null default '',
+  asignado_correo    text not null default '',
   conductor          text not null default '',
   vehiculo           text not null default '',
   placa              text not null default '',
@@ -83,6 +95,10 @@ create index if not exists solicitudes_estado_idx       on public.solicitudes (e
 create index if not exists solicitudes_conductor_idx    on public.solicitudes (conductor);
 create index if not exists solicitudes_solicitante_idx  on public.solicitudes (solicitante_correo);
 create index if not exists solicitudes_actualizado_idx  on public.solicitudes (actualizado_en desc);
+
+-- Permite volver a correr sobre una BD existente: agrega el correo del responsable
+-- asignado (aditivo; los registros antiguos siguen usando solo asignado_a).
+alter table public.solicitudes add column if not exists asignado_correo text not null default '';
 
 create or replace function public.asignar_codigo()
 returns trigger
@@ -177,6 +193,18 @@ as $$
   );
 $$;
 
+-- true si el usuario actual es administrador o superadmin. Ambos ven y gestionan
+-- todo; el superadmin además ve TODAS las solicitudes (abiertas/cerradas/asignadas).
+create or replace function public.es_privilegiado()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.rol_actual() in ('administrador', 'superadmin')
+$$;
+
 -- ----------------------------------------------------------------------------
 -- 6. ROW LEVEL SECURITY
 -- ----------------------------------------------------------------------------
@@ -189,7 +217,7 @@ alter table public.historial  enable row level security;
 drop policy if exists usuarios_select on public.usuarios;
 create policy usuarios_select on public.usuarios
   for select using (
-    correo = public.correo_actual() or public.rol_actual() = 'administrador'
+    correo = public.correo_actual() or public.es_privilegiado()
   );
 
 drop policy if exists usuarios_upsert on public.usuarios;
@@ -199,7 +227,7 @@ create policy usuarios_upsert on public.usuarios
 drop policy if exists usuarios_update on public.usuarios;
 create policy usuarios_update on public.usuarios
   for update using (
-    correo = public.correo_actual() or public.rol_actual() = 'administrador'
+    correo = public.correo_actual() or public.es_privilegiado()
   );
 
 -- clientes: catálogo de lectura pública.
@@ -209,14 +237,14 @@ create policy clientes_select on public.clientes
 
 drop policy if exists clientes_admin_write on public.clientes;
 create policy clientes_admin_write on public.clientes
-  for all using (public.rol_actual() = 'administrador')
-  with check (public.rol_actual() = 'administrador');
+  for all using (public.es_privilegiado())
+  with check (public.es_privilegiado());
 
 -- solicitudes
 drop policy if exists solicitudes_select on public.solicitudes;
 create policy solicitudes_select on public.solicitudes
   for select using (
-    public.rol_actual() = 'administrador'
+    public.es_privilegiado()
     or solicitante_correo = public.correo_actual()
     or (public.rol_actual() = 'conductor'
         and estado in ('En Tránsito', 'En Tránsito Parcial'))
@@ -225,14 +253,14 @@ create policy solicitudes_select on public.solicitudes
 drop policy if exists solicitudes_insert on public.solicitudes;
 create policy solicitudes_insert on public.solicitudes
   for insert with check (
-    public.rol_actual() in ('solicitante', 'administrador')
+    public.rol_actual() in ('solicitante', 'administrador', 'superadmin')
     or solicitante_correo = public.correo_actual()
   );
 
 drop policy if exists solicitudes_update on public.solicitudes;
 create policy solicitudes_update on public.solicitudes
   for update using (
-    public.rol_actual() = 'administrador'
+    public.es_privilegiado()
     or solicitante_correo = public.correo_actual()
     or (public.rol_actual() = 'conductor'
         and estado in ('En Tránsito', 'En Tránsito Parcial'))
@@ -241,7 +269,7 @@ create policy solicitudes_update on public.solicitudes
 drop policy if exists solicitudes_delete on public.solicitudes;
 create policy solicitudes_delete on public.solicitudes
   for delete using (
-    public.rol_actual() = 'administrador' or solicitante_correo = public.correo_actual()
+    public.es_privilegiado() or solicitante_correo = public.correo_actual()
   );
 
 -- historial: se lee/ escribe siguiendo la visibilidad de su solicitud.
@@ -251,7 +279,7 @@ create policy historial_select on public.historial
     exists (
       select 1 from public.solicitudes s
       where s.codigo = historial.solicitud
-        and (public.rol_actual() = 'administrador'
+        and (public.es_privilegiado()
              or s.solicitante_correo = public.correo_actual()
              or (public.rol_actual() = 'conductor'
                  and s.estado in ('En Tránsito', 'En Tránsito Parcial',
@@ -265,7 +293,7 @@ create policy historial_insert on public.historial
     exists (
       select 1 from public.solicitudes s
       where s.codigo = historial.solicitud
-        and (public.rol_actual() in ('administrador', 'conductor')
+        and (public.rol_actual() in ('administrador', 'superadmin', 'conductor')
              or s.solicitante_correo = public.correo_actual())
     )
   );
@@ -275,7 +303,7 @@ create policy historial_insert on public.historial
 drop policy if exists historial_update on public.historial;
 create policy historial_update on public.historial
   for update using (
-    public.rol_actual() = 'administrador'
+    public.es_privilegiado()
     or exists (
       select 1 from public.solicitudes s
       where s.codigo = historial.solicitud
@@ -307,10 +335,14 @@ create policy adjuntos_read on storage.objects
 -- ----------------------------------------------------------------------------
 -- 8. ROLES INICIALES
 --    Cambia los correos por los reales y ejecuta este bloque una sola vez.
+--    Roles: solicitante (Inicio + Solicitudes), conductor (Inicio + Conductor),
+--    administrador (todos los módulos; ve sin asignar + sus propias asignaciones),
+--    superadmin (todos los módulos y TODAS las solicitudes).
 -- ----------------------------------------------------------------------------
 -- insert into public.usuarios (correo, nombre, rol) values
---   ('admin@ctpmedica.com',   'Administrador', 'administrador'),
---   ('conductor@ctpmedica.com', 'Reinel Peña', 'conductor')
+--   ('superadmin@ctpmedica.com',  'Super Admin',   'superadmin'),
+--   ('admin@ctpmedica.com',       'Administrador', 'administrador'),
+--   ('conductor@ctpmedica.com',   'Reinel Peña',   'conductor')
 -- on conflict (correo) do update
 --   set rol = excluded.rol, nombre = excluded.nombre;
 

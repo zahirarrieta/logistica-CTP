@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { RiSteering2Line } from 'react-icons/ri'
-import { MdClose, MdCheckCircle, MdTag, MdCheck, MdLocalShipping, MdEdit, MdTwoWheeler, MdDirectionsCar, MdNumbers, MdDirectionsBus } from 'react-icons/md'
+import { MdClose, MdCheckCircle, MdTag, MdCheck, MdLocalShipping, MdEdit, MdTwoWheeler, MdDirectionsCar, MdNumbers, MdDirectionsBus, MdLock } from 'react-icons/md'
 import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
 import useUsuarios from '../../../../hooks/useUsuarios.js'
+import { esConductorUsuario } from '../../../../auth/roles.js'
 
 const OPCION_OTRO = 'Otro'
 
@@ -45,10 +46,15 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
 
   const conductores = [
     ...usuarios
-      .filter((u) => u.rol === 'conductor')
-      .map((u) => ({ nombre: u.nombre, correo: u.correo })),
-    ...EXTRAS_CONDUCTOR.map((nombre) => ({ nombre, correo: '' })),
-    { nombre: OPCION_OTRO, correo: '' },
+      .filter(esConductorUsuario)
+      .map((u) => ({
+        nombre: u.nombre,
+        correo: u.correo,
+        vehiculo: u.vehiculo || '',
+        placa: u.placa || '',
+      })),
+    ...EXTRAS_CONDUCTOR.map((nombre) => ({ nombre, correo: '', vehiculo: 'Camioneta', placa: '' })),
+    { nombre: OPCION_OTRO, correo: '', vehiculo: '', placa: '' },
   ]
 
   const isConductorActualmente = (n) => n === conductor
@@ -60,21 +66,43 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
   const esOtro = seleccion === OPCION_OTRO
   const esElite = seleccion === 'Elite'
   const nombreFinal = esOtro && otroNombre.trim() ? otroNombre.trim() : seleccion
+
+  // Si el conductor seleccionado ya tiene vehículo y placa registrados, esos
+  // datos son la fuente de verdad: se bloquean los campos para no sobrescribirlos.
+  const seleccionado = conductores.find((c) => c.nombre === seleccion)
+  const vehiculoConocido = Boolean(seleccionado?.vehiculo && seleccionado?.placa)
+  const vehiculoEfectivo = vehiculoConocido ? seleccionado.vehiculo : vehiculo
+  const placaEfectiva = vehiculoConocido ? seleccionado.placa : placa
+
   const puedeGuardar =
     !!seleccion &&
     !(esOtro && !otroNombre.trim()) &&
-    VEHICULOS.includes(vehiculo) &&
-    placa.trim().length > 0
+    VEHICULOS.includes(vehiculoEfectivo) &&
+    placaEfectiva.trim().length > 0
 
-  const handleSelect = (n) => {
+  // Al seleccionar un conductor conocido ya traemos su vehículo y placa, así la
+  // información queda guardada automáticamente sin tener que digitarla.
+  const handleSelect = (u) => {
+    const n = u.nombre
     setSeleccion(n)
-    if (n === 'Elite') setVehiculo('Camioneta')
     if (n !== OPCION_OTRO) setOtroNombre('')
+    if (n === OPCION_OTRO) {
+      setVehiculo('')
+      setPlaca('')
+      return
+    }
+    if (n === 'Elite') {
+      setVehiculo('Camioneta')
+      setPlaca(u.placa || '')
+      return
+    }
+    if (u.vehiculo) setVehiculo(u.vehiculo)
+    if (u.placa) setPlaca(u.placa)
   }
 
   const handleSave = () => {
     if (!puedeGuardar) return
-    onUpdate(solicitud.id, { conductor: nombreFinal, vehiculo: vehiculo, placa: placa.trim().toUpperCase() })
+    onUpdate(solicitud.id, { conductor: nombreFinal, vehiculo: vehiculoEfectivo, placa: placaEfectiva.trim().toUpperCase() })
     onClose()
   }
 
@@ -142,10 +170,10 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
                 const sel = isSeleccion(n)
                 const esOtro = n === OPCION_OTRO
                 return (
-                  <div key={n}>
+                  <div key={u.correo || n}>
                     <button
                       type="button"
-                      onClick={() => handleSelect(n)}
+                      onClick={() => handleSelect(u)}
                       title={sel ? 'Conductor seleccionado' : `Asignar a ${n}`}
                       className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-brand-deep transition-all ${
                         sel
@@ -161,6 +189,12 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
                           <span className="truncate capitalize">{n}</span>
                           {u.correo && (
                             <span className="truncate text-[11px] font-medium normal-case text-brand-ink/50">{u.correo}</span>
+                          )}
+                          {u.vehiculo && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold normal-case text-indigo-600">
+                              {VEHICULO_ICONOS[u.vehiculo] || <MdLocalShipping />}
+                              {u.vehiculo}{u.placa ? ` · ${u.placa}` : ''}
+                            </span>
                           )}
                         </span>
                       </span>
@@ -197,10 +231,10 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
               <label className="block text-[11px] font-extrabold text-indigo-700 uppercase tracking-wide mb-2">
                 Tipo de vehículo
               </label>
-              {esElite ? (
+              {vehiculoConocido || esElite ? (
                 <div className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm font-bold shadow">
-                  <span className="text-lg">{VEHICULO_ICONOS['Camioneta']}</span>
-                  Camioneta
+                  <span className="text-lg">{VEHICULO_ICONOS[vehiculoEfectivo] || VEHICULO_ICONOS['Camioneta']}</span>
+                  {vehiculoEfectivo || 'Camioneta'}
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white ring-1 ring-indigo-300/60">
@@ -232,11 +266,22 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
               </label>
               <input
                 type="text"
-                value={placa}
+                value={vehiculoConocido ? placaEfectiva : placa}
                 onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                readOnly={vehiculoConocido}
                 placeholder="Ej. ABC-123"
-                className="w-full rounded-xl border border-indigo-300/60 bg-white px-3 py-2.5 text-sm font-semibold text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none transition-all"
+                className={`w-full rounded-xl border border-indigo-300/60 bg-white px-3 py-2.5 text-sm font-semibold text-brand-ink placeholder:text-brand-ink/40 shadow-sm transition-all ${
+                  vehiculoConocido
+                    ? 'bg-indigo-50 text-indigo-900 cursor-not-allowed'
+                    : 'focus:border-indigo-500/60 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none'
+                }`}
               />
+              {vehiculoConocido && (
+                <p className="mt-1.5 text-[11px] font-semibold text-indigo-700 inline-flex items-center gap-1">
+                  <MdLock className="text-sm shrink-0" />
+                  El vehículo y la placa ya están registrados para este conductor y no se pueden editar.
+                </p>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { MdAdminPanelSettings, MdInbox, MdFilterList, MdInsights, MdRestartAlt, MdDescription } from 'react-icons/md'
+import { MdAdminPanelSettings, MdInbox, MdFilterList, MdInsights, MdRestartAlt, MdDescription, MdAssignmentInd } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
@@ -17,14 +17,20 @@ import DashboardTab from './Components/DashboardTab.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud, resetSolicitudes } from '../Home/Components/solicitudesStore.js'
 import { estadoActualizado, solicitudAsignada, conductorAsignado, datosReiniciados } from '../../services/notificaciones.jsx'
+import { useAuth } from '../../auth/AuthContext.jsx'
+import { esSuperAdmin, esAsignadoA } from '../../auth/roles.js'
 
-const TABS = [
+const TABS_BASE = [
   { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
   { id: 'planillas', label: 'Planillas', Icon: MdDescription },
   { id: 'dashboard', label: 'Dashboard', Icon: MdInsights },
 ]
 
+const TAB_ASIGNACIONES = { id: 'asignaciones', label: 'Mis asignaciones', Icon: MdAssignmentInd }
+
 export default function Administrador() {
+  const { account, usuario, rol } = useAuth()
+  const esSuper = esSuperAdmin(rol)
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [tab, setTab] = useState('solicitudes')
   const [editSolicitud, setEditSolicitud] = useState(null)
@@ -37,21 +43,64 @@ export default function Administrador() {
   const [filtroAsignado, setFiltroAsignado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
+  const [filtroId, setFiltroId] = useState('')
+
+  // Identidad del admin actual para saber qué solicitudes le pertenecen.
+  const misDatos = useMemo(() => ({
+    nombre: usuario?.nombre || account?.name || '',
+    correo: usuario?.correo || account?.username || '',
+  }), [usuario, account])
+
+  // Sin asignar: las que aún no tienen responsable (visibles para todo admin).
+  const sinAsignar = useMemo(
+    () => solicitudes.filter((s) => !String(s.asignadoA || '').trim()),
+    [solicitudes]
+  )
+  // Mis asignaciones: las que están a mi nombre o correo.
+  const misAsignaciones = useMemo(
+    () => solicitudes.filter((s) => esAsignadoA(s, misDatos)),
+    [solicitudes, misDatos]
+  )
+  // Universo sobre el que operan Planillas y Dashboard.
+  const scope = useMemo(
+    () => (esSuper ? solicitudes : [...sinAsignar, ...misAsignaciones]),
+    [esSuper, solicitudes, sinAsignar, misAsignaciones]
+  )
+
+  const TABS = useMemo(
+    () => (esSuper
+      ? TABS_BASE
+      : [TABS_BASE[0], TAB_ASIGNACIONES, TABS_BASE[1], TABS_BASE[2]]),
+    [esSuper]
+  )
+
+  // Lista base del tab activo (antes de aplicar los filtros de la barra).
+  const baseDelTab = esSuper
+    ? (tab === 'asignaciones' ? misAsignaciones : solicitudes)
+    : (tab === 'asignaciones' ? misAsignaciones : sinAsignar)
 
   const filtered = useMemo(() => {
     const cliente = filtroCliente.toLowerCase()
     const zona = filtroZona.toLowerCase()
-    return solicitudes.filter((s) => {
+    const idBuscado = filtroId.trim().toLowerCase()
+    return baseDelTab.filter((s) => {
       const e = s.estado || 'Abierto'
       if (filterEstado && e !== filterEstado) return false
       if (filtroAsignado && (s.asignadoA || '') !== filtroAsignado) return false
       if (cliente && !(s.cliente || '').toLowerCase().includes(cliente)) return false
       if (zona && !(s.zona || '').toLowerCase().includes(zona)) return false
+      if (idBuscado && !(s.id || '').toLowerCase().includes(idBuscado)) return false
       return true
     })
-  }, [solicitudes, filterEstado, filtroAsignado, filtroCliente, filtroZona])
+  }, [baseDelTab, filterEstado, filtroAsignado, filtroCliente, filtroZona, filtroId])
 
-  const hasFilters = Boolean(filterEstado || filtroAsignado || filtroCliente || filtroZona)
+  const hasFilters = Boolean(filterEstado || filtroAsignado || filtroCliente || filtroZona || filtroId.trim())
+
+  const contadorTab = (id) => {
+    if (id === 'solicitudes') return esSuper ? solicitudes.length : sinAsignar.length
+    if (id === 'asignaciones') return misAsignaciones.length
+    return 0
+  }
 
 const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
 
@@ -86,6 +135,7 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
     setFiltroAsignado(null)
     setFiltroCliente('')
     setFiltroZona('')
+    setFiltroId('')
     datosReiniciados()
   }
 
@@ -121,21 +171,25 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                 <span className="grid place-items-center size-9 sm:size-11 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30">
                   <MdAdminPanelSettings className="text-lg sm:text-2xl" />
                 </span>
-                ADMINISTRADOR
+                {esSuper ? 'SUPER ADMINISTRADOR' : 'ADMINISTRADOR'}
               </h1>
               <p className="text-brand-ink/60 mt-2 text-sm sm:text-base">
-                Listado de todas las solicitudes registradas
+                {esSuper
+                  ? 'Listado de todas las solicitudes registradas'
+                  : 'Solicitudes sin asignar y tus propias asignaciones'}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleResetDatos}
-              className="inline-flex items-center gap-2 self-start rounded-full border border-red-300 bg-red-50 px-4 py-2 text-xs sm:text-sm font-bold text-red-700 hover:bg-red-100 hover:border-red-400 transition"
-              title="Elimina todas las solicitudes y reinicia el contador (solo pruebas)"
-            >
-              <MdRestartAlt className="text-base" />
-              Restablecer datos de prueba
-            </button>
+            {esSuper && (
+              <button
+                type="button"
+                onClick={handleResetDatos}
+                className="inline-flex items-center gap-2 self-start rounded-full border border-red-300 bg-red-50 px-4 py-2 text-xs sm:text-sm font-bold text-red-700 hover:bg-red-100 hover:border-red-400 transition"
+                title="Elimina todas las solicitudes y reinicia el contador (solo pruebas)"
+              >
+                <MdRestartAlt className="text-base" />
+                Restablecer datos de prueba
+              </button>
+            )}
           </div>
 
           {/* Tabs */}
@@ -143,6 +197,7 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
             {TABS.map((t) => {
               const Icon = t.Icon
               const active = tab === t.id
+              const cuenta = contadorTab(t.id)
               return (
                 <button
                   key={t.id}
@@ -156,9 +211,9 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                 >
                   <Icon className="text-base" />
                   <span>{t.label}</span>
-                  {t.id === 'solicitudes' && solicitudes.length > 0 && (
+                  {(t.id === 'solicitudes' || t.id === 'asignaciones') && cuenta > 0 && (
                     <span className={`min-w-5 h-5 px-1 grid place-items-center rounded-full text-[10px] font-extrabold ${active ? 'bg-brand-cyan text-brand-ink' : 'bg-brand-deep/10 text-brand-deep'}`}>
-                      {solicitudes.length}
+                      {cuenta}
                     </span>
                   )}
                 </button>
@@ -167,20 +222,24 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
           </div>
 
           {tab === 'dashboard' ? (
-            <DashboardTab solicitudes={solicitudes} />
+            <DashboardTab solicitudes={scope} />
           ) : tab === 'planillas' ? (
-            <PlanillasTab solicitudes={solicitudes} />
+            <PlanillasTab solicitudes={scope} />
           ) : (
             <>
-              {solicitudes.length > 0 && (
+              {baseDelTab.length > 0 && (
                 <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
-                  <EstadoFilter solicitudes={solicitudes} value={filterEstado} onChange={setFilterEstado} />
-                  <AsignadoFilter solicitudes={solicitudes} value={filtroAsignado} onChange={setFiltroAsignado} />
+                  <EstadoFilter solicitudes={baseDelTab} value={filterEstado} onChange={setFilterEstado} />
+                  {esSuper && (
+                    <AsignadoFilter solicitudes={baseDelTab} value={filtroAsignado} onChange={setFiltroAsignado} />
+                  )}
                   <SearchFilters
                     cliente={filtroCliente}
                     zona={filtroZona}
                     onClienteChange={setFiltroCliente}
                     onZonaChange={setFiltroZona}
+                    id={filtroId}
+                    onIdChange={setFiltroId}
                   />
                 </div>
               )}
@@ -201,11 +260,19 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                         title: 'No hay solicitudes que coincidan con los filtros',
                         text: 'Ajusta el estado, asignado, cliente o zona seleccionados.',
                       }
-                    : {
-                        icon: <MdInbox />,
-                        title: 'Aún no hay solicitudes registradas',
-                        text: 'Crea tu primera solicitud desde «MIS SOLICITUDES».',
-                      }
+                    : tab === 'asignaciones'
+                      ? {
+                          icon: <MdAssignmentInd />,
+                          title: 'Aún no tienes solicitudes asignadas',
+                          text: 'Cuando te asignen una solicitud aparecerá aquí.',
+                        }
+                      : {
+                          icon: <MdInbox />,
+                          title: esSuper ? 'Aún no hay solicitudes registradas' : 'No hay solicitudes sin asignar',
+                          text: esSuper
+                            ? 'Crea tu primera solicitud desde «MIS SOLICITUDES».'
+                            : 'Todas las solicitudes ya están asignadas. Revisa el tab «Mis asignaciones».',
+                        }
                 }
               />
             </>

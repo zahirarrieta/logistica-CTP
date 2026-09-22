@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { MdClose, MdCheckCircle, MdAssignmentInd, MdTag, MdPersonAdd, MdCheck } from 'react-icons/md'
 import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
 import useUsuarios from '../../../../hooks/useUsuarios.js'
+import { esConductorUsuario } from '../../../../auth/roles.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
@@ -16,33 +17,47 @@ function initials(name) {
 
 export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate }) {
   const asignadoA = nombreDeAsignado(solicitud?.asignadoA)
+  const asignadoCorreoActual = String(solicitud?.asignadoCorreo || '').trim().toLowerCase()
   const [seleccion, setSeleccion] = useState('')
   const { usuarios, cargando, error, recargar } = useUsuarios(open)
 
   useEffect(() => {
-    if (open) setSeleccion(asignadoA)
-  }, [open, asignadoA])
+    if (open) setSeleccion(asignadoCorreoActual)
+  }, [open, asignadoCorreoActual])
 
   if (!open || !solicitud) return null
 
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
   const asignados = usuarios.filter((u) => u.rol === 'administrador')
-  const conductores = usuarios.filter((u) => u.rol === 'conductor')
+  const conductores = usuarios.filter(esConductorUsuario)
   const lista = enTransito ? conductores : asignados
 
-  const isAsignadoActualmente = (n) => n === asignadoA
-  const isSeleccion = (n) => n === seleccion
+  const correoDe = (u) => String(u.correo || '').trim().toLowerCase()
+  // Un usuario es el asignado actual si coincide su correo, o (registros antiguos
+  // sin correo) si coincide su nombre.
+  const esActual = (u) =>
+    asignadoCorreoActual
+      ? correoDe(u) === asignadoCorreoActual
+      : Boolean(asignadoA) && u.nombre === asignadoA
+  const isSeleccion = (u) => correoDe(u) === seleccion
 
-  const handleSelect = (n) => {
-    if (n === asignadoA) return
-    setSeleccion(n)
+  const handleSelect = (u) => {
+    const correo = correoDe(u)
+    if (!correo || correo === asignadoCorreoActual) return
+    setSeleccion(correo)
   }
 
   const handleSave = () => {
-    if (!seleccion || seleccion === asignadoA) return
-    onUpdate(solicitud.id, { asignadoA: seleccion })
+    const elegido = lista.find((u) => correoDe(u) === seleccion)
+    if (!elegido || esActual(elegido)) return
+    onUpdate(solicitud.id, {
+      asignadoA: elegido.nombre,
+      asignadoCorreo: elegido.correo || '',
+    })
     onClose()
   }
+
+  const guardado = Boolean(seleccion) && seleccion !== asignadoCorreoActual
 
   return (
     <div
@@ -108,13 +123,13 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
             <div className="space-y-1.5">
               {lista.map((u) => {
                 const n = u.nombre
-                const actual = isAsignadoActualmente(n)
-                const sel = isSeleccion(n)
+                const actual = esActual(u)
+                const sel = isSeleccion(u)
                 return (
                   <button
-                    key={n}
+                    key={correoDe(u) || n}
                     type="button"
-                    onClick={() => handleSelect(n)}
+                    onClick={() => handleSelect(u)}
                     disabled={actual}
                     title={actual ? 'Esta persona ya está asignada' : `Asignar a ${n}`}
                     className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-brand-deep transition-all ${
@@ -162,7 +177,7 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
           <button
             type="button"
             onClick={handleSave}
-            disabled={!seleccion || seleccion === asignadoA}
+            disabled={!guardado}
             className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             <span className="grid place-items-center size-6 rounded-full bg-brand-deep/10 text-brand-deep">

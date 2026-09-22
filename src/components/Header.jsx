@@ -3,6 +3,7 @@ import { MdHome, MdFolderOpen, MdSettings, MdLogout } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { shortName } from '../auth/user.js'
+import { puedeVer } from '../auth/roles.js'
 
 const MENU = [
   { to: '/inicio', label: 'Inicio', Icon: MdHome },
@@ -13,9 +14,10 @@ const MENU = [
 
 export default function Header() {
   const { pathname } = useLocation()
-  const { logout, account } = useAuth()
+  const { logout, account, rol } = useAuth()
 
   const greeting = account?.name ? `Hola, ${shortName(account)}` : 'Cerrar sesión'
+  const enlaces = MENU.filter((item) => puedeVer(rol, item.to))
 
   return (
     <header className="sticky top-0 z-[100] pointer-events-none pt-3 px-2">
@@ -27,7 +29,7 @@ export default function Header() {
         </span>
 
         <div className="ctp-links">
-          {MENU.map((item) => {
+          {enlaces.map((item) => {
             const Icon = item.Icon
             const isActive = pathname.startsWith(item.to)
             return (

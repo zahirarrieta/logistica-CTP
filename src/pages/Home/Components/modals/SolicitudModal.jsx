@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel } from 'react-icons/md'
+import { useState, useEffect, useRef } from 'react'
+import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
 import { peekNextId } from '../solicitudesStore.js'
@@ -34,6 +34,25 @@ function iconoArchivo(archivo) {
   return <MdInsertDriveFile className="text-gray-500" />
 }
 
+function esImagen(archivo) {
+  const tipo = archivo.type || ''
+  const nombre = archivo.name || ''
+  return tipo.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(nombre)
+}
+
+function esPdf(archivo) {
+  const tipo = archivo.type || ''
+  const nombre = archivo.name || ''
+  return tipo === 'application/pdf' || /\.pdf$/i.test(nombre)
+}
+
+function formatearBytes(bytes) {
+  if (!bytes && bytes !== 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export default function SolicitudModal({ open, onClose, onSubmit }) {
   const { account } = useAuth()
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
@@ -51,6 +70,27 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
   const [loading, setLoading] = useState(false)
   const [errores, setErrores] = useState([])
   const [subiendoMsg, setSubiendoMsg] = useState('')
+  const [previewAbierto, setPreviewAbierto] = useState(null)
+  const urlsRef = useRef(new Map())
+
+  // Libera las URLs de vista previa al desmontar el modal.
+  useEffect(() => () => {
+    urlsRef.current.forEach((u) => URL.revokeObjectURL(u))
+    urlsRef.current.clear()
+  }, [])
+
+  const urlPara = (file) => {
+    if (!urlsRef.current.has(file)) urlsRef.current.set(file, URL.createObjectURL(file))
+    return urlsRef.current.get(file)
+  }
+
+  const liberarUrl = (file) => {
+    const url = urlsRef.current.get(file)
+    if (url) {
+      URL.revokeObjectURL(url)
+      urlsRef.current.delete(file)
+    }
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -74,6 +114,9 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
   }
 
   const eliminarArchivo = (index) => {
+    const archivo = formData.adjuntos[index]
+    if (archivo) liberarUrl(archivo)
+    setPreviewAbierto((prev) => (prev === archivo ? null : prev))
     setFormData(prev => ({
       ...prev,
       adjuntos: prev.adjuntos.filter((_, i) => i !== index),
@@ -93,6 +136,9 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
   }
 
   const resetForm = () => {
+    urlsRef.current.forEach((u) => URL.revokeObjectURL(u))
+    urlsRef.current.clear()
+    setPreviewAbierto(null)
     setFormData({
       nombreCompleto: account?.name || '',
       correo: account?.username || '',
@@ -334,23 +380,66 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
 
             {formData.adjuntos.length > 0 && (
               <div className="mt-3 space-y-2">
-                {formData.adjuntos.map((archivo, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-brand-mist/50 border border-brand-ink/10">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xl shrink-0">{iconoArchivo(archivo)}</span>
-                      <span className="text-sm text-brand-ink truncate">{archivo.name}</span>
+                {formData.adjuntos.map((archivo, i) => {
+                  const abierto = previewAbierto === archivo
+                  const puedePrevisualizar = esImagen(archivo) || esPdf(archivo)
+                  return (
+                    <div key={i} className="rounded-lg bg-brand-mist/50 border border-brand-ink/10 overflow-hidden">
+                      <div className="flex items-center justify-between gap-2 px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xl shrink-0">{iconoArchivo(archivo)}</span>
+                          <span className="min-w-0">
+                            <span className="block text-sm text-brand-ink truncate">{archivo.name}</span>
+                            <span className="block text-[11px] text-brand-ink/50">{formatearBytes(archivo.size)}</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {puedePrevisualizar && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewAbierto(abierto ? null : archivo)}
+                              aria-label={abierto ? `Ocultar vista previa de ${archivo.name}` : `Ver vista previa de ${archivo.name}`}
+                              title={abierto ? 'Ocultar vista previa' : 'Ver vista previa'}
+                              className="grid place-items-center size-7 rounded-full text-brand-deep bg-brand-cyan/15 hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                            >
+                              <MdVisibility className="text-lg" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => eliminarArchivo(i)}
+                            aria-label={`Eliminar ${archivo.name}`}
+                            title="Eliminar archivo"
+                            className="grid place-items-center size-7 rounded-full text-brand-ink/50 hover:bg-red-100 hover:text-red-600 transition-colors"
+                          >
+                            <MdCancel className="text-lg" />
+                          </button>
+                        </div>
+                      </div>
+                      {abierto && puedePrevisualizar && (
+                        esImagen(archivo) ? (
+                          <img
+                            src={urlPara(archivo)}
+                            alt={`Vista previa de ${archivo.name}`}
+                            className="w-full max-h-72 object-contain border-t border-brand-ink/10 bg-brand-ink/5"
+                          />
+                        ) : (
+                          <object
+                            data={urlPara(archivo)}
+                            type="application/pdf"
+                            aria-label={`Vista previa de ${archivo.name}`}
+                            className="w-full h-64 border-t border-brand-ink/10 bg-brand-ink/5"
+                          >
+                            <p className="p-3 text-xs text-brand-ink/60">
+                              Tu navegador no muestra la vista previa.{' '}
+                              <a className="font-bold text-brand-deep underline" href={urlPara(archivo)} target="_blank" rel="noopener noreferrer">Abrir PDF</a>.
+                            </p>
+                          </object>
+                        )
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => eliminarArchivo(i)}
-                      aria-label={`Eliminar ${archivo.name}`}
-                      title="Eliminar archivo"
-                      className="grid place-items-center size-7 rounded-full text-brand-ink/50 hover:bg-red-100 hover:text-red-600 transition-colors shrink-0"
-                    >
-                      <MdCancel className="text-lg" />
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -360,10 +449,14 @@ export default function SolicitudModal({ open, onClose, onSubmit }) {
             <textarea
               name="observaciones"
               value={formData.observaciones}
-              onChange={handleInputChange}
+              onChange={(e) =>
+                handleInputChange({
+                  target: { name: 'observaciones', value: e.target.value.toUpperCase() },
+                })
+              }
               rows={3}
               placeholder=" "
-              className="peer w-full px-3 py-2.5 rounded-xl bg-white border border-brand-deep/20 shadow-sm focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:shadow-none transition-all text-brand-ink placeholder-transparent resize-y"
+              className="peer w-full px-3 py-2.5 rounded-xl bg-white border border-brand-deep/20 shadow-sm focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:shadow-none transition-all text-brand-ink placeholder-transparent resize-y uppercase"
             />
             <label className={`pointer-events-none absolute left-2 bg-white px-1 rounded transition-all inline-flex items-center gap-1 ${
               formData.observaciones ? '-top-2 text-[0.7rem] text-brand-ink' : 'top-2.5 text-[0.78rem] text-brand-ink'
