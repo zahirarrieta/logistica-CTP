@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
-import { peekNextId, reservarProximoCodigo, hayProximoReservado, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../solicitudesStore.js'
+import { peekNextId, refrescarProximoCodigo, reservarProximoCodigo, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../solicitudesStore.js'
 import { nombrePdfFromUrl } from '../../../../components/pdfUtils.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
@@ -145,28 +145,16 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
         observaciones: '',
       })
     }
-    // En creación se pide al servidor el próximo código global, para que el
-    // número mostrado y el que se guarda coincidan para todos los usuarios.
+    // Al abrir en creación se "mira" el próximo código global SIN consumirlo
+    // (la secuencia solo avanza al crear la solicitud).
     setSiguiente(peekNextId())
     if (!solicitud) {
-      void reservarProximoCodigo().then((c) => {
+      void refrescarProximoCodigo().then((c) => {
         if (c) setSiguiente(c)
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, solicitud])
-
-  // Devuelve el código a usar: la reserva global ya existente, una recién
-  // obtenida del servidor o, si no hay conexión, la derivación local.
-  const asegurarSiguiente = async () => {
-    if (hayProximoReservado()) return siguiente
-    const c = await reservarProximoCodigo()
-    if (c) {
-      setSiguiente(c)
-      return c
-    }
-    return peekNextId()
-  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -305,7 +293,10 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
       return
     }
 
-    const idSolicitud = await asegurarSiguiente()
+    // Se reserva el código ahora (avanza la secuencia una sola vez): es el ID
+    // autoritativo que usan OneDrive y el guardado final. Sin backend/conexión
+    // se usa el número visible (derivación local).
+    const idSolicitud = (await reservarProximoCodigo()) || siguiente
     let adjuntosUrls = []
 
     try {
@@ -328,7 +319,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
     }
 
     if (onSubmit) {
-      onSubmit({ ...formData, adjuntos: adjuntosUrls })
+      onSubmit({ ...formData, adjuntos: adjuntosUrls }, idSolicitud)
     }
     resetForm()
     onClose()

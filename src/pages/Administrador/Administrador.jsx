@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MdAdminPanelSettings, MdInbox, MdFilterList, MdInsights, MdRestartAlt, MdDescription, MdAssignmentInd } from 'react-icons/md'
+import { MdAdminPanelSettings, MdInbox, MdFilterList, MdInsights, MdRestartAlt, MdRefresh, MdDescription, MdAssignmentInd, MdTag } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
@@ -15,7 +15,7 @@ import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
 import DashboardTab from './Components/DashboardTab.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
-import { loadSolicitudes, updateSolicitud, removeSolicitud, resetSolicitudes, suscribir } from '../Home/Components/solicitudesStore.js'
+import { loadSolicitudes, updateSolicitud, removeSolicitud, resetSolicitudes, suscribir, peekNextId, refrescarProximoCodigo } from '../Home/Components/solicitudesStore.js'
 import { estadoActualizado, solicitudAsignada, conductorAsignado, datosReiniciados } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { esSuperAdmin, esAsignadoA, esAdministrador } from '../../auth/roles.js'
@@ -39,6 +39,7 @@ export default function Administrador() {
   const [historialSolicitud, setHistorialSolicitud] = useState(null)
   const [entregaDetallesSolicitud, setEntregaDetallesSolicitud] = useState(null)
   const [eliminarSolicitud, setEliminarSolicitud] = useState(null)
+  const [proximo, setProximo] = useState(peekNextId())
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroAsignado, setFiltroAsignado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
@@ -143,6 +144,22 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
     datosReiniciados()
   }
 
+  // Muestra y mantiene fresco el próximo código global (solo super admin).
+  const refrescarAhora = () => {
+    setProximo(peekNextId())
+    void refrescarProximoCodigo().then((c) => {
+      if (c) setProximo(c)
+    })
+  }
+
+  useEffect(() => {
+    if (!esSuper) return
+    setProximo(peekNextId())
+    void refrescarProximoCodigo().then((c) => {
+      if (c) setProximo(c)
+    })
+  }, [solicitudes, esSuper])
+
   const handleUpdateEstado = (id, updates) => {
     setSolicitudes(updateSolicitud(id, updates))
     estadoActualizado(id, updates.estado)
@@ -190,17 +207,36 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                   : 'Solicitudes sin asignar y tus propias asignaciones'}
               </p>
             </div>
-            {(esSuper || esAdministrador(rol)) && (
-              <button
-                type="button"
-                onClick={handleResetDatos}
-                className="inline-flex items-center gap-2 self-start rounded-full border border-red-300 bg-red-50 px-4 py-2 text-xs sm:text-sm font-bold text-red-700 hover:bg-red-100 hover:border-red-400 transition"
-                title="Elimina todas las solicitudes y reinicia el contador de IDs a 0"
-              >
-                <MdRestartAlt className="text-base" />
-                Eliminar información
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {esSuper && (
+                <span
+                  title="Próximo código global"
+                  className="inline-flex items-center gap-1.5 self-start rounded-full bg-brand-cyan/15 ring-1 ring-brand-cyan/40 text-brand-deep px-3 py-2 text-xs sm:text-sm font-bold tracking-wide select-none">
+                  <MdTag className="text-sm" />
+                  {proximo}
+                  <button
+                    type="button"
+                    aria-label="Actualizar próximo código"
+                    title="Actualizar próximo código"
+                    onClick={refrescarAhora}
+                    className="grid place-items-center size-6 rounded-full hover:bg-brand-cyan/25 transition"
+                  >
+                    <MdRefresh className="text-sm" />
+                  </button>
+                </span>
+              )}
+              {(esSuper || esAdministrador(rol)) && (
+                <button
+                  type="button"
+                  onClick={handleResetDatos}
+                  className="inline-flex items-center gap-2 self-start rounded-full border border-red-300 bg-red-50 px-4 py-2 text-xs sm:text-sm font-bold text-red-700 hover:bg-red-100 hover:border-red-400 transition"
+                  title="Elimina todas las solicitudes y reinicia el contador de IDs a 0"
+                >
+                  <MdRestartAlt className="text-base" />
+                  Eliminar información
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Tabs */}

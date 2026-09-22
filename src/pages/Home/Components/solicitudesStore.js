@@ -160,38 +160,39 @@ function siguienteNumero() {
 
 // ---------------------------------------------------------------------------
 // CÓDIGO GLOBAL
-// El próximo ID se reserva en el servidor (RPC `proximo_codigo`, secuencia
-// atómica en Supabase) para que TODOS los usuarios vean y usen el mismo número,
-// aunque RLS no les permita leer las solicitudes de los demás. La reserva se
-// guarda en memoria + localStorage; al crear se consume y se vuelve a reservar.
+// El próximo ID puede "verse" sin avanzar la secuencia (RPC `siguiente_codigo`)
+// o "reservarse" de forma atómica (RPC `proximo_codigo`, que consume nextval y
+// solo se llama al CREAR). Así todos los usuarios ven el mismo número y el
+// contador solo incrementa cuando de verdad se hace una solicitud.
 // Sin backend o sin conexión se usa la derivación local (siguienteNumero).
 // ---------------------------------------------------------------------------
-const RESERVADO_KEY = 'ctp_proximo_codigo'
-let reservado = null
+let proximoVisible = null
 let avisoReservaDado = false
 
-function reservaGuardada() {
-  if (reservado) return reservado
+function codigoValido(v) {
+  return typeof v === 'string' && /^CTPLOG-\d{5}$/.test(v)
+}
+
+// Ver el próximo código en el servidor SIN consumirlo (el peeksolo lee la
+// secuencia). Se usa para el aviso preventivo y el botón de actualizar.
+export async function refrescarProximoCodigo() {
+  if (!backendActivo || !navigator.onLine) return null
   try {
-    const r = localStorage.getItem(RESERVADO_KEY)
-    return r && /^CTPLOG-\d{5}$/.test(r) ? r : null
+    await iniciarSesion()
+    const { data, error } = await supabase.rpc('siguiente_codigo')
+    if (error) return null
+    if (!codigoValido(data)) return null
+    proximoVisible = data
+    return data
   } catch {
     return null
   }
 }
 
-function consumirReserva() {
-  reservado = null
-  try {
-    localStorage.removeItem(RESERVADO_KEY)
-  } catch {
-    // ignorar
-  }
-}
-
-// Pide al servidor el siguiente código de forma atómica (cada llamada avanza la
-// secuencia, así que dos usuarios nunca reciben el mismo). Devuelve null si no
-// hay backend o falla la RPC → la app usa el derivo local.
+// Reserva el siguiente código de forma atómica (avanza la secuencia). SOLO se
+// llama al crear una solicitud: garantiza que el ID asignado sea único y que
+// después de crear el siguiente número sea el consecutivo. Devuelve null si no
+// hay backend o falla la RPC → la app usa la derivación local.
 export async function reservarProximoCodigo() {
   if (!backendActivo || !navigator.onLine) return null
   try {
@@ -204,13 +205,8 @@ export async function reservarProximoCodigo() {
       }
       return null
     }
-    if (typeof data !== 'string' || !/^CTPLOG-\d{5}$/.test(data)) return null
-    reservado = data
-    try {
-      localStorage.setItem(RESERVADO_KEY, data)
-    } catch {
-      // ignorar
-    }
+    if (!codigoValido(data)) return null
+    proximoVisible = null
     return data
   } catch {
     return null
@@ -218,12 +214,6 @@ export async function reservarProximoCodigo() {
 }
 
 function nextId() {
-  const reserva = reservaGuardada()
-  if (reserva) {
-    consumirReserva()
-    void reservarProximoCodigo().catch(() => {})
-    return reserva
-  }
   const counter = siguienteNumero()
   try {
     localStorage.setItem(COUNTER_KEY, String(counter))
@@ -343,24 +333,25 @@ function nowStamp() {
 }
 
 export function peekNextId() {
-  const reserva = reservaGuardada()
-  if (reserva) return reserva
+  if (proximoVisible) return proximoVisible
   return `CTPLOG-${String(siguienteNumero()).padStart(5, '0')}`
 }
 
-// ¿Hay ya una reserva global en caché sin consumir?
-export function hayProximoReservado() {
-  return Boolean(reservaGuardada())
-}
-
-export async function saveSolicitud(data) {
-  // Asegura una reserva global (online) antes de asignar el código, para que el
-  // ID del nuevo pedido sea el mismo que ven los demás usuarios.
-  if (!reservaGuardada()) await reservarProximoCodigo()
+export async function saveSolicitud(data, idFijo = null) {
+  // Con backend se reserva el código al momento de creAR (avanza la secuencia
+  // una sola vez), para que el ID sea único y el siguiente sea el consecutivo.
+  // idFijo llega cuando el modal ya reservó (para que la carpeta de OneDrive
+  // coincida con el código final). Sin id y sin backend → derivación local.
+  let id = null
+  if (idFijo) {
+    id = idFijo
+  } else if (backendActivo && navigator.onLine) {
+    id = await reservarProximoCodigo()
+  }
   const list = loadSolicitudes()
   const now = new Date()
   const entry = {
-    id: nextId(),
+    id: id || nextId(),
     fechaSubida: now.toLocaleDateString('es-CO'),
     horaSubida: now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
     estado: 'Abierto',
@@ -497,10 +488,16 @@ export async function resetSolicitudes() {
   if (backendActivo) {
     try {
       await borrarTodasSolicitudes()
+      if (navigator.onLine) {
+        await iniciarSesion()
+        const { error } = await supabase.rpc('reiniciar_contador')
+        if (error) console.warn('[Supabase] no se pudo reiniciar el contador:', error.message)
+      }
     } catch (error) {
       console.warn('[Supabase] no se pudo limpiar en la base, se limpiará solo local:', error)
     }
   }
+  proximoVisible = null
   return clearSolicitudes()
 }
 

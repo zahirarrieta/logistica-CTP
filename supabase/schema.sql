@@ -150,6 +150,53 @@ $$;
 
 grant execute on function public.proximo_codigo() to anon, authenticated;
 
+-- Ver el próximo código SIN consumirlo (solo lee la secuencia): al abrir el
+-- modal o actualizar, el número no avanza. Solo `proximo_codigo()` (nextval)
+-- avanza, así que el contador sube únicamente al crear una solicitud.
+create or replace function public.siguiente_codigo()
+returns text
+language sql
+security definer
+set search_path = public
+as $$
+  select 'CTPLOG-' || lpad(
+    (last_value + case when is_called then 1 else 0 end)::text, 5, '0')
+  from public.solicitudes_codigo_seq;
+$$;
+
+grant execute on function public.siguiente_codigo() to anon, authenticated;
+
+-- Reinicia el contador de IDs en el servidor (solo admin/super): deja la
+-- secuencia lista para el siguiente código = máximo existente + 1. Tras borrar
+-- todas las solicitudes el siguiente vuelve a CTPLOG-00001.
+create or replace function public.reiniciar_contador()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_correo text := coalesce(auth.jwt() ->> 'email', '');
+  v_rol    text;
+begin
+  select rol into v_rol from public.usuarios where correo = v_correo limit 1;
+  if v_rol is null or v_rol not in ('administrador', 'superadmin') then
+    raise exception 'No autorizado';
+  end if;
+  perform setval('public.solicitudes_codigo_seq',
+    greatest(
+      coalesce((
+        select max(nullif(regexp_replace(codigo, '\D', '', 'g'), '')::bigint)
+        from public.solicitudes
+      ), 0) + 1,
+      1
+    ),
+    false);
+end;
+$$;
+
+grant execute on function public.reiniciar_contador() to authenticated;
+
 -- Deja la secuencia a la par del código más alto existente (idempotente).
 select public.sincronizar_secuencia_codigos();
 
