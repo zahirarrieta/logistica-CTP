@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   MdClose,
   MdDescription,
@@ -10,6 +10,7 @@ import {
   MdTag,
   MdImage,
   MdEvent,
+  MdPictureAsPdf,
 } from 'react-icons/md'
 import { getBadgeColor } from '../../../Home/Components/estadoColors.js'
 import { nombreDeAsignado, buscarEntrega } from '../../../Home/Components/solicitudesStore.js'
@@ -40,12 +41,52 @@ function Dato({ label, value }) {
 
 export default function PedidoDetalleModal({ solicitud, open, onClose }) {
   const [verAdjuntos, setVerAdjuntos] = useState(false)
+  const [exportando, setExportando] = useState(false)
+  const detalleRef = useRef(null)
   if (!open || !solicitud) return null
 
   const entrega = buscarEntrega(solicitud)
   const temporal = tiempoEntrega(solicitud)
   const adjuntos = adjuntosVisibles(solicitud)
   const historial = Array.isArray(solicitud.historial) ? solicitud.historial : []
+
+  const exportarPdf = async () => {
+    if (!detalleRef.current || exportando) return
+    setExportando(true)
+    try {
+      const [h2c, jspdf] = await Promise.all([import('html2canvas-pro'), import('jspdf')])
+      const html2canvas = h2c.default || h2c
+      const jsPDF = jspdf.jsPDF || jspdf.default
+      const canvas = await html2canvas(detalleRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: detalleRef.current.scrollWidth,
+      })
+      const doc = new jsPDF('p', 'mm', 'a4')
+      const anchoPagina = doc.internal.pageSize.getWidth()
+      const altoPagina = doc.internal.pageSize.getHeight()
+      const imgData = canvas.toDataURL('image/jpeg', 0.92)
+      const altoImg = (canvas.height * anchoPagina) / canvas.width
+      let heightLeft = altoImg
+      let position = 0
+      doc.addImage(imgData, 'JPEG', 0, position, anchoPagina, altoImg)
+      heightLeft -= altoPagina
+      while (heightLeft > 0) {
+        position -= altoPagina
+        doc.addPage()
+        doc.addImage(imgData, 'JPEG', 0, position, anchoPagina, altoImg)
+        heightLeft -= altoPagina
+      }
+      const fecha = new Date().toISOString().slice(0, 10)
+      doc.save(`${solicitud.id || 'pedido'}_${fecha}.pdf`)
+    } catch (error) {
+      console.error('[PedidoDetalle] no se pudo exportar el PDF:', error)
+    } finally {
+      setExportando(false)
+    }
+  }
 
   return (
     <>
@@ -70,6 +111,14 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
               </p>
             </div>
             <button
+              onClick={exportarPdf}
+              disabled={exportando}
+              className="grid place-items-center size-8 shrink-0 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-wait"
+              title={exportando ? 'Exportando…' : 'Exportar este pedido en PDF'}
+            >
+              <MdPictureAsPdf className="text-lg" />
+            </button>
+            <button
               onClick={onClose}
               className="grid place-items-center size-8 shrink-0 rounded-full bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
               title="Cerrar"
@@ -78,7 +127,7 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
             </button>
           </header>
 
-          <div className="p-4 sm:p-6 space-y-5 overflow-y-auto">
+          <div className="p-4 sm:p-6 space-y-5 overflow-y-auto" ref={detalleRef}>
             {/* Estado + tiempos */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-brand-ink/10 bg-brand-mist/40 px-4 py-3">
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${getBadgeColor(solicitud.estado || 'Abierto')}`}>

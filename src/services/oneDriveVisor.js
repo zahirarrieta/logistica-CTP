@@ -1,4 +1,4 @@
-import { obtenerTokenGraph } from './oneDriveApi.js'
+import { obtenerTokenGraph, resolverCarpetaRaiz } from './oneDriveApi.js'
 
 const RAIZ = 'solicitudes'
 const CARPETAS_CONOCIDAS = '(FacturasoRemisiones|DocEntregas)'
@@ -36,8 +36,11 @@ async function graphJson(ruta, token) {
 }
 
 async function descargarItem(item, token, mime) {
+  // El drive correcto es el del dueño del item (puede ser un OneDrive compartido).
+  const driveId = item.parentReference && item.parentReference.driveId
+  const base = driveId ? `/drives/${driveId}/items/` : '/me/drive/items/'
   const resp = await fetch(
-    `https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(item.id)}/content`,
+    `https://graph.microsoft.com/v1.0${base}${encodeURIComponent(item.id)}/content`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   if (!resp.ok) throw new Error(`OneDrive respondió ${resp.status}`)
@@ -68,55 +71,65 @@ export async function resolverArchivoOneDrive(url, { carpeta = '', mime = '' } =
   const token = await obtenerTokenGraph()
   const errores = []
 
-  if (/^https?:\/\//i.test(url)) {
-    // 1) Ruta directa dentro de una carpeta conocida (mismo OneDrive)
-    const match = url.match(new RegExp(`/${CARPETAS_CONOCIDAS}/([^/?&#]+)`, 'i'))
-    if (match) {
+  try {
+    const raiz = await resolverCarpetaRaiz(token)
+
+    if (/^https?:\/\//i.test(url)) {
+      // 1) Ruta directa dentro de una carpeta conocida (OneDrive compartido)
+      const match = url.match(new RegExp(`/${CARPETAS_CONOCIDAS}/([^/?&#]+)`, 'i'))
+      if (match) {
+        try {
+          const archivo = decodeURIComponent(match[2]).split('?')[0]
+          const item = await graphJson(
+            `/drives/${raiz.driveId}/items/${raiz.rootId}:/${match[1]}/${encodeURIComponent(archivo)}`,
+            token
+          )
+          return await resultado(item, token, mime, url)
+        } catch (err) {
+          console.warn('[OneDrive] ruta directa falló:', err.message)
+          errores.push(err.message)
+        }
+      }
+    } else if (carpeta) {
+      // 3) Referencias antiguas: solo se guardó el nombre del archivo.
       try {
-        const archivo = decodeURIComponent(match[2]).split('?')[0]
-        const item = await graphJson(
-          `/me/drive/root:/${RAIZ}/${match[1]}/${encodeURIComponent(archivo)}`,
+        const objetivo = url.split(',')[0].trim()
+        const lista = await graphJson(
+          `/drives/${raiz.driveId}/items/${raiz.rootId}:/${carpeta}:/children?$select=id,name,webUrl&$top=200`,
           token
         )
+        const items = lista.value || []
+        const item =
+          items.find((c) => c.name === objetivo) ||
+          items.find((c) => c.name.endsWith(`_${objetivo}`)) ||
+          items.find((c) => c.name.includes(objetivo))
+        if (!item) {
+          console.warn(
+            `[OneDrive] "${objetivo}" no está en ${carpeta}. Archivos:`,
+            items.map((c) => c.name)
+          )
+          throw new Error('no se encontró el archivo en la carpeta')
+        }
         return await resultado(item, token, mime, url)
       } catch (err) {
-        console.warn('[OneDrive] ruta directa falló:', err.message)
+        console.warn('[OneDrive] búsqueda por nombre falló:', err.message)
         errores.push(err.message)
       }
     }
+
     // 2) Enlace compartido (sirve aunque el archivo esté en el OneDrive de otro usuario)
-    try {
-      const item = await graphJson(`/shares/u!${base64Url(url)}/driveItem`, token)
-      return await resultado(item, token, mime, url)
-    } catch (err) {
-      console.warn('[OneDrive] enlace compartido falló:', err.message)
-      errores.push(err.message)
-    }
-  } else if (carpeta) {
-    // 3) Referencias antiguas: solo se guardó el nombre del archivo.
-    try {
-      const objetivo = url.split(',')[0].trim()
-      const lista = await graphJson(
-        `/me/drive/root:/${carpeta}:/children?$select=id,name,webUrl&$top=200`,
-        token
-      )
-      const items = lista.value || []
-      const item =
-        items.find((c) => c.name === objetivo) ||
-        items.find((c) => c.name.endsWith(`_${objetivo}`)) ||
-        items.find((c) => c.name.includes(objetivo))
-      if (!item) {
-        console.warn(
-          `[OneDrive] "${objetivo}" no está en ${carpeta}. Archivos:`,
-          items.map((c) => c.name)
-        )
-        throw new Error('no se encontró el archivo en la carpeta')
+    if (/^https?:\/\//i.test(url)) {
+      try {
+        const item = await graphJson(`/shares/u!${base64Url(url)}/driveItem`, token)
+        return await resultado(item, token, mime, url)
+      } catch (err) {
+        console.warn('[OneDrive] enlace compartido falló:', err.message)
+        errores.push(err.message)
       }
-      return await resultado(item, token, mime, url)
-    } catch (err) {
-      console.warn('[OneDrive] búsqueda por nombre falló:', err.message)
-      errores.push(err.message)
     }
+  } catch (err) {
+    console.warn('[OneDrive] no se pudo resolver la carpeta compartida:', err.message)
+    errores.push(err.message)
   }
 
   throw new Error(

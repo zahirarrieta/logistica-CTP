@@ -5,6 +5,7 @@ import {
   MdCloudDone,
   MdCloudUpload,
   MdErrorOutline,
+  MdFolderShared,
   MdInbox,
   MdRestartAlt,
   MdSend,
@@ -214,5 +215,22 @@ export function errorSubida(mensaje, id) {
     title: titulo(id, 'No se pudo subir el archivo'),
     icon: <MdErrorOutline />,
     description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
+  })
+}
+
+export function carpetaNoCompartida() {
+  sileo.error({
+    ...BASE,
+    duration: 9000,
+    title: 'Carpeta OneDrive no compartida',
+    icon: <MdFolderShared />,
+    description: (
+      <>
+        {linea("No se encontró la carpeta 'solicitudes' compartida con tu cuenta de Microsoft.")}
+        {detalle(
+          "Pídele al administrador que, desde sistemas@ctpmedica.com, haga clic derecho sobre 'solicitudes' → Compartir → 'Mi organización', permiso 'Puede editar'. Prueba de nuevo después de aceptar la invitación."
+        )}
+      </>
+    ),
   })
 }

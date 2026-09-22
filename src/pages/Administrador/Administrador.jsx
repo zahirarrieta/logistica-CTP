@@ -68,7 +68,11 @@ export default function Administrador() {
     [solicitudes, misDatos]
   )
 
-  const TABS = ORDEN_TABS
+  // El super admin ya ve todas las solicitudes en la pestaña "Solicitudes",
+  // así que no necesita "Mis solicitudes".
+  const TABS = esSuper
+    ? ORDEN_TABS.filter((t) => t.id !== 'asignaciones')
+    : ORDEN_TABS
 
   // Lista base del tab activo (antes de aplicar los filtros de la barra).
   const baseDelTab = esSuper
