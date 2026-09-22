@@ -142,9 +142,24 @@ function currentPersona() {
   return shortName(account)
 }
 
+function numeroDe(id) {
+  const n = parseInt(String(id).replace(/\D/g, ''), 10)
+  return Number.isFinite(n) ? n : 0
+}
+
+// Próxima secuencia: siempre por encima del contador local y de los IDs que ya
+// existen en la lista. Así, aunque otro navegador/dispositivo haya dejado un
+// contador viejo, tras reiniciar (lista vacía) el siguiente pedido vuelve a
+// CTPLOG-00001 y nunca se reutiliza o salta un número por un contador obsoleto.
+function siguienteNumero() {
+  const lista = loadSolicitudes()
+  const maximoLista = lista.reduce((acc, s) => Math.max(acc, numeroDe(s.id)), 0)
+  const contadorLocal = parseInt(localStorage.getItem(COUNTER_KEY) || '0', 10) || 0
+  return Math.max(contadorLocal, maximoLista) + 1
+}
+
 function nextId() {
-  let counter = parseInt(localStorage.getItem(COUNTER_KEY) || '0', 10) || 0
-  counter += 1
+  const counter = siguienteNumero()
   try {
     localStorage.setItem(COUNTER_KEY, String(counter))
   } catch {
@@ -263,8 +278,7 @@ function nowStamp() {
 }
 
 export function peekNextId() {
-  const counter = parseInt(localStorage.getItem(COUNTER_KEY) || '0', 10) || 0
-  return `CTPLOG-${String(counter + 1).padStart(5, '0')}`
+  return `CTPLOG-${String(siguienteNumero()).padStart(5, '0')}`
 }
 
 export function saveSolicitud(data) {
@@ -498,11 +512,6 @@ export async function sincronizarPendientes() {
   }
   if (subidas > 0) notificar()
   return subidas
-}
-
-function numeroDe(id) {
-  const n = parseInt(String(id).replace(/\D/g, ''), 10)
-  return Number.isFinite(n) ? n : 0
 }
 
 function sembrarContador(list) {
