@@ -18,7 +18,7 @@ import PlanillasTab from './Components/PlanillasTab.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud, resetSolicitudes, suscribir, peekNextId, refrescarProximoCodigo } from '../Home/Components/solicitudesStore.js'
 import { estadoActualizado, solicitudAsignada, conductorAsignado, datosReiniciados } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
-import { esSuperAdmin, esAsignadoA, esAdministrador } from '../../auth/roles.js'
+import { esSuperAdmin, esAsignadoA } from '../../auth/roles.js'
 
 const TABS_BASE = [
   { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
@@ -225,7 +225,7 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                   </button>
                 </span>
               )}
-              {(esSuper || esAdministrador(rol)) && (
+              {esSuper && (
                 <button
                   type="button"
                   onClick={handleResetDatos}

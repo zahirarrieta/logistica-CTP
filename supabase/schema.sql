@@ -175,12 +175,8 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_correo text := coalesce(auth.jwt() ->> 'email', '');
-  v_rol    text;
 begin
-  select rol into v_rol from public.usuarios where correo = v_correo limit 1;
-  if v_rol is null or v_rol not in ('administrador', 'superadmin') then
+  if not public.es_privilegiado() then
     raise exception 'No autorizado';
   end if;
   perform setval('public.solicitudes_codigo_seq',
