@@ -65,7 +65,30 @@ export async function subirAdjuntosOneDrive(archivos, correo, idSolicitud) {
   return resultados
 }
 
+async function asegurarCarpetaRaiz(token) {
+  const probe = await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/solicitudes', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (probe.ok) return
+  if (probe.status !== 404) {
+    throw new Error(`OneDrive: no se pudo verificar la carpeta solicitudes (${probe.status})`)
+  }
+  const crear = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name: 'solicitudes', folder: {} }),
+  })
+  if (!crear.ok) {
+    throw new Error(`OneDrive: no se pudo crear la carpeta solicitudes (${crear.status})`)
+  }
+  console.info('[OneDrive] carpeta raíz "solicitudes" creada')
+}
+
 async function asegurarCarpetaSolicitudes(token, nombre) {
+  await asegurarCarpetaRaiz(token)
   const listar = await fetch(
     'https://graph.microsoft.com/v1.0/me/drive/root:/solicitudes:/children',
     { headers: { Authorization: `Bearer ${token}` } }

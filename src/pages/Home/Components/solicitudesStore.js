@@ -3,7 +3,7 @@ import { shortName } from '../../../auth/user.js'
 import { supabase, backendActivo, iniciarSesion, datosUsuario } from '../../../services/supabaseClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../../../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud } from '../../../components/pdfUtils.js'
-import { solicitudNueva } from '../../../services/notificaciones.jsx'
+import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta } from '../../../services/notificaciones.jsx'
 
 const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
@@ -66,47 +66,81 @@ export function suscribir(callback) {
 }
 
 // ---------------------------------------------------------------------------
-// AVISOS DE SOLICITUDES NUEVAS
-// Para administradores/superadmin: cuando llega por Realtime una solicitud que
-// NO es del usuario actual, se muestra "Solicitud nueva por revisar". El rol se
-// lo pasa AuthContext (setRolActual) para no depender de RLS ni de pantallas.
+// AVISOS DE CAMBIOS EN SOLICITUDES
+// · Admin/super: aviso "Solicitud nueva" cuando llega por Realtime una solicitud
+//   que NO es del usuario actual.
+// · Solicitante: aviso cuando el admin/super cambia SU solicitud (estado,
+//   asignación, conductor). Los ecos de acciones hechas en ESTA sesión se
+//   omiten para no duplicar los toasts (el actor ya ve su confirmación).
+// El rol lo pasa AuthContext (setRolActual) para no depender de RLS.
 // ---------------------------------------------------------------------------
 let rolActualStore = ''
-let listaNotificada = null
+let listaPrevia = null
 const idsAvisados = new Set()
+// id → huella de lo último que escribió ESTA sesión (para distinguir ecos).
+const mapaEchoLocal = new Map()
 
 export function setRolActual(rol) {
   rolActualStore = rol || ''
 }
 
-function avisarSolicitudesNuevas(lista) {
-  const esPrivilegiado = rolActualStore === 'administrador' || rolActualStore === 'superadmin'
-  if (!esPrivilegiado) {
-    listaNotificada = lista
-    return
-  }
-  if (listaNotificada === null) {
-    listaNotificada = lista
-    return
-  }
-  const idsPrevios = new Set(listaNotificada.map((s) => s.id))
-  const correoPropio = (datosUsuario().correo || '').toLowerCase()
-  for (const s of lista) {
-    if (idsPrevios.has(s.id) || idsAvisados.has(s.id)) continue
-    if (s.pendienteSync) continue
-    const correo = (safeText(s.correo) || '').toLowerCase()
-    if (correo && correo === correoPropio) continue
-    idsAvisados.add(s.id)
-    solicitudNueva(s)
-  }
-  if (idsAvisados.size > 300) idsAvisados.clear()
-  listaNotificada = lista
+function fingerprint(s) {
+  return s
+    ? [s.estado, s.asignadoA, s.asignadoCorreo, s.conductor, s.vehiculo, s.placa, s.numeroReferencia, s.observaciones].join('|')
+    : ''
 }
 
-// Emite la lista vigente a todos los suscriptores y avisa de solicitudes nuevas.
+function marcarEchoLocal(listaScoped) {
+  for (const s of listaScoped) {
+    if (s?.id) mapaEchoLocal.set(s.id, fingerprint(s))
+  }
+}
+
+function avisarCambiosRemotos(lista) {
+  const esPrivilegiado = rolActualStore === 'administrador' || rolActualStore === 'superadmin'
+  const esSolicitante = rolActualStore === 'solicitante'
+  if (listaPrevia === null) {
+    listaPrevia = lista
+    return
+  }
+  const correoPropio = (datosUsuario().correo || '').toLowerCase()
+  const prevById = new Map(listaPrevia.map((s) => [s.id, s]))
+  for (const s of lista) {
+    if (s.pendienteSync) continue
+    const prev = prevById.get(s.id)
+    const correo = (safeText(s.correo) || '').toLowerCase()
+    if (!prev) {
+      // Llegó una solicitud que no estaba en la lista anterior.
+      if (!esPrivilegiado) continue
+      if (idsAvisados.has(s.id)) continue
+      if (correo && correo === correoPropio) continue
+      idsAvisados.add(s.id)
+      solicitudNueva(s)
+      continue
+    }
+    // Cambio sobre una solicitud existente.
+    if (!esSolicitante) continue
+    if (correo && correo !== correoPropio) continue
+    const huella = fingerprint(s)
+    if (huella === fingerprint(prev) || huella === mapaEchoLocal.get(s.id)) continue
+    if (s.estado === 'Devolución a Solicitante') {
+      solicitudDevuelta(s.id, (Array.isArray(s.historial) && s.historial[0]?.nota) || '')
+    } else if ((prev.estado || '') !== (s.estado || '')) {
+      estadoActualizado(s.id, s.estado)
+    } else if ((prev.asignadoA || '') !== (s.asignadoA || '')) {
+      solicitudAsignada(s.id, s.asignadoA)
+    } else if ((prev.conductor || '') !== (s.conductor || '')) {
+      conductorAsignado(s.id, s.conductor)
+    }
+  }
+  if (idsAvisados.size > 300) idsAvisados.clear()
+  listaPrevia = lista
+}
+
+// Emite la lista vigente a todos los suscriptores y avisa de los cambios.
 export function notificar() {
   const lista = loadSolicitudes()
-  avisarSolicitudesNuevas(lista)
+  avisarCambiosRemotos(lista)
   if (suscriptores.size === 0) return
   suscriptores.forEach((cb) => {
     try {
@@ -401,6 +435,7 @@ export async function saveSolicitud(data, idFijo = null) {
     ...data,
   }
   const next = escribir([entry, ...list])
+  marcarEchoLocal([entry])
   empujar(entry)
   notificar()
   return next
@@ -486,6 +521,8 @@ export function updateSolicitud(id, updates) {
     return { ...s, ...adicionales, historial: [...nuevos, ...historialFinal].slice(0, 30) }
   })
   escribir(next)
+  // Este cambio es obra de esta sesión: no debe avisarse como cambio remoto.
+  marcarEchoLocal(next.filter((s) => s.id === id))
   empujar({ id })
   notificar()
   return next
@@ -538,8 +575,9 @@ export async function resetSolicitudes() {
     }
   }
   proximoVisible = null
-  listaNotificada = null
+  listaPrevia = null
   idsAvisados.clear()
+  mapaEchoLocal.clear()
   return clearSolicitudes()
 }
 

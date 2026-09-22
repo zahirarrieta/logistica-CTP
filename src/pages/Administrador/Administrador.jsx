@@ -20,13 +20,14 @@ import { estadoActualizado, solicitudAsignada, conductorAsignado, datosReiniciad
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { esSuperAdmin, esAsignadoA } from '../../auth/roles.js'
 
-const TABS_BASE = [
-  { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
-  { id: 'planillas', label: 'Planillas', Icon: MdDescription },
+// Pestañas comunes a administrador y super admin. El contenido de cada una se
+// ajusta por rol (ver baseDelTab / Dashboard / Planillas).
+const ORDEN_TABS = [
   { id: 'dashboard', label: 'Dashboard', Icon: MdInsights },
+  { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
+  { id: 'asignaciones', label: 'Mis solicitudes', Icon: MdAssignmentInd },
+  { id: 'planillas', label: 'Planillas', Icon: MdDescription },
 ]
-
-const TAB_ASIGNACIONES = { id: 'asignaciones', label: 'Mis asignaciones', Icon: MdAssignmentInd }
 
 export default function Administrador() {
   const { account, usuario, rol } = useAuth()
@@ -67,12 +68,7 @@ export default function Administrador() {
     [solicitudes, misDatos]
   )
 
-  const TABS = useMemo(
-    () => (esSuper
-      ? TABS_BASE
-      : [TABS_BASE[0], TAB_ASIGNACIONES, TABS_BASE[1], TABS_BASE[2]]),
-    [esSuper]
-  )
+  const TABS = ORDEN_TABS
 
   // Lista base del tab activo (antes de aplicar los filtros de la barra).
   const baseDelTab = esSuper

@@ -2,7 +2,7 @@ let libs = null
 
 async function cargarLibs() {
   if (!libs) {
-    const [h2c, jspdf] = await Promise.all([import('html2canvas'), import('jspdf')])
+    const [h2c, jspdf] = await Promise.all([import('html2canvas-pro'), import('jspdf')])
     libs = {
       html2canvas: h2c.default || h2c,
       jsPDF: jspdf.jsPDF || jspdf.default,
