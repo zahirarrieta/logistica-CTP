@@ -4,7 +4,7 @@ import { Toaster } from 'sileo'
 import Loader from './loader/Loader.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
 import { puedeVer, rutaInicial } from './auth/roles.js'
-import { sincronizarInicial } from './pages/Home/Components/solicitudesStore.js'
+import { sincronizarInicial, iniciarTiempoReal, detenerTiempoReal } from './pages/Home/Components/solicitudesStore.js'
 
 const Login = lazy(() => import('./pages/Login/Login.jsx'))
 const Home = lazy(() => import('./pages/Home/Home.jsx'))
@@ -26,11 +26,13 @@ function Root() {
   useEffect(() => {
     if (!account) return
     let activo = true
+    iniciarTiempoReal()
     sincronizarInicial().finally(() => {
       if (activo) setDatosListos(true)
     })
     return () => {
       activo = false
+      detenerTiempoReal()
     }
   }, [account])
 

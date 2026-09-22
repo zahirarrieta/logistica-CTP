@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MdAdd, MdAssignmentAdd, MdInbox, MdFilterList } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -7,7 +7,7 @@ import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
-import { loadSolicitudes, saveSolicitud, corregirSolicitud } from './Components/solicitudesStore.js'
+import { loadSolicitudes, saveSolicitud, corregirSolicitud, suscribir } from './Components/solicitudesStore.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { solicitudCreada, solicitudCorregida } from '../../services/notificaciones.jsx'
 
@@ -20,6 +20,8 @@ export default function Solicitudes() {
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
+
+  useEffect(() => suscribir(setSolicitudes), [])
 
   // «MIS SOLICITUDES» solo muestra las solicitudes creadas por el usuario
   // conectado (comparando por su correo). Los admin/superadmin ven el total

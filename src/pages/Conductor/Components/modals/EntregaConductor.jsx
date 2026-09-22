@@ -146,19 +146,19 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     const preguntas = PREGUNTAS.map((p) => ({ pregunta: p, puntuacion: puntuaciones[p] || 0 }))
     setContactos(
       guardarContactoEncuesta({
-        nombre: nombreEncuestado.trim(),
-        cargo: cargo.trim(),
-        correo: correo.trim(),
+        nombre: nombreEncuestado.trim().toUpperCase(),
+        cargo: cargo.trim().toUpperCase(),
+        correo: correo.trim().toUpperCase(),
       })
     )
     onUpdate(solicitud.id, {
       estado: estadoEntrega,
-      notaEstado: observaciones.trim(),
+      notaEstado: observaciones.trim().toUpperCase(),
       evidencia: evidenciaFinal,
       encuesta: {
-        nombreEncuestado: nombreEncuestado.trim(),
-        cargo: cargo.trim(),
-        correo: correo.trim(),
+        nombreEncuestado: nombreEncuestado.trim().toUpperCase(),
+        cargo: cargo.trim().toUpperCase(),
+        correo: correo.trim().toUpperCase(),
         preguntas,
         promedio: preguntas.reduce((a, b) => a + b.puntuacion, 0) / preguntas.length,
       },
@@ -218,7 +218,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
             </label>
             <textarea
               value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
+              onChange={(e) => setObservaciones(e.target.value.toUpperCase())}
               rows={3}
               placeholder="Describe cómo se realizó la entrega…"
               className="w-full rounded-xl border border-brand-deep/20 bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all resize-none"
@@ -286,9 +286,9 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
                       key={`${c.nombre}|${c.cargo}|${c.correo}`}
                       type="button"
                       onClick={() => {
-                        setNombreEncuestado(c.nombre || '')
-                        setCargo(c.cargo || '')
-                        setCorreo(c.correo || '')
+                        setNombreEncuestado(String(c.nombre || '').toUpperCase())
+                        setCargo(String(c.cargo || '').toUpperCase())
+                        setCorreo(String(c.correo || '').toUpperCase())
                       }}
                       title={`${c.cargo || 'Sin cargo'} · ${c.correo || 'Sin correo'}`}
                       className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 ring-1 ring-brand-cyan/40 px-2.5 py-1 text-[11px] font-bold text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors max-w-full"
@@ -308,7 +308,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
                   <MdPerson className="text-brand-ink/40" />
                   <input
                     value={nombreEncuestado}
-                    onChange={(e) => setNombreEncuestado(e.target.value)}
+                    onChange={(e) => setNombreEncuestado(e.target.value.toUpperCase())}
                     placeholder="Nombre y apellido"
                     className="w-full py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 bg-transparent focus:outline-none"
                   />
@@ -320,7 +320,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
                   <MdWorkOutline className="text-brand-ink/40" />
                   <input
                     value={cargo}
-                    onChange={(e) => setCargo(e.target.value)}
+                    onChange={(e) => setCargo(e.target.value.toUpperCase())}
                     placeholder="Ej. Administrador"
                     className="w-full py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 bg-transparent focus:outline-none"
                   />
@@ -333,7 +333,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
                   <input
                     type="email"
                     value={correo}
-                    onChange={(e) => setCorreo(e.target.value)}
+                    onChange={(e) => setCorreo(e.target.value.toUpperCase())}
                     placeholder="correo@ejemplo.com"
                     className="w-full py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 bg-transparent focus:outline-none"
                   />

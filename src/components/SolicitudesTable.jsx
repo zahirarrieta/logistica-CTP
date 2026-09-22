@@ -42,6 +42,16 @@ const esEntregado = (s) => ['Entregado', 'Entregado Parcial'].includes(s.estado)
 const esDevolucion = (s) => s.estado === 'Devolución a Solicitante'
 const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !== '')
 
+// Cuando la solicitud está en tránsito, el adjunto relevante es la factura o
+// remisión que cargó el administrador, no el adjunto original del solicitante.
+const adjuntosVisibles = (s) => {
+  if (enTransito(s)) {
+    if (s.nuevaFacturaUrls?.length) return s.nuevaFacturaUrls
+    if (s.adjuntosTramite?.length) return s.adjuntosTramite
+  }
+  return s.adjuntos
+}
+
 function Row({ icon, label, value }) {
   return (
     <div className="flex items-start gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
@@ -156,7 +166,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
               <span className="text-brand-cyan mt-0.5 shrink-0"><MdAttachFile /></span>
               <span className="text-brand-ink/50 shrink-0">Adjuntos</span>
             </div>
-            {s.adjuntos && s.adjuntos.length > 0 ? (
+            {adjuntosVisibles(s)?.length > 0 ? (
               <button
                 type="button"
                 onClick={() => onVerAdjuntosClick?.(s)}
@@ -165,7 +175,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                 className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
               >
                 <MdAttachFile className="text-sm" />
-                {s.adjuntos.length} archivo(s)
+                {adjuntosVisibles(s).length} archivo(s)
               </button>
             ) : (
               <span className="text-brand-ink/40 text-sm">—</span>
@@ -339,8 +349,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
   // Una fila tiene acción visible si alguno de los botones aplica a su estado.
   const filaConAccion = (s) =>
     Boolean(
-      (onCorregirClick && esDevolucion(s)) ||
-        (onAsignarClick && !esEntregado(s)) ||
+      (onAsignarClick && !esEntregado(s)) ||
         (onCambiarEstadoClick && !esEntregado(s)) ||
         (onEntregaDetallesClick && esEntregado(s)) ||
         onEstadoClick ||
@@ -355,7 +364,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
   // La columna de acciones solo se dibuja si al menos una fila de la página
   // actual muestra algún botón; así no queda una columna en blanco junto a Estado.
   const hasAcciones =
-    Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick || onCorregirClick || onEntregaDetallesClick) &&
+    Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick || onEntregaDetallesClick) &&
     currentItems.some(filaConAccion)
 
   if (items.length === 0) {
@@ -370,8 +379,8 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
 
   return (
     <>
-      {/* Cards — visible en móvil y tablet */}
-      <div className="lg:hidden space-y-3">
+      {/* Cards — visible solo en móvil */}
+      <div className="md:hidden space-y-3">
         {currentItems.map((s, i) => (
           <SolicitudCard
             key={s.id}
@@ -395,10 +404,10 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
         ))}
       </div>
 
-      {/* Tabla — visible solo en desktop */}
-      <div className="hidden lg:block overflow-x-auto">
-        <div className="overflow-hidden rounded-2xl border border-brand-ink/15 shadow-sm">
-          <table className="w-full text-left text-sm border-separate border-spacing-0">
+      {/* Tabla — visible en tablet y desktop, con scroll horizontal si se alarga */}
+      <div className="hidden md:block">
+        <div className="overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
+          <table className="w-full min-w-[1060px] text-left text-sm border-separate border-spacing-0">
             <thead>
               <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-14 text-center">N°</th>
@@ -485,16 +494,16 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                   <td className="px-2 py-3 text-brand-ink/80 max-w-[140px] truncate whitespace-nowrap border-b border-l border-brand-ink/10">{s.cliente}</td>
                   <td className="px-2 py-3 capitalize text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.zona}</td>
                   <td className="px-2 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                    {s.adjuntos && s.adjuntos.length > 0 ? (
+                    {adjuntosVisibles(s)?.length > 0 ? (
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setAdjuntosSolicitud(s) }}
                         aria-label="Ver adjuntos"
-                        title="Ver adjuntos"
+                        title={enTransito(s) ? 'Ver factura o remisión' : 'Ver adjuntos'}
                         className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
                       >
                         <MdAttachFile className="text-sm" />
-                        {s.adjuntos.length} archivo(s)
+                        {adjuntosVisibles(s).length} archivo(s)
                       </button>
                     ) : '—'}
                   </td>
@@ -521,20 +530,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                   {hasAcciones && (
                     <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${colorRowsPorEstado ? getEstadoBg(s.estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')}`}>
                       <div className="flex items-center justify-center gap-1.5">
-                        {onCorregirClick && esDevolucion(s) && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onCorregirClick(s)
-                            }}
-                            title="Corregir y reenviar solicitud"
-                            aria-label="Corregir solicitud"
-                            className="grid place-items-center size-9 rounded-full bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-500 hover:text-white transition-colors"
-                          >
-                            <MdAssignmentReturn className="text-xl" />
-                          </button>
-                        )}
+
                         {onAsignarClick && !esEntregado(s) && (
                           <button
                             type="button"
@@ -666,7 +662,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
       <AdjuntosModal
         open={adjuntosSolicitud !== null}
         onClose={() => setAdjuntosSolicitud(null)}
-        adjuntos={adjuntosSolicitud?.adjuntos || []}
+        adjuntos={adjuntosSolicitud ? adjuntosVisibles(adjuntosSolicitud) : []}
       />
 
       {correoTooltip && (

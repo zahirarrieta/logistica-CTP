@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MdAdminPanelSettings, MdInbox, MdFilterList, MdInsights, MdRestartAlt, MdDescription, MdAssignmentInd } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -15,10 +15,10 @@ import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
 import DashboardTab from './Components/DashboardTab.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
-import { loadSolicitudes, updateSolicitud, removeSolicitud, resetSolicitudes } from '../Home/Components/solicitudesStore.js'
+import { loadSolicitudes, updateSolicitud, removeSolicitud, resetSolicitudes, suscribir } from '../Home/Components/solicitudesStore.js'
 import { estadoActualizado, solicitudAsignada, conductorAsignado, datosReiniciados } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
-import { esSuperAdmin, esAsignadoA } from '../../auth/roles.js'
+import { esSuperAdmin, esAsignadoA, esAdministrador } from '../../auth/roles.js'
 
 const TABS_BASE = [
   { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
@@ -32,7 +32,7 @@ export default function Administrador() {
   const { account, usuario, rol } = useAuth()
   const esSuper = esSuperAdmin(rol)
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
-  const [tab, setTab] = useState('solicitudes')
+  const [tab, setTab] = useState('dashboard')
   const [editSolicitud, setEditSolicitud] = useState(null)
   const [asignarSolicitud, setAsignarSolicitud] = useState(null)
   const [asignarConductorSolicitud, setAsignarConductorSolicitud] = useState(null)
@@ -45,11 +45,15 @@ export default function Administrador() {
   const [filtroZona, setFiltroZona] = useState('')
   const [filtroId, setFiltroId] = useState('')
 
+  useEffect(() => suscribir(setSolicitudes), [])
+
   // Identidad del admin actual para saber qué solicitudes le pertenecen.
   const misDatos = useMemo(() => ({
     nombre: usuario?.nombre || account?.name || '',
     correo: usuario?.correo || account?.username || '',
   }), [usuario, account])
+
+  const nombreAdmin = (usuario?.nombre || account?.name || '').trim()
 
   // Sin asignar: las que aún no tienen responsable (visibles para todo admin).
   const sinAsignar = useMemo(
@@ -171,7 +175,14 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                 <span className="grid place-items-center size-9 sm:size-11 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30">
                   <MdAdminPanelSettings className="text-lg sm:text-2xl" />
                 </span>
-                {esSuper ? 'SUPER ADMINISTRADOR' : 'ADMINISTRADOR'}
+                <span>
+                  {esSuper ? 'SUPER ADMINISTRADOR' : 'ADMINISTRADOR'}
+                  {nombreAdmin && (
+                    <span className="block text-sm sm:text-base font-extrabold text-brand-deep/80 mt-0.5 tracking-wide">
+                      {nombreAdmin.toUpperCase()}
+                    </span>
+                  )}
+                </span>
               </h1>
               <p className="text-brand-ink/60 mt-2 text-sm sm:text-base">
                 {esSuper
@@ -179,46 +190,48 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                   : 'Solicitudes sin asignar y tus propias asignaciones'}
               </p>
             </div>
-            {esSuper && (
+            {(esSuper || esAdministrador(rol)) && (
               <button
                 type="button"
                 onClick={handleResetDatos}
                 className="inline-flex items-center gap-2 self-start rounded-full border border-red-300 bg-red-50 px-4 py-2 text-xs sm:text-sm font-bold text-red-700 hover:bg-red-100 hover:border-red-400 transition"
-                title="Elimina todas las solicitudes y reinicia el contador (solo pruebas)"
+                title="Elimina todas las solicitudes y reinicia el contador de IDs a 0"
               >
                 <MdRestartAlt className="text-base" />
-                Restablecer datos de prueba
+                Eliminar información
               </button>
             )}
           </div>
 
           {/* Tabs */}
-          <div className="mb-6 inline-flex items-center gap-1 rounded-2xl bg-brand-mist/70 ring-1 ring-brand-ink/10 p-1">
-            {TABS.map((t) => {
-              const Icon = t.Icon
-              const active = tab === t.id
-              const cuenta = contadorTab(t.id)
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className={`inline-flex items-center gap-2 rounded-xl px-4 sm:px-6 py-2.5 text-sm font-extrabold transition-all ${
-                    active
-                      ? 'bg-brand-navy text-white shadow-lg'
-                      : 'text-brand-ink/60 hover:bg-white/70 hover:text-brand-deep'
-                  }`}
-                >
-                  <Icon className="text-base" />
-                  <span>{t.label}</span>
-                  {(t.id === 'solicitudes' || t.id === 'asignaciones') && cuenta > 0 && (
-                    <span className={`min-w-5 h-5 px-1 grid place-items-center rounded-full text-[10px] font-extrabold ${active ? 'bg-brand-cyan text-brand-ink' : 'bg-brand-deep/10 text-brand-deep'}`}>
-                      {cuenta}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
+          <div className="mb-6 -mx-4 px-4 overflow-x-auto sm:mx-0 sm:px-0">
+            <div className="inline-flex items-center gap-1 rounded-2xl bg-brand-mist/70 ring-1 ring-brand-ink/10 p-1 whitespace-nowrap">
+              {TABS.map((t) => {
+                const Icon = t.Icon
+                const active = tab === t.id
+                const cuenta = contadorTab(t.id)
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTab(t.id)}
+                    className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-xs sm:px-6 sm:text-sm font-extrabold transition-all ${
+                      active
+                        ? 'bg-brand-navy text-white shadow-lg'
+                        : 'text-brand-ink/60 hover:bg-white/70 hover:text-brand-deep'
+                    }`}
+                  >
+                    <Icon className="text-base" />
+                    <span>{t.label}</span>
+                    {(t.id === 'solicitudes' || t.id === 'asignaciones') && cuenta > 0 && (
+                      <span className={`min-w-5 h-5 px-1 grid place-items-center rounded-full text-[10px] font-extrabold ${active ? 'bg-brand-cyan text-brand-ink' : 'bg-brand-deep/10 text-brand-deep'}`}>
+                        {cuenta}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {tab === 'dashboard' ? (

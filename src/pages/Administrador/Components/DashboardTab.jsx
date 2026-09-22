@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   MdInsights,
   MdInbox,
@@ -18,6 +18,10 @@ import {
   MdWarning,
   MdHourglassEmpty,
   MdTrendingUp,
+  MdPictureAsPdf,
+  MdTableChart,
+  MdList,
+  MdChevronRight,
 } from 'react-icons/md'
 import {
   resumen,
@@ -36,6 +40,9 @@ import {
   HEX_ESTADO,
 } from './dashboardUtils.js'
 import { getBadgeColor } from '../../Home/Components/estadoColors.js'
+import { nombreDeAsignado } from '../../Home/Components/solicitudesStore.js'
+import PedidoDetalleModal from './modals/PedidoDetalleModal.jsx'
+import { exportarExcel, exportarPdf } from './exportarInforme.js'
 
 const CARD_ICON = 'grid place-items-center size-10 rounded-xl text-white text-xl shadow-md'
 
@@ -252,6 +259,8 @@ function EstadoMargen() {
 }
 
 export default function DashboardTab({ solicitudes }) {
+  const informeRef = useRef(null)
+  const [detalle, setDetalle] = useState(null)
   const r = useMemo(() => resumen(solicitudes), [solicitudes])
   const porA = useMemo(() => porAsignado(solicitudes), [solicitudes])
   const tiempos = useMemo(() => histogramaTiempos(solicitudes), [solicitudes])
@@ -264,6 +273,24 @@ export default function DashboardTab({ solicitudes }) {
   const conductores = useMemo(() => porConductor(solicitudes), [solicitudes])
   const clientes = useMemo(() => topClientes(solicitudes, 8), [solicitudes])
   const lentos = useMemo(() => lentosActivos(solicitudes, 48), [solicitudes])
+
+  const abrirDetalle = (id) => setDetalle(solicitudes.find((s) => s.id === id) || null)
+
+  const descargarPdf = async () => {
+    try {
+      await exportarPdf(informeRef.current, 'Informe_dashboard')
+    } catch (error) {
+      console.warn('[Dashboard] no se pudo exportar el PDF:', error)
+    }
+  }
+
+  const descargarExcel = () => {
+    try {
+      exportarExcel(solicitudes)
+    } catch (error) {
+      console.warn('[Dashboard] no se pudo exportar el Excel:', error)
+    }
+  }
 
   if (solicitudes.length === 0) {
     return (
@@ -280,7 +307,33 @@ export default function DashboardTab({ solicitudes }) {
   const cumplimiento = r.total ? Math.round((r.entregados / r.total) * 100) : 0
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <>
+    <div ref={informeRef} className="space-y-4 sm:space-y-6">
+      {/* Exportar informe */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep">
+          <MdInsights className="text-brand-cyan" /> Panel de control
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={descargarPdf}
+            className="inline-flex items-center gap-2 rounded-full bg-brand-navy text-white px-4 py-2 text-xs sm:text-sm font-bold hover:bg-brand-deep transition shadow-sm"
+          >
+            <MdPictureAsPdf className="text-base" />
+            Exportar PDF
+          </button>
+          <button
+            type="button"
+            onClick={descargarExcel}
+            className="inline-flex items-center gap-2 rounded-full border border-brand-deep/30 bg-brand-mist text-brand-deep px-4 py-2 text-xs sm:text-sm font-bold hover:bg-brand-cyan/15 transition"
+          >
+            <MdTableChart className="text-base" />
+            Exportar Excel
+          </button>
+        </div>
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4">
         <Kpi icon={<MdInbox />} accent="bg-gradient-to-br from-brand-navy to-brand-deep" label="Total de pedidos" value={r.total} />
@@ -306,7 +359,11 @@ export default function DashboardTab({ solicitudes }) {
         <div className="mb-3">
           <EstadoMargen />
         </div>
-        <BarrasActividad serie={actividad} />
+        <div className="overflow-x-auto pb-1">
+          <div className="min-w-[620px]">
+            <BarrasActividad serie={actividad} />
+          </div>
+        </div>
       </Seccion>
 
       {/* Cuándo llegan los pedidos */}
@@ -332,9 +389,24 @@ export default function DashboardTab({ solicitudes }) {
       {/* Equipo + cuellos de botella */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <Seccion icon={<MdHourglassEmpty />} titulo="Tiempo promedio por etapa">
+          {etapas.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1.5">
+              {etapas.map((e) => (
+                <span key={e.estado} className="inline-flex items-center gap-1.5 text-[10px] font-bold text-brand-ink/50">
+                  <span className="size-2 rounded-full" style={{ backgroundColor: HEX_ESTADO[e.estado] || '#94A3B8' }} />
+                  {e.estado}
+                </span>
+              ))}
+            </div>
+          )}
           <BarrasH
-            items={etapas.map((e) => ({ nombre: e.estado, valor: Math.round(e.promedio), colorHex: HEX_ESTADO[e.estado] }))}
-            formato={(i) => `${formatHoras(i.valor)} · ${i.n} ${i.n === 1 ? 'caso' : 'casos'}`}
+            items={etapas.map((e) => ({
+              nombre: e.estado,
+              valor: e.promedio,
+              n: e.n,
+              colorHex: HEX_ESTADO[e.estado],
+            }))}
+            formato={(i) => `${formatHoras(i.valor)} · ${i.n ?? 0} ${i.n === 1 ? 'caso' : 'casos'}`}
           />
         </Seccion>
         <Seccion icon={<MdLocalShipping />} titulo="Carga por conductor">
@@ -430,9 +502,12 @@ export default function DashboardTab({ solicitudes }) {
             <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Últimas entregas</h3>
             <div className="overflow-hidden rounded-xl border border-brand-ink/10">
               {tiempos.ultimasEntregas.map((e, i) => (
-                <div
+                <button
+                  type="button"
                   key={e.id + e.fechaHora + i}
-                  className={`flex items-center gap-3 px-3 py-2.5 text-sm ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/5'} border-b border-brand-ink/5 last:border-0`}
+                  onClick={() => abrirDetalle(e.id)}
+                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-sm text-left hover:bg-brand-cyan/10 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/5'} border-b border-brand-ink/5 last:border-0`}
+                  title={`Ver detalle de ${e.id}`}
                 >
                   <span className="shrink-0 font-extrabold text-brand-deep">{e.id}</span>
                   <span className="min-w-0 flex-1 truncate text-brand-ink/80">
@@ -442,12 +517,48 @@ export default function DashboardTab({ solicitudes }) {
                     {e.estado}
                   </span>
                   <span className="shrink-0 font-extrabold text-brand-ink tabular-nums">{formatHoras(e.horas)}</span>
-                </div>
+                  <MdChevronRight className="shrink-0 text-brand-deep/40" />
+                </button>
               ))}
             </div>
           </div>
         )}
       </Seccion>
+
+      {/* Listado completo de pedidos */}
+      <Seccion icon={<MdList />} titulo={`Pedidos (${solicitudes.length})`}>
+        <div className="overflow-hidden rounded-xl border border-brand-ink/10">
+          {solicitudes.map((s, i) => (
+            <button
+              type="button"
+              key={s.id}
+              onClick={() => abrirDetalle(s.id)}
+              className={`flex w-full items-center gap-3 px-3 py-2.5 text-sm text-left hover:bg-brand-cyan/10 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/5'} border-b border-brand-ink/5 last:border-0`}
+              title={`Ver detalle de ${s.id}`}
+            >
+              <span className="shrink-0 font-extrabold text-brand-deep">{s.id}</span>
+              <span className="min-w-0 flex-1 truncate text-brand-ink/80">
+                {s.cliente || '—'} <span className="text-brand-ink/40">· {s.zona || '—'}</span>
+              </span>
+              <span className={`hidden md:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(s.estado || 'Abierto')}`}>
+                {s.estado || 'Abierto'}
+              </span>
+              <span className="hidden sm:inline-block text-[11px] font-bold text-brand-ink/50 truncate max-w-32">
+                {nombreDeAsignado(s.asignadoA) || 'Sin asignar'}
+              </span>
+              <span className="shrink-0 text-[11px] font-bold text-brand-ink/40 tabular-nums">{s.fechaSubida}</span>
+              <MdChevronRight className="shrink-0 text-brand-deep/40" />
+            </button>
+          ))}
+        </div>
+      </Seccion>
     </div>
+
+    <PedidoDetalleModal
+      solicitud={detalle}
+      open={detalle !== null}
+      onClose={() => setDetalle(null)}
+    />
+    </>
   )
 }
