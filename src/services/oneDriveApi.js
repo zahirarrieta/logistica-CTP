@@ -31,6 +31,18 @@ function cabeceras(token, extra = {}) {
   return { Authorization: `Bearer ${token}`, ...extra }
 }
 
+// Vínculo oficial de la carpeta "solicitudes" (OneDrive de sistemas@ctpmedica.com).
+// Se usa como último respaldo para ubicarla aunque no aparezca en "compartidos".
+const ENLACE_CARPETA =
+  'https://ctpmedica-my.sharepoint.com/:f:/p/sistemas/IgCqhcbGRW00SojY83hsdXT1ARxxGY1ZCZ3tkjv7xvA5uBk?e=vgsdbw'
+
+function base64Url(str) {
+  const bytes = new TextEncoder().encode(str)
+  let bin = ''
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
+}
+
 // ---------------------------------------------------------------------------
 // Carpetas: todo vive en la carpeta raíz "solicitudes" del OneDrive COMPARTIDO
 // (la de sistemas@ctpmedica.com). El usuario autenticado la puede tener en su
@@ -84,10 +96,38 @@ export async function resolverCarpetaRaiz(token) {
     console.warn('[OneDrive] no se pudo revisar la carpeta en mi drive:', err.message)
   }
 
+  // Prioridad 3: el vínculo oficial compartido por la organización.
+  const porEnlace = await resolverPorEnlace(token)
+  if (porEnlace) {
+    carpetaRaizCache = porEnlace
+    return carpetaRaizCache
+  }
+
   carpetaNoCompartida()
   throw new Error(
     "OneDrive: no se encontró la carpeta compartida 'solicitudes'. Compártela con tu cuenta para poder subir y ver documentos."
   )
+}
+
+// El vínculo oficial compartido por la organización.
+async function resolverPorEnlace(token) {
+  try {
+    const resp = await fetch(`${BASE}/shares/u!${base64Url(ENLACE_CARPETA)}/driveItem`, {
+      headers: cabeceras(token),
+    })
+    if (!resp.ok) return null
+    const folder = await resp.json()
+    const driveId = folder.parentReference?.driveId
+    if (!folder.folder || !driveId) return null
+    return {
+      driveId,
+      rootId: folder.id,
+      nombre: folder.name,
+    }
+  } catch (err) {
+    console.warn('[OneDrive] no se pudo resolver la carpeta por el vínculo:', err.message)
+    return null
+  }
 }
 
 async function raizPara(token) {
@@ -172,7 +212,7 @@ export async function subirAdjuntosOneDrive(archivos, correo, idSolicitud) {
       tamaño: archivo.size,
       tipo: archivo.type,
     })
-    console.info(`[OneDrive] subido ${archivo.name} → ${subido.url || '(sin webUrl)'}`)
+    console.info(`[OneDrive] subido ${archivo.name} a la carpeta compartida → ${subido.url || '(sin webUrl)'}`)
   }
 
   return resultados
@@ -215,7 +255,7 @@ export async function subirFacturaRemisionOneDrive(archivos, numeroFactura) {
       cantidadBytes: archivo.size,
       tipo: archivo.type,
     })
-    console.info(`[OneDrive] factura/remisión subida → ${subido.url || '(sin webUrl)'}`)
+    console.info(`[OneDrive] factura/remisión subida a la carpeta compartida → ${subido.url || '(sin webUrl)'}`)
   }
 
   return resultados
@@ -241,6 +281,6 @@ export async function subirDocEntregaOneDrive(blob, referencia) {
     blob,
     blob.type || 'image/jpeg'
   )
-  console.info(`[OneDrive] evidencia de entrega subida → ${subido.url || '(sin webUrl)'}`)
+  console.info(`[OneDrive] evidencia de entrega subida a la carpeta compartida → ${subido.url || '(sin webUrl)'}`)
   return { nombre: nombreDestino, url: subido.url }
 }

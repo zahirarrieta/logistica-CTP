@@ -167,7 +167,7 @@ export function datosReiniciados() {
   })
 }
 
-export function documentosSubidos({ id, nombres = [], destino = 'OneDrive' } = {}) {
+export function documentosSubidos({ id, nombres = [], destino = 'carpeta compartida' } = {}) {
   const lista = nombres.filter(Boolean)
   sileo.success({
     ...BASE,
@@ -175,7 +175,7 @@ export function documentosSubidos({ id, nombres = [], destino = 'OneDrive' } = {
     icon: <MdCloudUpload />,
     description: (
       <>
-        {linea(`Guardado(s) correctamente en ${destino}.`)}
+        {linea(`Guardado(s) correctamente en la ${destino} de OneDrive/SharePoint.`)}
         {lista.length > 0 && detalle(lista.join(', '))}
       </>
     ),
@@ -189,7 +189,7 @@ export function evidenciaSubida({ id, archivo } = {}) {
     icon: <MdCloudUpload />,
     description: (
       <>
-        {linea('La evidencia de entrega se guardó en OneDrive.')}
+        {linea('La evidencia de entrega se guardó en la carpeta compartida de OneDrive/SharePoint.')}
         {archivo && detalle(archivo)}
       </>
     ),
@@ -203,7 +203,7 @@ export function subidaPendiente(mensaje, id) {
     title: titulo(id, 'Evidencia guardada localmente'),
     icon: <MdErrorOutline />,
     description: linea(
-      mensaje || 'No se pudo subir la evidencia a OneDrive; se conservará en este dispositivo.'
+      mensaje || 'No se pudo subir la evidencia a la carpeta compartida; se conservará en este dispositivo.'
     ),
   })
 }
