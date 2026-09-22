@@ -66,11 +66,6 @@ export default function Administrador() {
     () => solicitudes.filter((s) => esAsignadoA(s, misDatos)),
     [solicitudes, misDatos]
   )
-  // Universo sobre el que operan Planillas y Dashboard.
-  const scope = useMemo(
-    () => (esSuper ? solicitudes : [...sinAsignar, ...misAsignaciones]),
-    [esSuper, solicitudes, sinAsignar, misAsignaciones]
-  )
 
   const TABS = useMemo(
     () => (esSuper
@@ -271,9 +266,9 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
           </div>
 
           {tab === 'dashboard' ? (
-            <DashboardTab solicitudes={scope} />
+            <DashboardTab solicitudes={esSuper ? solicitudes : misAsignaciones} />
           ) : tab === 'planillas' ? (
-            <PlanillasTab solicitudes={scope} />
+            <PlanillasTab solicitudes={solicitudes} />
           ) : (
             <>
               {baseDelTab.length > 0 && (

@@ -1,8 +1,9 @@
 import { msalInstance } from '../../../auth/msal.js'
 import { shortName } from '../../../auth/user.js'
-import { supabase, backendActivo, iniciarSesion } from '../../../services/supabaseClient.js'
+import { supabase, backendActivo, iniciarSesion, datosUsuario } from '../../../services/supabaseClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../../../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud } from '../../../components/pdfUtils.js'
+import { solicitudNueva } from '../../../services/notificaciones.jsx'
 
 const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
@@ -64,10 +65,49 @@ export function suscribir(callback) {
   return () => suscriptores.delete(callback)
 }
 
-// Emite la lista vigente a todos los suscriptores.
+// ---------------------------------------------------------------------------
+// AVISOS DE SOLICITUDES NUEVAS
+// Para administradores/superadmin: cuando llega por Realtime una solicitud que
+// NO es del usuario actual, se muestra "Solicitud nueva por revisar". El rol se
+// lo pasa AuthContext (setRolActual) para no depender de RLS ni de pantallas.
+// ---------------------------------------------------------------------------
+let rolActualStore = ''
+let listaNotificada = null
+const idsAvisados = new Set()
+
+export function setRolActual(rol) {
+  rolActualStore = rol || ''
+}
+
+function avisarSolicitudesNuevas(lista) {
+  const esPrivilegiado = rolActualStore === 'administrador' || rolActualStore === 'superadmin'
+  if (!esPrivilegiado) {
+    listaNotificada = lista
+    return
+  }
+  if (listaNotificada === null) {
+    listaNotificada = lista
+    return
+  }
+  const idsPrevios = new Set(listaNotificada.map((s) => s.id))
+  const correoPropio = (datosUsuario().correo || '').toLowerCase()
+  for (const s of lista) {
+    if (idsPrevios.has(s.id) || idsAvisados.has(s.id)) continue
+    if (s.pendienteSync) continue
+    const correo = (safeText(s.correo) || '').toLowerCase()
+    if (correo && correo === correoPropio) continue
+    idsAvisados.add(s.id)
+    solicitudNueva(s)
+  }
+  if (idsAvisados.size > 300) idsAvisados.clear()
+  listaNotificada = lista
+}
+
+// Emite la lista vigente a todos los suscriptores y avisa de solicitudes nuevas.
 export function notificar() {
-  if (suscriptores.size === 0) return
   const lista = loadSolicitudes()
+  avisarSolicitudesNuevas(lista)
+  if (suscriptores.size === 0) return
   suscriptores.forEach((cb) => {
     try {
       cb(lista)
@@ -498,6 +538,8 @@ export async function resetSolicitudes() {
     }
   }
   proximoVisible = null
+  listaNotificada = null
+  idsAvisados.clear()
   return clearSolicitudes()
 }
 

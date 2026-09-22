@@ -374,6 +374,24 @@ create policy historial_update on public.historial
   );
 
 -- ----------------------------------------------------------------------------
+-- 6b. REAL TIME
+--    Publica los cambios de solicitudes/historial para que las pantallas
+--    abiertas se actualicen al instante (aviso de solicitud nueva incluido).
+--    Sin esto el navegador solo vería cambios al refrescar la página.
+-- ----------------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename in ('solicitudes', 'historial')
+  ) then
+    alter publication supabase_realtime add table public.solicitudes, public.historial;
+  end if;
+end $$;
+
+-- ----------------------------------------------------------------------------
 -- 7. BUCKETS PRIVADOS (adjuntos de la solicitud y evidencia de la entrega)
 -- ----------------------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit)

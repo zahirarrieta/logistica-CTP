@@ -28,7 +28,7 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
   if (!open || !solicitud) return null
 
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
-  const asignados = usuarios.filter((u) => u.rol === 'administrador')
+  const asignados = usuarios.filter((u) => u.rol === 'administrador' || u.rol === 'superadmin')
   const conductores = usuarios.filter(esConductorUsuario)
   const lista = enTransito ? conductores : asignados
 

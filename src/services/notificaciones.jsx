@@ -5,6 +5,7 @@ import {
   MdCloudDone,
   MdCloudUpload,
   MdErrorOutline,
+  MdInbox,
   MdRestartAlt,
   MdSend,
   MdSwapHoriz,
@@ -56,6 +57,24 @@ export function solicitudCreada(solicitud = {}) {
     description: (
       <>
         {linea('Solicitud creada correctamente.')}
+        {solicitud.cliente && detalle(`Cliente: ${solicitud.cliente}`)}
+      </>
+    ),
+  })
+}
+
+// Aviso para administradores/superadmin cuando OTRA persona crea una solicitud:
+// llega al instante por Realtime y no requiere refrescar la página.
+export function solicitudNueva(solicitud = {}) {
+  sileo.info({
+    ...BASE,
+    duration: 7000,
+    title: 'Solicitud nueva',
+    icon: <MdInbox />,
+    description: (
+      <>
+        {linea('Hay una solicitud nueva por revisar.')}
+        {solicitud.id && detalle(`Código: ${solicitud.id}`)}
         {solicitud.cliente && detalle(`Cliente: ${solicitud.cliente}`)}
       </>
     ),
