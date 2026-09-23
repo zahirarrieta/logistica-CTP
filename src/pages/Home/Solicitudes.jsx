@@ -23,6 +23,19 @@ export default function Solicitudes() {
 
   useEffect(() => suscribir(setSolicitudes), [])
 
+  // Si llega un cambio en vivo (Realtime) mientras un modal está abierto,
+  // re-apunta el objeto del modal a la versión fresca por id; si la solicitud
+  // desapareció, cierra el modal. Así el estado «Entregado» se refleja al
+  // instante sin tener que cerrar y volver a abrir.
+  useEffect(() => {
+    setDetalleSolicitud((prev) =>
+      prev ? (solicitudes.find((s) => s.id === prev.id) || null) : prev
+    )
+    setEditarSolicitud((prev) =>
+      prev ? (solicitudes.find((s) => s.id === prev.id) || null) : prev
+    )
+  }, [solicitudes])
+
   // «MIS SOLICITUDES» solo muestra las solicitudes creadas por el usuario
   // conectado (comparando por su correo). Los admin/superadmin ven el total
   // únicamente en el módulo Administrador.

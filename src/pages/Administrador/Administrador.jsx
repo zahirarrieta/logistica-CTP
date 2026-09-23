@@ -49,6 +49,19 @@ export default function Administrador() {
 
   useEffect(() => suscribir(setSolicitudes), [])
 
+  // Re-apunta los modales abiertos a la versión fresca por id cuando llega un
+  // cambio en vivo (Realtime); cierra el modal si la solicitud desapareció.
+  useEffect(() => {
+    const fresco = (prev) =>
+      prev ? (solicitudes.find((s) => s.id === prev.id) || null) : prev
+    setEditSolicitud(fresco)
+    setAsignarSolicitud(fresco)
+    setAsignarConductorSolicitud(fresco)
+    setHistorialSolicitud(fresco)
+    setEntregaDetallesSolicitud(fresco)
+    setEliminarSolicitud(fresco)
+  }, [solicitudes])
+
   // Identidad del admin actual para saber qué solicitudes le pertenecen.
   const misDatos = useMemo(() => ({
     nombre: usuario?.nombre || account?.name || '',

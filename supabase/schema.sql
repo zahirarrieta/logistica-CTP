@@ -311,13 +311,24 @@ create policy solicitudes_select on public.solicitudes
         and estado in ('En Tránsito', 'En Tránsito Parcial'))
   );
 
+-- La app sube con upsert (insert ... on conflict do update). Postgres evalúa
+-- la política INSERT sobre la fila propuesta incluso cuando termina en UPDATE,
+-- así que hay que permitir que un conductor «inserte» su entrega (estado
+-- Entregado/Entregado Parcial) sobre una solicitud que ya tiene en tránsito.
 drop policy if exists solicitudes_insert on public.solicitudes;
 create policy solicitudes_insert on public.solicitudes
   for insert with check (
     public.rol_actual() in ('solicitante', 'administrador', 'superadmin')
     or solicitante_correo = public.correo_actual()
+    or (public.rol_actual() = 'conductor'
+        and estado in ('En Tránsito', 'En Tránsito Parcial',
+                       'Entregado', 'Entregado Parcial'))
   );
 
+-- USING = qué fila puede tocar el conductor (solo las que están en tránsito).
+-- WITH CHECK = qué puede dejar escrito en la fila resultante. Es obligatorio
+-- declararlo: si se omite, Postgres reutiliza USING contra la NUEVA fila y el
+-- conductor nunca podría pasarla a Entregado (el estado ya no está en tránsito).
 drop policy if exists solicitudes_update on public.solicitudes;
 create policy solicitudes_update on public.solicitudes
   for update using (
@@ -325,6 +336,13 @@ create policy solicitudes_update on public.solicitudes
     or solicitante_correo = public.correo_actual()
     or (public.rol_actual() = 'conductor'
         and estado in ('En Tránsito', 'En Tránsito Parcial'))
+  )
+  with check (
+    public.es_privilegiado()
+    or solicitante_correo = public.correo_actual()
+    or (public.rol_actual() = 'conductor'
+        and estado in ('En Tránsito', 'En Tránsito Parcial',
+                       'Entregado', 'Entregado Parcial'))
   );
 
 drop policy if exists solicitudes_delete on public.solicitudes;
