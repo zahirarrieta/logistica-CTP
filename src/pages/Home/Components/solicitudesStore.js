@@ -186,6 +186,15 @@ function empujar(solicitud) {
       escribir(loadSolicitudes().map((s) => (s.id === actual.id ? { ...s, pendienteSync: false } : s)))
     })
     .catch((error) => {
+      if (esBloqueoPermanente(error)) {
+        // Permiso denegado (RLS): reintentar no lo resolverá y dejaría una
+        // copia huérfana en la cola. Se avisa y NO se encola.
+        console.warn(
+          `[Supabase] no se pudo subir ${actual.id} (permiso denegado):`,
+          error?.message
+        )
+        return
+      }
       console.warn('[Supabase] no se pudo subir:', error)
       pendiente(actual.id)
     })
@@ -647,22 +656,45 @@ export function marcarPendienteSync(id) {
   return pendiente(id)
 }
 
+// Un rechazo por permisos (RLS 42501 / 403) no se resuelve reintentando: o la
+// fila ya no existe en remoto, o el estado no está permitido para este rol.
+function esBloqueoPermanente(error) {
+  const codigo = String(error?.code || '')
+  const mensaje = String(error?.message || '')
+  return codigo === '42501' || /row-level security/i.test(mensaje)
+}
+
 export async function sincronizarPendientes() {
   if (!backendActivo) return 0
   const pendientes = loadSolicitudes().filter((s) => s.pendienteSync)
   if (pendientes.length === 0) return 0
   let subidas = 0
+  let cambio = false
+  const liberar = (id) => {
+    escribir(loadSolicitudes().map((x) => (x.id === id ? { ...x, pendienteSync: false } : x)))
+    cambio = true
+  }
   for (const s of pendientes) {
     try {
       await empujarSolicitud(s)
       subidas += 1
-      escribir(loadSolicitudes().map((x) => (x.id === s.id ? { ...x, pendienteSync: false } : x)))
+      liberar(s.id)
     } catch (error) {
+      if (esBloqueoPermanente(error)) {
+        // Corta el bucle infinito: suelta el pendiente para que la próxima
+        // sincronización descarte la copia local huérfana (la BD manda).
+        console.warn(
+          `[Supabase] pendiente ${s.id} descartado (permiso denegado, no se reintentará):`,
+          error?.message
+        )
+        liberar(s.id)
+        continue
+      }
       console.warn('[Supabase] pendientes en pausa:', error)
       break
     }
   }
-  if (subidas > 0) notificar()
+  if (cambio) notificar()
   return subidas
 }
 
