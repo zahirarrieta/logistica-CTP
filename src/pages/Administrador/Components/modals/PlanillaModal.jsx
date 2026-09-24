@@ -26,6 +26,22 @@ import {
 } from '../planillaStore.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
+const ESTADOS_ENTREGA = ['Entregado', 'Entregado Parcial']
+
+function resultadoDe(estado) {
+  if (ESTADOS_ENTREGA.includes(estado)) return estado
+  if (ESTADOS_TRANSITO.includes(estado)) return 'Pendiente por entregar'
+  return estado || 'Pendiente'
+}
+
+function claseResultado(fila) {
+  if (fila.manual) return 'bg-brand-mist text-brand-deep'
+  if (fila.estado === 'Entregado' || fila.estado === 'Entregado Parcial') {
+    return 'bg-emerald-100 text-emerald-700'
+  }
+  if (ESTADOS_TRANSITO.includes(fila.estado)) return 'bg-amber-100 text-amber-700'
+  return getBadgeColor(fila.estado)
+}
 
 const FILA_VACIA = { id: '', solicitante: '', cliente: '', zona: '', tipoSolicitud: '', observaciones: '' }
 
@@ -82,8 +98,17 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
     const agregadas = new Set(planilla.filasAgregadas || [])
     const obs = planilla.observacionesFila || {}
     const delConductor = solicitudes.filter((s) => nombreDeAsignado(s.conductor) === conductor)
+    // Incluye lo que va en ruta (tránsito) y, si la planilla es de hoy, lo que ya
+    // se entregó: así al cierre de la tarde se ve qué quedó sin entregar.
+    const esHoy = planilla.fecha === fechaHoy()
     const incluidas = delConductor
-      .filter((s) => (ESTADOS_TRANSITO.includes(s.estado) || agregadas.has(s.id)) && !ocultas.has(s.id))
+      .filter(
+        (s) =>
+          ESTADOS_TRANSITO.includes(s.estado) ||
+          (esHoy && ESTADOS_ENTREGA.includes(s.estado)) ||
+          agregadas.has(s.id)
+      )
+      .filter((s) => !ocultas.has(s.id))
       .map((s) => ({
         key: s.id,
         manual: false,
@@ -94,10 +119,19 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
         tipoSolicitud: s.tipoSolicitud || '',
         observaciones: obs[s.id] ?? s.observaciones ?? '',
         estado: s.estado,
+        resultado: resultadoDe(s.estado),
       }))
-    const extra = (planilla.filasExtra || []).map((f) => ({ ...f, manual: true }))
+    const extra = (planilla.filasExtra || []).map((f) => ({ ...f, manual: true, resultado: 'Manual' }))
     return [...incluidas, ...extra]
   }, [solicitudes, conductor, planilla])
+
+  const resumenCierre = useMemo(() => {
+    const noManual = filas.filter((f) => !f.manual)
+    const entregados = noManual.filter((f) => ESTADOS_ENTREGA.includes(f.estado)).length
+    const pendientes = noManual.filter((f) => ESTADOS_TRANSITO.includes(f.estado))
+    const total = filas.length
+    return { total, entregados, pendientes }
+  }, [filas])
 
   const datosVehiculo = useMemo(() => {
     const delConductor = solicitudes.filter((s) => nombreDeAsignado(s.conductor) === conductor)
@@ -207,7 +241,7 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
           {/* Hoja imprimible / exportable */}
           <div ref={hojaRef} id="planilla-print" className="planilla-sheet rounded-xl border border-brand-ink/15 bg-white p-4 sm:p-6">
             <div className="flex items-center justify-between gap-3 border-b-2 border-brand-cyan pb-3 mb-4">
-              <img src="/CTP.png" alt="CTP" className="h-12 sm:h-16 w-auto object-contain shrink-0" />
+              <img src="/CTPM.png" alt="CTP" className="h-12 sm:h-16 w-auto object-contain shrink-0" />
               <div className="text-center min-w-0">
                 <p className="text-lg sm:text-xl font-extrabold text-brand-navy uppercase tracking-wide">Planilla de salida</p>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-brand-deep/70">CTP Logística · Control de entregas</p>
@@ -232,6 +266,7 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold">Cliente</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-32">Zona</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-36">Tipo de solicitud</th>
+                    <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-36">Resultado</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold">Observaciones</th>
                     {!soloLectura && <th className="border border-brand-deep/30 px-2 py-1.5 text-center font-bold w-10 print:hidden">—</th>}
                   </tr>
@@ -239,7 +274,7 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                 <tbody>
                   {filas.length === 0 ? (
                     <tr>
-                      <td colSpan={soloLectura ? 7 : 8} className="border border-brand-ink/10 px-3 py-6 text-center text-brand-ink/50 font-semibold">
+                      <td colSpan={soloLectura ? 8 : 9} className="border border-brand-ink/10 px-3 py-6 text-center text-brand-ink/50 font-semibold">
                         No hay pedidos en esta planilla. Agrega filas o solicitudes.
                       </td>
                     </tr>
@@ -308,6 +343,11 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                           )}
                         </td>
                         <td className="border border-brand-ink/10 px-1.5 py-1">
+                          <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-extrabold whitespace-nowrap ${claseResultado(f)}`}>
+                            {f.resultado}
+                          </span>
+                        </td>
+                        <td className="border border-brand-ink/10 px-1.5 py-1">
                           {soloLectura ? (
                             <span className="px-1 text-brand-ink/80">{f.observaciones || '—'}</span>
                           ) : (
@@ -365,6 +405,48 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                   onChange={(e) => actualizar({ observaciones: e.target.value })}
                   placeholder="Novedades, instrucciones o pendientes de la ruta…"
                 />
+              )}
+            </div>
+
+            <div className="mt-5 border-t-2 border-brand-deep pt-3">
+              <p className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-brand-navy">
+                Cierre de la jornada
+              </p>
+              <div className="mt-2 grid grid-cols-3 gap-3">
+                <div className="rounded-lg border border-brand-ink/10 bg-brand-mist/40 px-3 py-2">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wide text-brand-ink/50">Pedidos en planilla</p>
+                  <p className="text-xl font-extrabold text-brand-ink">{resumenCierre.total}</p>
+                </div>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wide text-emerald-600">Entregados</p>
+                  <p className="text-xl font-extrabold text-emerald-700">{resumenCierre.entregados}</p>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber-600">Pendientes por entregar</p>
+                  <p className="text-xl font-extrabold text-amber-700">{resumenCierre.pendientes.length}</p>
+                </div>
+              </div>
+              {resumenCierre.pendientes.length > 0 && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wide text-amber-700">
+                    Hizo falta por entregar ({resumenCierre.pendientes.length}):
+                  </p>
+                  <ul className="mt-1.5 space-y-1">
+                    {resumenCierre.pendientes.map((f) => (
+                      <li key={f.key} className="text-xs font-semibold text-amber-900 leading-snug">
+                        <span className="font-extrabold">{f.id || '—'}</span>
+                        {' · '}{f.cliente || 'Sin cliente'}
+                        {f.zona ? ` · ${f.zona}` : ''}
+                        {f.observaciones ? ` · ${f.observaciones}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {resumenCierre.entregados === resumenCierre.total && resumenCierre.total > 0 && (
+                <p className="mt-2 text-xs font-extrabold uppercase tracking-wide text-emerald-700">
+                  Jornada completa: todos los pedidos de la planilla fueron entregados.
+                </p>
               )}
             </div>
 
