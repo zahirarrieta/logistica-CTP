@@ -134,9 +134,9 @@ function HistorialButton({ onClick }) {
   )
 }
 
-// Documento que el conductor debe entregar (adjunto de «En Trámite»/factura).
-// Se muestra bajo el nombre del cliente solo en el módulo del conductor.
-function DocEntregaPill({ count, onClick }) {
+// Documento que el conductor debe entregar (adjunto de «En Trámite»/factura):
+// ícono que abre el visor del documento, junto al nombre del cliente.
+function DocEntregaIcono({ count, onClick }) {
   return (
     <button
       type="button"
@@ -144,12 +144,16 @@ function DocEntregaPill({ count, onClick }) {
         e.stopPropagation()
         onClick()
       }}
-      title="Ver documento a entregar"
+      title="Ver documento a entregar (factura o remisión)"
       aria-label="Ver documento a entregar"
-      className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-400/40 hover:bg-amber-200 transition-colors px-3 py-1.5 text-[11px] font-bold"
+      className="relative shrink-0 grid place-items-center size-8 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
     >
-      <MdDescription className="text-sm" />
-      Documento a entregar · {count}
+      <MdDescription className="text-lg" />
+      {count > 0 && (
+        <span className="absolute -top-1 -right-1 grid place-items-center min-w-4 h-4 px-1 rounded-full bg-brand-deep text-white text-[10px] font-extrabold">
+          {count}
+        </span>
+      )}
     </button>
   )
 }
@@ -186,8 +190,9 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
         </div>
       </button>
       {docsEntrega?.length > 0 && (
-        <div className="px-4 pb-3 -mt-1">
-          <DocEntregaPill count={docsEntrega.length} onClick={() => onVerAdjuntosClick?.(s)} />
+        <div className="px-4 pb-3 -mt-1 flex items-center gap-2">
+          <DocEntregaIcono count={docsEntrega.length} onClick={() => onVerAdjuntosClick?.(s)} />
+          <span className="text-[11px] font-bold text-brand-ink/70">Documento a entregar</span>
         </div>
       )}
       {expanded && (
@@ -370,7 +375,23 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
   )
 }
 
-export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCorregirClick, cardActions, empty, colorRowsPorEstado, mostrarDocEntrega }) {
+export default function SolicitudesTable({
+  items,
+  onRowClick,
+  onEstadoClick,
+  onAsignarClick,
+  onCambiarEstadoClick,
+  onSeguimientoClick,
+  onEntregaDetallesClick,
+  onEliminarClick,
+  onCorregirClick,
+  cardActions,
+  empty,
+  colorRowsPorEstado,
+  mostrarDocEntrega,
+  ocultarCorreo = false,
+  ocultarAdjuntos = false,
+}) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [obsSolicitud, setObsSolicitud] = useState(null)
@@ -449,7 +470,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
       {/* Tabla — visible en tablet y desktop, con scroll horizontal si se alarga */}
       <div className="hidden md:block">
         <div className="overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
-          <table className="w-full min-w-[1060px] text-left text-sm border-separate border-spacing-0">
+          <table className={`w-full text-left text-sm border-separate border-spacing-0 ${ocultarCorreo && ocultarAdjuntos ? 'min-w-[900px]' : 'min-w-[1060px]'}`}>
             <thead>
               <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-14 text-center">N°</th>
@@ -462,9 +483,11 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdPerson className="text-base" /> Nombre</span>
                 </th>
-                <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center w-16">
-                  <span className="inline-flex items-center gap-1.5"><MdEmail className="text-base" /> Correo</span>
-                </th>
+                {!ocultarCorreo && (
+                  <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center w-16">
+                    <span className="inline-flex items-center gap-1.5"><MdEmail className="text-base" /> Correo</span>
+                  </th>
+                )}
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdAssignmentAdd className="text-base" /> Tipo</span>
                 </th>
@@ -474,9 +497,11 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdPlace className="text-base" /> Zona</span>
                 </th>
-                <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
-                  <span className="inline-flex items-center gap-1.5"><MdAttachFile className="text-base" /> Adjuntos</span>
-                </th>
+                {!ocultarAdjuntos && (
+                  <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
+                    <span className="inline-flex items-center gap-1.5"><MdAttachFile className="text-base" /> Adjuntos</span>
+                  </th>
+                )}
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center w-16">
                   <span className="inline-flex items-center gap-1.5"><MdNotes className="text-base" /> Obs.</span>
                 </th>
@@ -521,41 +546,45 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                     {s.horaSubida && <span className="block text-xs text-brand-ink/50">{s.horaSubida}</span>}
                   </td>
                   <td className="px-2 py-3 font-semibold text-brand-ink min-w-[150px] border-b border-l border-brand-ink/10">{s.nombreCompleto}</td>
-                  <td className="px-2 py-3 border-b border-l border-brand-ink/10 text-center">
-                    <span
-                      className="inline-flex items-center justify-center"
-                      onMouseEnter={(e) => handleCorreoEnter(e, s.correo)}
-                      onMouseLeave={handleCorreoLeave}
-                    >
-                      <span className="grid place-items-center size-8 rounded-full bg-brand-cyan/10 text-brand-deep cursor-help">
-                        <MdEmail className="text-lg" />
+                  {!ocultarCorreo && (
+                    <td className="px-2 py-3 border-b border-l border-brand-ink/10 text-center">
+                      <span
+                        className="inline-flex items-center justify-center"
+                        onMouseEnter={(e) => handleCorreoEnter(e, s.correo)}
+                        onMouseLeave={handleCorreoLeave}
+                      >
+                        <span className="grid place-items-center size-8 rounded-full bg-brand-cyan/10 text-brand-deep cursor-help">
+                          <MdEmail className="text-lg" />
+                        </span>
                       </span>
+                    </td>
+                  )}
+                  <td className="px-2 py-3 capitalize text-brand-ink/80 max-w-[110px] truncate whitespace-nowrap border-b border-l border-brand-ink/10">{s.tipoSolicitud}</td>
+                  <td className="px-2 py-3 text-brand-ink/80 max-w-[180px] border-b border-l border-brand-ink/10">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="block truncate whitespace-nowrap">{s.cliente}</span>
+                      {mostrarDocEntrega && adjuntosVisibles(s)?.length > 0 && (
+                        <DocEntregaIcono count={adjuntosVisibles(s).length} onClick={() => setAdjuntosSolicitud(s)} />
+                      )}
                     </span>
                   </td>
-                  <td className="px-2 py-3 capitalize text-brand-ink/80 max-w-[110px] truncate whitespace-nowrap border-b border-l border-brand-ink/10">{s.tipoSolicitud}</td>
-                  <td className="px-2 py-3 text-brand-ink/80 max-w-[160px] border-b border-l border-brand-ink/10">
-                    <span className="block truncate whitespace-nowrap">{s.cliente}</span>
-                    {mostrarDocEntrega && adjuntosVisibles(s)?.length > 0 && (
-                      <span className="mt-1.5 block">
-                        <DocEntregaPill count={adjuntosVisibles(s).length} onClick={() => setAdjuntosSolicitud(s)} />
-                      </span>
-                    )}
-                  </td>
                   <td className="px-2 py-3 capitalize text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.zona}</td>
-                  <td className="px-2 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                    {adjuntosVisibles(s)?.length > 0 ? (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setAdjuntosSolicitud(s) }}
-                        aria-label="Ver adjuntos"
-                        title={enTransito(s) ? 'Ver factura o remisión' : 'Ver adjuntos'}
-                        className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
-                      >
-                        <MdAttachFile className="text-sm" />
-                        {adjuntosVisibles(s).length} archivo(s)
-                      </button>
-                    ) : '—'}
-                  </td>
+                  {!ocultarAdjuntos && (
+                    <td className="px-2 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
+                      {adjuntosVisibles(s)?.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setAdjuntosSolicitud(s) }}
+                          aria-label="Ver adjuntos"
+                          title={enTransito(s) ? 'Ver factura o remisión' : 'Ver adjuntos'}
+                          className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
+                        >
+                          <MdAttachFile className="text-sm" />
+                          {adjuntosVisibles(s).length} archivo(s)
+                        </button>
+                      ) : '—'}
+                    </td>
+                  )}
                   <td className="px-2 py-3 border-b border-l border-brand-ink/10 text-center">
                     <button
                       type="button"

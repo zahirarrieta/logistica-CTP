@@ -153,11 +153,7 @@ export default function EntregaInfo({ solicitud, entrega, mostrarEncuesta = true
           <Seccion icon={<MdPhotoCamera className="text-sm" />}>
             Evidencia{evidencias.length > 1 ? ` (${evidencias.length})` : ''}
           </Seccion>
-          <div className="space-y-2">
-            {evidencias.map((url, i) => (
-              <EvidenciaVisor key={`${i}-${url}`} url={url} />
-            ))}
-          </div>
+          <EvidenciaVisor urls={evidencias} />
         </div>
       )}
 

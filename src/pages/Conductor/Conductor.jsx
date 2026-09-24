@@ -27,6 +27,15 @@ const parsearFechaLocal = (str) => {
   return new Date(y, m - 1, d)
 }
 
+// Fecha real de la entrega: la del historial cuando el conductor marcó el estado
+// «Entregado»/«Entregado Parcial»; si no hay registro se usa la de creación.
+const fechaEntregaDe = (s) => {
+  const entrada = (Array.isArray(s.historial) ? s.historial : []).find(
+    (h) => h.campo === 'estado' && ESTADOS_ENTREGADOS.includes(h.nuevo || '')
+  )
+  return entrada?.fecha || s.fechaSubida || ''
+}
+
 // Los inputs type="date" entregan YYYY-MM-DD.
 const fechaDesdeIso = (iso) => {
   const [y, m, d] = String(iso || '').split('-').map(Number)
@@ -74,6 +83,7 @@ export default function Conductor() {
   const [tab, setTab] = useState('pendientes')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
+  const [fechaEntregaSel, setFechaEntregaSel] = useState('')
   const online = useOnline()
 
   const nombre = (usuario?.nombre || account?.name || '').trim()
@@ -105,11 +115,31 @@ export default function Conductor() {
   )
 
   const base = tab === 'entregados' ? entregados : pendientes
-  const hayFiltroFecha = Boolean(desde || hasta)
-  const filtrados = useMemo(
-    () => base.filter((s) => enRangoFechas(s.fechaSubida, desde, hasta)),
-    [base, desde, hasta]
-  )
+
+  // En el tab de entregados el filtro es un desplegable: una opción por cada
+  // fecha en la que se hizo entrega, con su conteo, ordenada de más reciente.
+  const opcionesFecha = useMemo(() => {
+    const conteo = new Map()
+    entregados.forEach((s) => {
+      const f = fechaEntregaDe(s)
+      if (!f) return
+      conteo.set(f, (conteo.get(f) || 0) + 1)
+    })
+    return [...conteo.entries()].sort((a, b) => {
+      const fa = parsearFechaLocal(a[0])
+      const fb = parsearFechaLocal(b[0])
+      return (fb?.getTime() || 0) - (fa?.getTime() || 0)
+    })
+  }, [entregados])
+
+  const hayFiltroFecha = tab === 'entregados' ? Boolean(fechaEntregaSel) : Boolean(desde || hasta)
+  const filtrados = useMemo(() => {
+    if (tab === 'entregados') {
+      if (!fechaEntregaSel) return base
+      return base.filter((s) => fechaEntregaDe(s) === fechaEntregaSel)
+    }
+    return base.filter((s) => enRangoFechas(s.fechaSubida, desde, hasta))
+  }, [base, tab, desde, hasta, fechaEntregaSel])
 
   useEffect(() => {
     if (!online) return
@@ -190,35 +220,67 @@ export default function Conductor() {
 
           {/* Filtro por fechas */}
           <div className="mb-4 flex flex-col sm:flex-row sm:items-end gap-2.5">
-            <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 py-2 flex-1 sm:max-w-[200px]">
-              <MdDateRange className="text-brand-deep shrink-0" />
-              <input
-                type="date"
-                value={desde}
-                max={hasta || undefined}
-                onChange={(e) => setDesde(e.target.value)}
-                className="w-full bg-transparent text-sm font-semibold text-brand-ink outline-none"
-              />
-            </div>
-            <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 py-2 flex-1 sm:max-w-[200px]">
-              <MdDateRange className="text-brand-deep shrink-0" />
-              <input
-                type="date"
-                value={hasta}
-                min={desde || undefined}
-                onChange={(e) => setHasta(e.target.value)}
-                className="w-full bg-transparent text-sm font-semibold text-brand-ink outline-none"
-              />
-            </div>
-            {hayFiltroFecha && (
-              <button
-                type="button"
-                onClick={() => { setDesde(''); setHasta('') }}
-                className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-ink/20 transition-colors px-3.5 py-2 text-sm font-bold"
-              >
-                <MdClose className="text-base" />
-                Limpiar
-              </button>
+            {tab === 'entregados' ? (
+              <>
+                <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 py-2 flex-1 sm:max-w-[340px]">
+                  <MdDateRange className="text-brand-deep shrink-0" />
+                  <select
+                    value={fechaEntregaSel}
+                    onChange={(e) => setFechaEntregaSel(e.target.value)}
+                    className="w-full bg-transparent text-sm font-semibold text-brand-ink outline-none cursor-pointer"
+                  >
+                    <option value="">Todas las fechas de entrega</option>
+                    {opcionesFecha.map(([f, n]) => (
+                      <option key={f} value={f} className="text-sm">
+                        {f} · {n} entrega(s)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {fechaEntregaSel && (
+                  <button
+                    type="button"
+                    onClick={() => setFechaEntregaSel('')}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-ink/20 transition-colors px-3.5 py-2 text-sm font-bold"
+                  >
+                    <MdClose className="text-base" />
+                    Limpiar
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 py-2 flex-1 sm:max-w-[200px]">
+                  <MdDateRange className="text-brand-deep shrink-0" />
+                  <input
+                    type="date"
+                    value={desde}
+                    max={hasta || undefined}
+                    onChange={(e) => setDesde(e.target.value)}
+                    className="w-full bg-transparent text-sm font-semibold text-brand-ink outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 py-2 flex-1 sm:max-w-[200px]">
+                  <MdDateRange className="text-brand-deep shrink-0" />
+                  <input
+                    type="date"
+                    value={hasta}
+                    min={desde || undefined}
+                    onChange={(e) => setHasta(e.target.value)}
+                    className="w-full bg-transparent text-sm font-semibold text-brand-ink outline-none"
+                  />
+                </div>
+                {hayFiltroFecha && (
+                  <button
+                    type="button"
+                    onClick={() => { setDesde(''); setHasta('') }}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-ink/20 transition-colors px-3.5 py-2 text-sm font-bold"
+                  >
+                    <MdClose className="text-base" />
+                    Limpiar
+                  </button>
+                )}
+              </>
             )}
           </div>
 
@@ -247,6 +309,8 @@ export default function Conductor() {
             ) : undefined}
             colorRowsPorEstado
             mostrarDocEntrega
+            ocultarCorreo
+            ocultarAdjuntos
             empty={
               hayFiltroFecha
                 ? {

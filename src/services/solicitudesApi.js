@@ -1,5 +1,6 @@
 import { supabase, iniciarSesion, datosUsuario, backendActivo } from './supabaseClient.js'
 import { soloAdjuntosSolicitud } from '../components/pdfUtils.js'
+import { subirDocEntregaOneDrive } from './oneDriveApi.js'
 
 const EXPIRA_EVIDENCIA = 60 * 60 * 24 // 24 h
 
@@ -118,19 +119,39 @@ async function subirEvidenciaParte(codigo, id, dataUrl, indice) {
 }
 
 // Una entrega puede tener varias imágenes de evidencia unidas por SEP_EVIDENCIA.
-// Cada parte data: se sube a Storage; las http (OneDrive) o rutas ya subidas se
-// conservan tal cual. Devuelve el mismo formato unido.
-async function resolverEvidencia(codigo, entrada) {
+// Al sincronizar se REEINTENTA primero la carpeta compartida de OneDrive/SharePoint
+// del usuario (misma ruta que el flujo en línea); solo si falla se usa Supabase
+// Storage como respaldo. Las URLs http/rutas ya subidas se conservan tal cual.
+// Devuelve el mismo formato unido.
+async function resolverEvidencia(codigo, entrada, solicitud) {
   const valor = typeof entrada.evidencia === 'string' ? entrada.evidencia.trim() : ''
   if (!valor) return ''
   const partes = valor.split(SEP_EVIDENCIA).map((p) => p.trim()).filter(Boolean)
+  const esEntrega = ['Entregado', 'Entregado Parcial'].includes(entrada.nuevo || '')
   const resueltas = []
   for (let i = 0; i < partes.length; i += 1) {
-    resueltas.push(
-      partes[i].startsWith('data:')
-        ? await subirEvidenciaParte(codigo, entrada.id, partes[i], i)
-        : partes[i]
-    )
+    const parte = partes[i]
+    if (!parte.startsWith('data:') || !esEntrega) {
+      resueltas.push(
+        parte.startsWith('data:')
+          ? await subirEvidenciaParte(codigo, entrada.id, parte, i)
+          : parte
+      )
+      continue
+    }
+    try {
+      const subida = await subirDocEntregaOneDrive(
+        dataUrlABlob(parte).blob,
+        solicitud.numeroReferencia || codigo,
+        solicitud.nombreCompleto,
+        codigo
+      )
+      if (!subida?.url) throw new Error('OneDrive no devolvió un enlace')
+      resueltas.push(subida.url)
+    } catch (err) {
+      console.warn('[OneDrive] reintento de evidencia a SharePoint falló, se usa Supabase Storage:', err.message)
+      resueltas.push(await subirEvidenciaParte(codigo, entrada.id, parte, i))
+    }
   }
   return resueltas.join(SEP_EVIDENCIA)
 }
@@ -235,7 +256,7 @@ export async function empujarSolicitud(s) {
   const entradas = Array.isArray(s.historial) ? s.historial : []
   const filasHistorial = []
   for (const h of entradas) {
-    const ruta = await resolverEvidencia(s.id, h)
+    const ruta = await resolverEvidencia(s.id, h, s)
     filasHistorial.push({
       id: h.id,
       solicitud: s.id,
