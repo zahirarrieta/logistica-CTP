@@ -1,4 +1,4 @@
-const CACHE = 'ctp-logistica-v1'
+const CACHE = 'ctp-logistica-v2'
 
 self.addEventListener('install', () => {
   self.skipWaiting()
@@ -33,14 +33,18 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(request).then(
-      (hit) =>
-        hit ||
-        fetch(request).then((response) => {
+    // Los assets (/assets/*.js, *.css) van con la ÚLTIMA versión del servidor
+    // siempre que haya conexión: así el bundle nunca queda "viejón" apuntando a
+    // chunks que el deploy nuevo ya borró. La caché queda solo como respaldo
+    // offline.
+    fetch(request)
+      .then((response) => {
+        if (response && response.ok) {
           const copia = response.clone()
           caches.open(CACHE).then((cache) => cache.put(request, copia))
-          return response
-        })
-    )
+        }
+        return response
+      })
+      .catch(() => caches.match(request).then((hit) => hit))
   )
 })
