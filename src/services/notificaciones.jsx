@@ -1,4 +1,5 @@
 import { sileo } from 'sileo'
+import { renderToStaticMarkup } from 'react-dom/server'
 import {
   MdAssignmentInd,
   MdAssignmentReturn,
@@ -37,6 +38,108 @@ const ESTADO_TIPO = {
   'En Trámite': 'info',
   'Abierto': 'info',
 }
+
+// -------------------------------------------------------------
+// Sonido + notificación del sistema: cada aviso reproduce un tono
+// corto (uno distinto para cambio de estado y otro para cambio de
+// conductor) y, si el equipo está bloqueado/pestaña oculta, dispara
+// una notificación nativa del sistema.
+// -------------------------------------------------------------
+let audioCtx = null
+
+function reproducirTono(frecuencias = [660], duracionMs = 130) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    if (!Ctx) return
+    audioCtx = audioCtx || new Ctx()
+    if (audioCtx.state === 'suspended') audioCtx.resume()
+    const ahora = audioCtx.currentTime
+    frecuencias.forEach((hz, i) => {
+      const osc = audioCtx.createOscillator()
+      const gan = audioCtx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = hz
+      const inicio = ahora + i * 0.16
+      const fin = inicio + duracionMs / 1000
+      gan.gain.setValueAtTime(0.0001, inicio)
+      gan.gain.exponentialRampToValueAtTime(0.22, inicio + 0.015)
+      gan.gain.exponentialRampToValueAtTime(0.0001, fin)
+      osc.connect(gan)
+      gan.connect(audioCtx.destination)
+      osc.start(inicio)
+      osc.stop(fin + 0.02)
+    })
+  } catch {
+    // Sin audio disponible: se ignora.
+  }
+}
+
+export function sonidoNotificacion(tipo) {
+  if (tipo === 'estado') reproducirTono([523, 784]) // "din-don" (cambio de estado)
+  else if (tipo === 'conductor') reproducirTono([784, 523]) // tonalidad distinta (cambio de conductor)
+  else reproducirTono([660]) // tono simple para el resto
+}
+
+let pidioPermiso = false
+function permisoSistema() {
+  try {
+    if (typeof window === 'undefined' || !('Notification' in window)) return false
+    if (Notification.permission === 'granted') return true
+    if (Notification.permission === 'default' && !pidioPermiso) {
+      pidioPermiso = true
+      Notification.requestPermission().catch(() => {})
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+function textoPlano(elemento) {
+  if (typeof elemento === 'string') return elemento
+  try {
+    return renderToStaticMarkup(elemento)
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&[a-z]+;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  } catch {
+    return ''
+  }
+}
+
+function notificacionSistema(titulo, cuerpo) {
+  try {
+    if (!document.hidden) return
+    if (!permisoSistema()) return
+    const n = new Notification(titulo || 'Logística CTP', {
+      body: textoPlano(cuerpo) || titulo || 'Tienes una notificación nueva.',
+      tag: 'ctp-logistica',
+    })
+    n.onclick = () => {
+      try { window.focus() } catch { /* noop */ }
+      n.close()
+    }
+    setTimeout(() => n.close(), 12000)
+  } catch {
+    // Las notificaciones del sistema no están disponibles en este navegador.
+  }
+}
+
+// Todos los avisos pasan por sileo: se envuelve para reproducir el sonido
+// correspondiente y, si la pestaña está oculta, mostrar la notificación nativa.
+const METODOS_SILEO = ['success', 'info', 'warning', 'error']
+METODOS_SILEO.forEach((m) => {
+  const original = sileo[m]
+  if (typeof original !== 'function') return
+  sileo[m] = (opts) => {
+    try {
+      sonidoNotificacion(opts?.sonido)
+      notificacionSistema(opts?.title, opts?.description)
+    } catch { /* noop */ }
+    return original.call(sileo, opts)
+  }
+})
 
 const linea = (children) => (
   <span className="block text-sm font-semibold leading-snug text-white">{children}</span>
@@ -87,6 +190,7 @@ export function estadoActualizado(id, estado) {
   const tipo = ESTADO_TIPO[estado] || 'info'
   sileo[tipo]({
     ...BASE,
+    sonido: 'estado',
     title: titulo(id, 'Estado actualizado'),
     icon: <MdSwapHoriz />,
     description: (
@@ -157,6 +261,7 @@ export function solicitudCorregida(id) {
 export function conductorAsignado(id, conductor) {
   sileo.info({
     ...BASE,
+    sonido: 'conductor',
     title: titulo(id, 'Conductor asignado'),
     icon: <RiSteering2Line />,
     description: (
@@ -173,6 +278,7 @@ export function entregaAsignada(id, cliente) {
   sileo.info({
     ...BASE,
     duration: 8000,
+    sonido: 'estado',
     title: titulo(id, 'Entrega asignada'),
     icon: <RiSteering2Line />,
     description: (
@@ -192,6 +298,7 @@ export function entregaRealizada(id, { cliente, estado, conductor } = {}) {
   sileo.success({
     ...BASE,
     duration: 7000,
+    sonido: 'estado',
     title: titulo(id, 'Pedido entregado'),
     icon: <MdLocalShipping />,
     description: (
