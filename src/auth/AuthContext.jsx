@@ -3,7 +3,7 @@ import { getActiveAccount, msalInstance, msalReady } from './msal.js'
 import { loginRequest } from './authConfig.js'
 import { cargarUsuarioActual } from '../services/solicitudesApi.js'
 import { cerrarSesion } from '../services/supabaseClient.js'
-import { setRolActual } from '../pages/Home/Components/solicitudesStore.js'
+import { setRolActual, setUsuarioActual } from '../pages/Home/Components/solicitudesStore.js'
 
 const AuthContext = createContext(null)
 
@@ -72,11 +72,16 @@ export function AuthProvider({ children }) {
 
   const rol = usuario?.rol || 'solicitante'
 
-  // Mantiene el rol del usuario actual en el store (para avisos de solicitudes
-  // nuevas y otras reglas que viven fuera de React).
+  // Mantiene el rol y la identidad del usuario actual en el store (para avisos
+  // de solicitudes nuevas, entregas asignadas al conductor y otras reglas que
+  // viven fuera de React).
   useEffect(() => {
     setRolActual(usuario?.rol || '')
-  }, [usuario])
+    setUsuarioActual({
+      nombre: usuario?.nombre || account?.name || '',
+      correo: usuario?.correo || account?.username || '',
+    })
+  }, [usuario, account])
 
   return (
     <AuthContext.Provider value={{ account, loading, login, logout, usuario, rol, rolListo }}>

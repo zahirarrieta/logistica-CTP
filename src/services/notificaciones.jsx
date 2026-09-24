@@ -149,6 +149,24 @@ export function conductorAsignado(id, conductor) {
   })
 }
 
+// Aviso para el CONDUCTOR cuando el administrador/superadmin pone en tránsito
+// una solicitud que le fue asignada: llega al instante por Realtime.
+export function entregaAsignada(id, cliente) {
+  sileo.info({
+    ...BASE,
+    duration: 8000,
+    title: titulo(id, 'Entrega asignada'),
+    icon: <RiSteering2Line />,
+    description: (
+      <>
+        {linea('Te asignaron una entrega en tránsito.')}
+        {id && detalle(`Solicitud: ${id}`)}
+        {cliente && detalle(`Cliente: ${cliente}`)}
+      </>
+    ),
+  })
+}
+
 export function syncRestablecida(cantidad) {
   sileo.success({
     ...BASE,

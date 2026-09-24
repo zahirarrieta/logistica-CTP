@@ -15,6 +15,7 @@ import {
 } from '../Home/Components/solicitudesStore.js'
 import { estadoActualizado, syncRestablecida } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
+import { esConductorDe } from '../../auth/roles.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const ESTADOS_ENTREGADOS = ['Entregado', 'Entregado Parcial']
@@ -79,13 +80,28 @@ export default function Conductor() {
 
   useEffect(() => suscribir(setSolicitudes), [])
 
+  // Identidad del conductor conectado: sirve para mostrar SOLO las solicitudes
+  // que le fueron asignadas (por correo o por nombre), nunca las de otros.
+  const identidad = useMemo(
+    () => ({
+      nombre: usuario?.nombre || account?.name || '',
+      correo: usuario?.correo || account?.username || '',
+    }),
+    [usuario, account]
+  )
+
+  const mias = useMemo(
+    () => solicitudes.filter((s) => esConductorDe(s, identidad)),
+    [solicitudes, identidad]
+  )
+
   const pendientes = useMemo(
-    () => solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || 'Abierto')),
-    [solicitudes]
+    () => mias.filter((s) => ESTADOS_TRANSITO.includes(s.estado || 'Abierto')),
+    [mias]
   )
   const entregados = useMemo(
-    () => solicitudes.filter((s) => ESTADOS_ENTREGADOS.includes(s.estado || '')),
-    [solicitudes]
+    () => mias.filter((s) => ESTADOS_ENTREGADOS.includes(s.estado || '')),
+    [mias]
   )
 
   const base = tab === 'entregados' ? entregados : pendientes
@@ -245,8 +261,8 @@ export default function Conductor() {
                     }
                   : {
                       icon: <MdLocalShipping />,
-                      title: 'No hay solicitudes en tránsito',
-                      text: 'Cuando una solicitud cambie a estado «En Tránsito» aparecerá aquí.',
+                      title: 'No tienes entregas asignadas',
+                      text: 'Cuando el administrador asigne tu nombre y ponga la solicitud «En Tránsito» aparecerá aquí.',
                     }
             }
           />

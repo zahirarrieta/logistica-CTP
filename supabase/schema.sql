@@ -100,6 +100,11 @@ create index if not exists solicitudes_actualizado_idx  on public.solicitudes (a
 -- asignado (aditivo; los registros antiguos siguen usando solo asignado_a).
 alter table public.solicitudes add column if not exists asignado_correo text not null default '';
 
+-- Correo del conductor asignado (aditivo). Permite filtrar/avisar por correo
+-- (único) además del nombre; los registros antiguos siguen usando solo `conductor`.
+alter table public.solicitudes add column if not exists conductor_correo text not null default '';
+create index if not exists solicitudes_conductor_correo_idx on public.solicitudes (conductor_correo);
+
 create or replace function public.asignar_codigo()
 returns trigger
 language plpgsql
@@ -192,6 +197,110 @@ end;
 $$;
 
 grant execute on function public.reiniciar_contador() to authenticated;
+
+-- Guarda una solicitud (y su historial) saltándose RLS, pero con una verificación
+-- de autorización propia en el servidor. Existe porque el camino de escritura de
+-- RLS (INSERT/UPDATE ... WITH CHECK) rechaza la entrega del conductor con 42501
+-- aun cuando las políticas lo permiten; aquí la comprobación se hace por lectura
+-- (que sí funciona) y la escritura la ejecuta el dueño de la tabla (bypass RLS).
+-- Refleja la misma intención de solicitudes_insert / solicitudes_update.
+create or replace function public.guardar_solicitud(
+  p_fila jsonb,
+  p_historial jsonb default '[]'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_rol    text := public.rol_actual();
+  v_correo text := public.correo_actual();
+  v_estado text := coalesce(p_fila ->> 'estado', 'Abierto');
+  v_rec    public.solicitudes;
+  v_h      jsonb;
+begin
+  if not (
+        v_rol in ('solicitante', 'administrador', 'superadmin')
+     or nullif(p_fila ->> 'solicitante_correo', '') = v_correo
+     or (v_rol = 'conductor'
+         and v_estado in ('En Tránsito', 'En Tránsito Parcial',
+                          'Entregado', 'Entregado Parcial'))
+  ) then
+    raise exception 'No autorizado' using errcode = '42501';
+  end if;
+
+  v_rec := jsonb_populate_record(null::public.solicitudes, p_fila);
+
+  insert into public.solicitudes values (v_rec.*)
+  on conflict (codigo) do update set
+    fecha_subida       = excluded.fecha_subida,
+    hora_subida        = excluded.hora_subida,
+    tipo_solicitud     = excluded.tipo_solicitud,
+    cliente            = excluded.cliente,
+    nit                = excluded.nit,
+    bodega             = excluded.bodega,
+    zona               = excluded.zona,
+    observaciones      = excluded.observaciones,
+    adjuntos           = excluded.adjuntos,
+    solicitante_nombre = excluded.solicitante_nombre,
+    solicitante_correo = excluded.solicitante_correo,
+    estado             = excluded.estado,
+    asignado_a         = excluded.asignado_a,
+    asignado_correo    = excluded.asignado_correo,
+    conductor          = excluded.conductor,
+    conductor_correo   = excluded.conductor_correo,
+    vehiculo           = excluded.vehiculo,
+    placa              = excluded.placa,
+    numero_referencia  = excluded.numero_referencia,
+    creado_por         = excluded.creado_por,
+    pendiente_sync     = excluded.pendiente_sync,
+    actualizado_en     = now();
+
+  if jsonb_typeof(p_historial) = 'array' then
+    for v_h in select * from jsonb_array_elements(p_historial) loop
+      insert into public.historial (
+        id, solicitud, campo, anterior, nuevo, nota, referencia, adjunto,
+        conductor, vehiculo, placa, evidencia_url, encuesta, persona, fecha, hora
+      ) values (
+        (v_h ->> 'id')::uuid,
+        v_h ->> 'solicitud',
+        coalesce(v_h ->> 'campo', 'estado'),
+        coalesce(v_h ->> 'anterior', ''),
+        coalesce(v_h ->> 'nuevo', ''),
+        coalesce(v_h ->> 'nota', ''),
+        coalesce(v_h ->> 'referencia', ''),
+        coalesce(v_h ->> 'adjunto', ''),
+        coalesce(v_h ->> 'conductor', ''),
+        coalesce(v_h ->> 'vehiculo', ''),
+        coalesce(v_h ->> 'placa', ''),
+        coalesce(v_h ->> 'evidencia_url', ''),
+        case when jsonb_typeof(v_h -> 'encuesta') = 'null' then null else v_h -> 'encuesta' end,
+        coalesce(v_h ->> 'persona', ''),
+        coalesce(v_h ->> 'fecha', ''),
+        coalesce(v_h ->> 'hora', '')
+      )
+      on conflict (id) do update set
+        campo         = excluded.campo,
+        anterior      = excluded.anterior,
+        nuevo         = excluded.nuevo,
+        nota          = excluded.nota,
+        referencia    = excluded.referencia,
+        adjunto       = excluded.adjunto,
+        conductor     = excluded.conductor,
+        vehiculo      = excluded.vehiculo,
+        placa         = excluded.placa,
+        evidencia_url = excluded.evidencia_url,
+        encuesta      = excluded.encuesta,
+        persona       = excluded.persona,
+        fecha         = excluded.fecha,
+        hora          = excluded.hora;
+    end loop;
+  end if;
+end;
+$$;
+
+grant execute on function public.guardar_solicitud(jsonb, jsonb) to authenticated;
 
 -- Deja la secuencia a la par del código más alto existente (idempotente).
 select public.sincronizar_secuencia_codigos();

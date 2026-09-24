@@ -79,3 +79,17 @@ export function esAsignadoA(solicitud, usuario) {
   if (!asignado) return false
   return (nombre && asignado === nombre) || (correo && asignado === correo)
 }
+
+// Determina si una solicitud está asignada al conductor actual.
+// Prioriza el correo del conductor (conductorCorreo, único); si el registro es
+// antiguo o es un conductor externo («Otro»/«Elite») y solo tiene nombre
+// (conductor), compara por nombre o por correo como respaldo.
+export function esConductorDe(solicitud, usuario) {
+  const correoCond = String(solicitud?.conductorCorreo || '').trim().toLowerCase()
+  const nombreCond = String(solicitud?.conductor || '').trim().toLowerCase()
+  const nombre = String(usuario?.nombre || '').trim().toLowerCase()
+  const correo = String(usuario?.correo || '').trim().toLowerCase()
+  if (correoCond && correo) return correoCond === correo
+  if (!nombreCond) return false
+  return (nombre && nombreCond === nombre) || (correo && nombreCond === correo)
+}

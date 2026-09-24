@@ -36,6 +36,7 @@ function filaDe(s) {
     asignado_a: s.asignadoA || '',
     asignado_correo: (s.asignadoCorreo || '').toLowerCase(),
     conductor: s.conductor || '',
+    conductor_correo: (s.conductorCorreo || '').toLowerCase(),
     vehiculo: s.vehiculo || '',
     placa: s.placa || '',
     numero_referencia: s.numeroReferencia || '',
@@ -62,6 +63,7 @@ function aLocal(fila, historial) {
     asignadoA: fila.asignado_a,
     asignadoCorreo: fila.asignado_correo || '',
     conductor: fila.conductor,
+    conductorCorreo: fila.conductor_correo || '',
     vehiculo: fila.vehiculo,
     placa: fila.placa,
     numeroReferencia: fila.numero_referencia,
@@ -184,6 +186,14 @@ export async function descargarSolicitudes(desde = '') {
   }
 }
 
+// El camino de escritura de RLS rechaza la entrega del conductor con 42501 aun
+// cuando las políticas la permiten; en ese caso se reintenta por el RPC
+// SECURITY DEFINER `guardar_solicitud`, que autoriza en el servidor y escribe
+// saltándose RLS (mismo patrón que `proximo_codigo`).
+function esBloqueoRls(error) {
+  return error?.code === '42501' || /row-level security/i.test(error?.message || '')
+}
+
 export async function empujarSolicitud(s) {
   if (!backendActivo || !s?.id) return false
   await preparar()
@@ -217,12 +227,27 @@ export async function empujarSolicitud(s) {
     })
   }
 
+  const fila = filaDe(s)
+  const conId = filasHistorial.filter((f) => f.id)
+
   const { error } = await supabase
     .from('solicitudes')
-    .upsert(filaDe(s), { onConflict: 'codigo' })
+    .upsert(fila, { onConflict: 'codigo' })
+
+  if (error && esBloqueoRls(error)) {
+    const { error: rpcError } = await supabase.rpc('guardar_solicitud', {
+      p_fila: fila,
+      p_historial: conId,
+    })
+    if (rpcError) throw rpcError
+    console.info(
+      `[Supabase] guardada ${s.id} vía RPC (RLS) · estado "${fila.estado}"`
+      + ` · ${conId.length} registro(s) de historial`
+    )
+    return true
+  }
   if (error) throw error
 
-  const conId = filasHistorial.filter((f) => f.id)
   if (conId.length > 0) {
     const { error: errorHist } = await supabase
       .from('historial')

@@ -3,7 +3,8 @@ import { shortName } from '../../../auth/user.js'
 import { supabase, backendActivo, iniciarSesion, datosUsuario } from '../../../services/supabaseClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../../../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud } from '../../../components/pdfUtils.js'
-import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta } from '../../../services/notificaciones.jsx'
+import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada } from '../../../services/notificaciones.jsx'
+import { esConductorDe } from '../../../auth/roles.js'
 
 const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
@@ -84,6 +85,16 @@ export function setRolActual(rol) {
   rolActualStore = rol || ''
 }
 
+// Identidad del usuario conectado (nombre + correo de la tabla usuarios). La pasa
+// AuthContext; se usa para saber si una solicitud está asignada al conductor actual.
+let usuarioActualStore = { nombre: '', correo: '' }
+export function setUsuarioActual(usuario) {
+  usuarioActualStore = {
+    nombre: String(usuario?.nombre || '').trim(),
+    correo: String(usuario?.correo || '').trim().toLowerCase(),
+  }
+}
+
 function fingerprint(s) {
   return s
     ? [s.estado, s.asignadoA, s.asignadoCorreo, s.conductor, s.vehiculo, s.placa, s.numeroReferencia, s.observaciones].join('|')
@@ -108,6 +119,27 @@ function avisarCambiosRemotos(lista) {
   for (const s of lista) {
     if (s.pendienteSync) continue
     const prev = prevById.get(s.id)
+
+    // Conductor: una entrega asignada a él que entra en tránsito (o que aparece
+    // ya en tránsito asignada a él) dispara un aviso con el código. No se avisa
+    // si es un eco de esta sesión ni si ya estaba asignada y en tránsito.
+    if (esConductorDe(s, usuarioActualStore)) {
+      const enTransitoAhora = ESTADOS_TRANSITO.includes(s.estado || '')
+      const estabaEnTransito = prev ? ESTADOS_TRANSITO.includes(prev.estado || '') : false
+      const asignadaAntes = prev ? esConductorDe(prev, usuarioActualStore) : false
+      const esEcho = fingerprint(s) === mapaEchoLocal.get(s.id)
+      const claveAviso = `entrega:${s.id}:${(s.conductorCorreo || s.conductor || '').toLowerCase()}`
+      if (
+        enTransitoAhora &&
+        !esEcho &&
+        !idsAvisados.has(claveAviso) &&
+        (!prev || !estabaEnTransito || !asignadaAntes)
+      ) {
+        idsAvisados.add(claveAviso)
+        entregaAsignada(s.id, s.cliente)
+      }
+    }
+
     const correo = (safeText(s.correo) || '').toLowerCase()
     if (!prev) {
       // Llegó una solicitud que no estaba en la lista anterior.
@@ -348,6 +380,7 @@ const TEXT_FIELDS = [
   'asignadoA',
   'asignadoCorreo',
   'conductor',
+  'conductorCorreo',
   'vehiculo',
   'placa',
   'evidencia',

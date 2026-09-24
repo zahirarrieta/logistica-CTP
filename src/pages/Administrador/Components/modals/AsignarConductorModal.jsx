@@ -102,7 +102,15 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
 
   const handleSave = () => {
     if (!puedeGuardar) return
-    onUpdate(solicitud.id, { conductor: nombreFinal, vehiculo: vehiculoEfectivo, placa: placaEfectiva.trim().toUpperCase() })
+    // El correo solo existe para conductores registrados; «Otro»/«Elite» quedan
+    // sin correo y se identifican por nombre.
+    const correoFinal = esOtro ? '' : (seleccionado?.correo || '')
+    onUpdate(solicitud.id, {
+      conductor: nombreFinal,
+      conductorCorreo: correoFinal,
+      vehiculo: vehiculoEfectivo,
+      placa: placaEfectiva.trim().toUpperCase(),
+    })
     onClose()
   }
 
