@@ -78,7 +78,17 @@ export async function resolverCarpetaRaiz(token) {
     console.warn('[OneDrive] no se pudieron listar las carpetas compartidas:', err.message)
   }
 
-  // Prioridad 2: por si el usuario es el dueño (tiene la carpeta en su drive).
+  // Prioridad 2: el vínculo oficial compartido por la organización. Es el
+  // resolvedor determinista (funciona para el dueño y para cualquier cuenta con
+  // la carpeta compartida), así que va antes del sondeo al drive personal para
+  // no disparar un 404 innecesario en quienes no son el dueño.
+  const porEnlace = await resolverPorEnlace(token)
+  if (porEnlace) {
+    carpetaRaizCache = porEnlace
+    return carpetaRaizCache
+  }
+
+  // Prioridad 3: por si el usuario es el dueño (tiene la carpeta en su drive).
   try {
     const enMiDrive = await fetch(`${BASE}/me/drive/root:/solicitudes`, {
       headers: cabeceras(token),
@@ -94,13 +104,6 @@ export async function resolverCarpetaRaiz(token) {
     }
   } catch (err) {
     console.warn('[OneDrive] no se pudo revisar la carpeta en mi drive:', err.message)
-  }
-
-  // Prioridad 3: el vínculo oficial compartido por la organización.
-  const porEnlace = await resolverPorEnlace(token)
-  if (porEnlace) {
-    carpetaRaizCache = porEnlace
-    return carpetaRaizCache
   }
 
   carpetaNoCompartida()

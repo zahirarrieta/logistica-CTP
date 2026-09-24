@@ -380,6 +380,23 @@ as $$
   select public.rol_actual() in ('administrador', 'superadmin')
 $$;
 
+-- Nombre del usuario actual (tabla usuarios). Se usa en RLS para emparejar las
+-- solicitudes asignadas a un conductor por nombre cuando el registro es antiguo
+-- y aún no tiene conductor_correo.
+create or replace function public.nombre_actual()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select u.nombre from public.usuarios u
+      where u.correo = public.correo_actual() and u.activo),
+    ''
+  );
+$$;
+
 -- ----------------------------------------------------------------------------
 -- 6. ROW LEVEL SECURITY
 -- ----------------------------------------------------------------------------
@@ -422,7 +439,15 @@ create policy solicitudes_select on public.solicitudes
     public.es_privilegiado()
     or solicitante_correo = public.correo_actual()
     or (public.rol_actual() = 'conductor'
-        and estado in ('En Tránsito', 'En Tránsito Parcial'))
+        and (
+          estado in ('En Tránsito', 'En Tránsito Parcial')
+          -- Ya entregadas: solo las suyas, para que el conductor vea su
+          -- historial de entregas al refrescar (por correo o, en registros
+          -- antiguos sin conductor_correo, por nombre).
+          or (estado in ('Entregado', 'Entregado Parcial')
+              and (nullif(conductor_correo, '') = public.correo_actual()
+                   or nullif(conductor, '') = public.nombre_actual()))
+        ))
   );
 
 -- La app sube con upsert (insert ... on conflict do update). Postgres evalúa
