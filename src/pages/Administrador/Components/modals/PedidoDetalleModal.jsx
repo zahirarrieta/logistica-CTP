@@ -17,6 +17,8 @@ import { nombreDeAsignado, buscarEntrega } from '../../../Home/Components/solici
 import { tiempoEntrega, formatHoras } from '../dashboardUtils.js'
 import EntregaInfo from '../../../../components/EntregaInfo.jsx'
 import AdjuntosModal from '../../../../components/AdjuntosModal.jsx'
+import AdjuntoEnlace from '../../../../components/AdjuntoEnlace.jsx'
+import VisorPdfModal from '../../../../components/VisorPdfModal.jsx'
 
 const enTransito = (s) => ['En Tránsito', 'En Tránsito Parcial'].includes(s.estado)
 
@@ -41,6 +43,7 @@ function Dato({ label, value }) {
 
 export default function PedidoDetalleModal({ solicitud, open, onClose }) {
   const [verAdjuntos, setVerAdjuntos] = useState(false)
+  const [pdfUrl, setPdfUrl] = useState(null)
   const [exportando, setExportando] = useState(false)
   const detalleRef = useRef(null)
   if (!open || !solicitud) return null
@@ -219,13 +222,12 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
                       </div>
                       {h.persona && <p className="mt-1 text-xs font-semibold text-brand-ink/60">Registró: {h.persona}</p>}
                       {h.nota && <p className="mt-1.5 text-xs text-brand-ink/80 whitespace-pre-wrap">«{h.nota}»</p>}
-                      {(h.referencia || h.adjunto) && (
-                        <p className="mt-1.5 text-[11px] font-bold text-brand-ink/50 break-all">
-                          <MdPerson className="inline text-brand-cyan mr-1" />
-                          {h.referencia ? `Nº referencia: ${h.referencia}` : ''}
-                          {h.adjunto ? `${h.referencia ? ' · ' : ''}Adjunto: ${h.adjunto}` : ''}
+                      {h.referencia && (
+                        <p className="mt-1.5 text-[11px] font-bold text-brand-ink/50 flex items-center gap-1 flex-wrap">
+                          <MdPerson className="text-brand-cyan" /> Nº referencia: {h.referencia}
                         </p>
                       )}
+                      {h.adjunto && <AdjuntoEnlace adjunto={h.adjunto} onVerPdf={setPdfUrl} />}
                       {(h.conductor || h.vehiculo || h.placa) && (
                         <p className="mt-1 text-[11px] font-bold text-brand-ink/50 flex items-center gap-1 flex-wrap">
                           <MdLocalShipping className="text-brand-cyan" /> {h.conductor}
@@ -252,6 +254,13 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
       </div>
 
       <AdjuntosModal open={verAdjuntos} onClose={() => setVerAdjuntos(false)} adjuntos={adjuntos} />
+
+      <VisorPdfModal
+        open={Boolean(pdfUrl)}
+        url={pdfUrl}
+        onClose={() => setPdfUrl(null)}
+        titulo="VISTA PREVIA PDF"
+      />
     </>
   )
 }

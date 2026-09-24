@@ -136,7 +136,7 @@ export default function EvidenciaVisor({ urls }) {
   return (
     <>
       {/* Carrusel: se muestra UNA foto a la vez con flechas y contador */}
-      <div className="relative">
+      <div className="relative mx-auto w-fit max-w-full">
         {actual.esPdf ? (
           enlacePdfCard(actual, lista[indice])
         ) : actual.cargando ? (
@@ -148,12 +148,12 @@ export default function EvidenciaVisor({ urls }) {
             type="button"
             onClick={() => setAmpliado(true)}
             title="Ver la evidencia en grande"
-            className="group relative block w-full rounded-xl overflow-hidden border border-brand-ink/10 bg-brand-ink/5 cursor-zoom-in"
+            className="group relative block rounded-xl overflow-hidden border border-brand-ink/10 bg-transparent cursor-zoom-in"
           >
             <img
               src={actual.src}
               alt={`Evidencia de la entrega ${indice + 1}`}
-              className="w-full max-h-72 object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              className="mx-auto block max-h-72 w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
             />
             <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/60 text-white px-3 py-1 text-[11px] font-bold">
               <MdVerified className="text-sm text-green-400" /> Foto de la entrega

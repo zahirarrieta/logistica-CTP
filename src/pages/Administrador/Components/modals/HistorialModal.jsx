@@ -1,37 +1,8 @@
 import { useEffect, useState } from 'react'
-import { MdClose, MdHistory, MdTag, MdBusiness, MdPlace, MdPerson, MdAccessTime, MdArrowForward, MdCheckCircle, MdAssignmentInd, MdOpenInNew } from 'react-icons/md'
+import { MdClose, MdHistory, MdTag, MdBusiness, MdPlace, MdPerson, MdAccessTime, MdArrowForward, MdCheckCircle, MdAssignmentInd } from 'react-icons/md'
 import { getBadgeColor, getDotColor } from '../../../Home/Components/estadoColors.js'
 import VisorPdfModal from '../../../../components/VisorPdfModal.jsx'
-import AdjuntoFileCard from '../../../../components/AdjuntoFileCard.jsx'
-import { esPdfUrl } from '../../../../components/pdfUtils.js'
-
-function AdjuntoEnlace({ adjunto, onVerPdf }) {
-  const urls = String(adjunto || '')
-    .split(',')
-    .map((u) => u.trim())
-    .filter(Boolean)
-  if (urls.length === 0) return null
-  return (
-    <div className="mt-2 space-y-2">
-      {urls.map((u, i) =>
-        esPdfUrl(u) ? (
-          <AdjuntoFileCard key={i} url={u} index={i} onVerPdf={onVerPdf} />
-        ) : (
-          <a
-            key={i}
-            href={u}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-deep underline decoration-brand-cyan underline-offset-2 break-all"
-          >
-            <MdOpenInNew className="shrink-0" />
-            {u}
-          </a>
-        )
-      )}
-    </div>
-  )
-}
+import AdjuntoEnlace from '../../../../components/AdjuntoEnlace.jsx'
 
 export default function HistorialModal({ solicitud, open, onClose }) {
   const [tab, setTab] = useState('estado')
