@@ -199,11 +199,11 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
           <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-left">
               <h1 className="text-xl sm:text-3xl font-extrabold text-brand-ink inline-flex items-center gap-3">
-                <span className="grid place-items-center size-9 sm:size-11 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 overflow-hidden">
+                <span className="grid place-items-center size-10 sm:size-12 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 overflow-hidden">
                   <img
                     src={esSuper ? '/ITitulos/SuperAdminI.png' : '/ITitulos/AdministradorI.png'}
                     alt={esSuper ? 'Super administrador' : 'Administrador'}
-                    className="size-full object-contain p-1"
+                    className="size-full object-contain"
                   />
                 </span>
                 <span>

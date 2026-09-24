@@ -91,8 +91,8 @@ export default function Solicitudes() {
           <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-left">
               <h1 className="text-xl sm:text-3xl font-extrabold text-brand-ink inline-flex items-center gap-3">
-                <span className="grid place-items-center size-9 sm:size-11 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 overflow-hidden">
-                  <img src="/ITitulos/SolicitudI.png" alt="Mis solicitudes" className="size-full object-contain p-1" />
+                <span className="grid place-items-center size-10 sm:size-12 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 overflow-hidden">
+                  <img src="/ITitulos/SolicitudI.png" alt="Mis solicitudes" className="size-full object-contain" />
                 </span>
                 MIS SOLICITUDES
               </h1>
