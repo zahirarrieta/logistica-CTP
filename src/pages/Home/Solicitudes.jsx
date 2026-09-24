@@ -17,6 +17,7 @@ export default function Solicitudes() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editarSolicitud, setEditarSolicitud] = useState(null)
   const [detalleSolicitud, setDetalleSolicitud] = useState(null)
+  const [plantilla, setPlantilla] = useState(null)
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
@@ -81,9 +82,10 @@ export default function Solicitudes() {
     solicitudCorregida(id)
   }
 
-  const handleNewSolicitudAbierta = () => {
+  const handleNewSolicitudAbierta = (s = null) => {
     setEditarSolicitud(null)
     setDetalleSolicitud(null)
+    setPlantilla(s)
     setModalOpen(true)
   }
 
@@ -156,8 +158,12 @@ export default function Solicitudes() {
 
       <SolicitudModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false)
+          setPlantilla(null)
+        }}
         onSubmit={handleNewSolicitud}
+        plantilla={plantilla}
       />
 
       <SolicitudModal

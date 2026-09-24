@@ -185,6 +185,18 @@ function avisarCambiosRemotos(lista) {
       }
     }
 
+    // Aviso al admin/super cuando cambia el estado de una solicitud asignada a
+    // él (p. ej. el superadmin la pasó a En Trámite, Retenido, en tránsito…).
+    // Las entregas ya se cubren con entregaRealizada y los ecos de esta sesión
+    // se omiten para no duplicar el toast del actor.
+    if (esPrivilegiado && esAsignadoA(s, usuarioActualStore) && !esEcho && cambioEstado && !ESTADOS_ENTREGA.includes(s.estado || '')) {
+      const claveAviso = `estadoAsignado:${s.id}:${s.estado}`
+      if (!idsAvisados.has(claveAviso)) {
+        idsAvisados.add(claveAviso)
+        estadoActualizado(s.id, s.estado)
+      }
+    }
+
     if (!esSolicitante) continue
     if (correo && correo !== correoPropio) continue
     if (huella === fingerprint(prev) || esEcho) continue

@@ -64,7 +64,7 @@ function formatearBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function SolicitudModal({ open, onClose, onSubmit, solicitud = null, onEditSubmit, onCrearNueva }) {
+export default function SolicitudModal({ open, onClose, onSubmit, solicitud = null, onEditSubmit, onCrearNueva, plantilla = null }) {
   const { account } = useAuth()
   const modoEdicion = Boolean(solicitud)
   const devolucion = modoEdicion ? buscarDevolucion(solicitud) : null
@@ -73,6 +73,25 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
     .map((id) => CAMPOS_DEVOLUCION.find((c) => c.id === id)?.etiqueta)
     .filter(Boolean)
   const corregirCliente = camposCorregir.includes('cliente')
+
+  // En edición de devolución: solo se permite editar los campos que el admin
+  // marcó explícitamente para corregir (CAMPOS_DEVOLUCION). Si no hay marcas
+  // (registros antiguos), se mantiene el comportamiento previo: tipo/obs/adjuntos.
+  const soloCorregidos = camposCorregir.length > 0
+  const puedeEditar = (campo) => {
+    if (!modoEdicion) return true
+    if (vencida) return false
+    if (!soloCorregidos) return campo !== 'cliente'
+    return camposCorregir.includes(campo)
+  }
+  const editarTipo = puedeEditar('tipoSolicitud')
+  const editarCliente = puedeEditar('cliente')
+  const editarAdjuntos = puedeEditar('adjuntos')
+  const editarObs = puedeEditar('observaciones')
+  const etiquetasEditables = soloCorregidos
+    ? etiquetasCorregir
+    : ['TIPO DE SOLICITUD', 'OBSERVACIONES', 'ADJUNTOS']
+
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
   const [formData, setFormData] = useState({
     nombreCompleto: account?.name || '',
@@ -127,7 +146,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
 
   // Al abrir el modal: en edición precarga los datos de la solicitud devuelta;
   // en creación deja el formulario en blanco con los datos del usuario.
-  useEffect(() => {
+useEffect(() => {
     if (!open) return
     urlsRef.current.forEach((u) => URL.revokeObjectURL(u))
     urlsRef.current.clear()
@@ -147,6 +166,20 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
         adjuntos: Array.isArray(solicitud.adjuntos) ? [...solicitud.adjuntos] : [],
         observaciones: solicitud.observaciones || '',
       })
+    } else if (plantilla) {
+      // Precarga desde solicitud vencida: reusa los datos para que el usuario
+      // no tenga que volver a llenar todo.
+      setFormData({
+        nombreCompleto: plantilla.nombreCompleto || account?.name || '',
+        correo: plantilla.correo || account?.username || '',
+        tipoSolicitud: plantilla.tipoSolicitud || '',
+        cliente: plantilla.cliente || '',
+        bodega: plantilla.bodega || '',
+        nit: plantilla.nit || '',
+        zona: plantilla.zona || '',
+        adjuntos: Array.isArray(plantilla.adjuntos) ? [...plantilla.adjuntos] : [],
+        observaciones: plantilla.observaciones || '',
+      })
     } else {
       setFormData({
         nombreCompleto: account?.name || '',
@@ -160,8 +193,6 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
         observaciones: '',
       })
     }
-    // Al abrir en creación se "mira" el próximo código global SIN consumirlo
-    // (la secuencia solo avanza al crear la solicitud).
     setSiguiente(peekNextId())
     if (!solicitud) {
       void refrescarProximoCodigo().then((c) => {
@@ -169,7 +200,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, solicitud])
+  }, [open, solicitud, plantilla])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -294,19 +325,17 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
         }
       }
       if (onEditSubmit) {
-        onEditSubmit(solicitud.id, {
-          tipoSolicitud: formData.tipoSolicitud,
-          observaciones: formData.observaciones,
-          adjuntos: [...existentes, ...urlsNuevas],
-          ...(corregirCliente
-            ? {
-                cliente: formData.cliente,
-                bodega: formData.bodega,
-                nit: formData.nit,
-                zona: formData.zona,
-              }
-            : {}),
-        })
+        const datosEdicion = {}
+        if (editarTipo) datosEdicion.tipoSolicitud = formData.tipoSolicitud
+        if (editarObs) datosEdicion.observaciones = formData.observaciones
+        if (editarAdjuntos) datosEdicion.adjuntos = [...existentes, ...urlsNuevas]
+        if (editarCliente) {
+          datosEdicion.cliente = formData.cliente
+          datosEdicion.bodega = formData.bodega
+          datosEdicion.nit = formData.nit
+          datosEdicion.zona = formData.zona
+        }
+        onEditSubmit(solicitud.id, datosEdicion)
       }
       resetForm()
       onClose()
@@ -317,25 +346,31 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
     // autoritativo que usan OneDrive y el guardado final. Sin backend/conexión
     // se usa el número visible (derivación local).
     const idSolicitud = (await reservarProximoCodigo()) || siguiente
-    let adjuntosUrls = []
+    // En creación también puede haber URLs ya subidas (plantilla de vencida).
+    // Separamos URLs existentes de archivos nuevos.
+    const existentes = formData.adjuntos.filter((a) => esUrlAdjunto(a))
+    const nuevos = formData.adjuntos.filter((a) => !esUrlAdjunto(a))
+    let adjuntosUrls = [...existentes]
 
-    try {
-      setSubiendoMsg(`Subiendo ${formData.adjuntos.length} archivo(s) a OneDrive…`)
-      const subidos = await subirAdjuntosOneDrive(
-        formData.adjuntos,
-        formData.nombreCompleto,
-        idSolicitud,
-      )
-      adjuntosUrls = subidos.map((s) => s.url).filter(Boolean)
-      documentosSubidos({ id: idSolicitud, nombres: formData.adjuntos.map((f) => f.name) })
-      setSubiendoMsg('')
-    } catch (err) {
-      console.error('[SolicitudModal] error subiendo a OneDrive:', err)
-      setSubiendoMsg('')
-      setLoading(false)
-      setErrores([`Error subiendo archivos: ${err.message}`])
-      notificarErrorSubida(err.message, idSolicitud)
-      return
+    if (nuevos.length > 0) {
+      try {
+        setSubiendoMsg(`Subiendo ${nuevos.length} archivo(s) a OneDrive…`)
+        const subidos = await subirAdjuntosOneDrive(
+          nuevos,
+          formData.nombreCompleto,
+          idSolicitud,
+        )
+        adjuntosUrls = [...existentes, ...subidos.map((s) => s.url).filter(Boolean)]
+        documentosSubidos({ id: idSolicitud, nombres: nuevos.map((f) => f.name) })
+        setSubiendoMsg('')
+      } catch (err) {
+        console.error('[SolicitudModal] error subiendo a OneDrive:', err)
+        setSubiendoMsg('')
+        setLoading(false)
+        setErrores([`Error subiendo archivos: ${err.message}`])
+        notificarErrorSubida(err.message, idSolicitud)
+        return
+      }
     }
 
     if (onSubmit) {
@@ -400,7 +435,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
               <button
                 type="button"
                 onClick={() => {
-                  if (onCrearNueva) onCrearNueva()
+                  if (onCrearNueva) onCrearNueva(solicitud)
                   handleClose()
                 }}
                 className="mt-3 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-red-700 hover:-translate-y-0.5 transition-all"
@@ -442,9 +477,11 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
                 <p className="mt-1 font-medium text-fuchsia-700/80">Revisa los datos y vuelve a enviar la solicitud.</p>
               )}
               <p className="mt-1 text-xs text-fuchsia-700/70">
-                {corregirCliente
-                  ? 'Puedes editar el cliente, el tipo de solicitud, las observaciones y los adjuntos. Al guardar volverá a estado Abierto.'
-                  : 'Puedes editar el tipo de solicitud, las observaciones y los adjuntos. Al guardar volverá a estado Abierto.'}
+                {soloCorregidos
+                  ? `Solo puedes editar: ${etiquetasEditables.join(', ')}. Al guardar volverá a estado Abierto.`
+                  : corregirCliente
+                    ? 'Puedes editar el cliente, el tipo de solicitud, las observaciones y los adjuntos. Al guardar volverá a estado Abierto.'
+                    : 'Puedes editar el tipo de solicitud, las observaciones y los adjuntos. Al guardar volverá a estado Abierto.'}
               </p>
             </div>
           )}
@@ -491,6 +528,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
               required
               icon={<MdAssignmentAdd className="text-sm" />}
               invalid={errores.includes('Tipo de solicitud')}
+              disabled={!editarTipo}
             />
             <div className="relative">
               <FormField
@@ -505,7 +543,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
                 icon={<MdBusiness className="text-sm" />}
                 invalid={errores.includes('Cliente')}
               />
-              {(!modoEdicion || corregirCliente) && (
+              {(!modoEdicion || editarCliente) && (
                 <button
                   type="button"
                   onClick={() => setClientPickerOpen(true)}
@@ -561,7 +599,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
             <label className="block text-sm font-semibold text-brand-deep mb-1.5">
               Adjuntos {formData.adjuntos.length > 0 && <span className="text-brand-cyan">({formData.adjuntos.length}/3)</span>}
             </label>
-            {formData.adjuntos.length < 3 && (
+            {editarAdjuntos && formData.adjuntos.length < 3 && (
               <label className="flex flex-col items-center justify-center gap-2 w-full px-4 py-5 border-2 border-dashed border-brand-ink/25 rounded-xl bg-brand-mist/30 text-brand-ink/70 cursor-pointer hover:border-brand-cyan hover:bg-brand-mist/50 transition-colors">
                 <MdCloudUpload className="text-3xl text-brand-cyan" />
                 <span className="text-sm font-medium">Haz clic para adjuntar archivos</span>
@@ -614,15 +652,17 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
                               </button>
                             )
                           )}
-                          <button
-                            type="button"
-                            onClick={() => eliminarArchivo(i)}
-                            aria-label={`Eliminar ${nombre}`}
-                            title="Eliminar archivo"
-                            className="grid place-items-center size-7 rounded-full text-brand-ink/50 hover:bg-red-100 hover:text-red-600 transition-colors"
-                          >
-                            <MdCancel className="text-lg" />
-                          </button>
+                          {editarAdjuntos && (
+                            <button
+                              type="button"
+                              onClick={() => eliminarArchivo(i)}
+                              aria-label={`Eliminar ${nombre}`}
+                              title="Eliminar archivo"
+                              className="grid place-items-center size-7 rounded-full text-brand-ink/50 hover:bg-red-100 hover:text-red-600 transition-colors"
+                            >
+                              <MdCancel className="text-lg" />
+                            </button>
+                          )}
                         </div>
                       </div>
                       {abierto && puedePrevisualizar && (
@@ -665,7 +705,8 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
               }
               rows={3}
               placeholder=" "
-              className="peer w-full px-3 py-2.5 rounded-xl bg-white border border-brand-deep/20 shadow-sm focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:shadow-none transition-all text-brand-ink placeholder-transparent resize-y uppercase"
+              disabled={!editarObs}
+              className="peer w-full px-3 py-2.5 rounded-xl bg-white border border-brand-deep/20 shadow-sm focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:shadow-none transition-all text-brand-ink placeholder-transparent resize-y uppercase disabled:bg-brand-mist/40 disabled:text-brand-ink/50"
             />
             <label className={`pointer-events-none absolute left-2 bg-white px-1 rounded transition-all inline-flex items-center gap-1 ${
               formData.observaciones ? '-top-2 text-[0.7rem] text-brand-ink' : 'top-2.5 text-[0.78rem] text-brand-ink'

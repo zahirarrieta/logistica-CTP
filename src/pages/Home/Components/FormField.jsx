@@ -11,6 +11,7 @@ export default function FormField({
   options = [],
   unit = "",
   readOnly = false,
+  disabled = false,
   icon,
   invalid = false
 }) {
@@ -37,10 +38,11 @@ export default function FormField({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
+          disabled={disabled}
           title={selected?.label}
-          className={`appearance-none cursor-pointer text-left w-full px-3 py-2.5 pr-12 rounded-xl border bg-white text-brand-ink placeholder-transparent focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 shadow-sm transition-all ${
-            invalid ? invalidClasses : 'border-brand-deep/20'
-          }`}
+          className={`appearance-none ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} text-left w-full px-3 py-2.5 pr-12 rounded-xl border bg-white text-brand-ink placeholder-transparent focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 shadow-sm transition-all ${
+            disabled ? 'opacity-60 bg-brand-mist/40' : ''
+          } ${invalid ? invalidClasses : 'border-brand-deep/20'}`}
         >
           {selected?.label ? (
             <span className="block truncate font-medium text-sm text-brand-ink">{selected.label}</span>
