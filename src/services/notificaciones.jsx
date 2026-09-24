@@ -52,11 +52,44 @@ function getCtx() {
     const Ctx = window.AudioContext || window.webkitAudioContext
     if (!Ctx) return null
     audioCtx = audioCtx || new Ctx()
-    if (audioCtx.state === 'suspended') audioCtx.resume()
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {})
+    }
     return audioCtx
   } catch {
     return null
   }
+}
+
+// Desbloquea el audio con el primer gesto del usuario. Sin esto, los
+// navegadores (sobre todo en móvil) crean el AudioContext en 'suspended' y las
+// notificaciones que llegan antes de cualquier interacción no suenan.
+function desbloquearAudio() {
+  const ctx = getCtx()
+  if (!ctx || ctx.state !== 'suspended') return
+  ctx.resume().then(() => {
+    try {
+      // Reproduce un instante de silencio: iOS solo "despierta" el audio tras
+      // una reproducción real dentro de un gesto de usuario.
+      const buffer = ctx.createBuffer(1, 1, ctx.sampleRate)
+      const fuente = ctx.createBufferSource()
+      fuente.buffer = buffer
+      fuente.connect(ctx.destination)
+      fuente.start(0)
+    } catch {
+      // sin audio disponible: se ignora
+    }
+  }).catch(() => {})
+}
+
+if (typeof window !== 'undefined') {
+  const gestos = ['pointerdown', 'keydown', 'touchstart']
+  gestos.forEach((ev) => window.addEventListener(ev, desbloquearAudio, { once: true, passive: true }))
+  window.addEventListener('click', desbloquearAudio, { once: true, passive: true })
+  // Al volver a traer la pestaña al frente se reanuda por si quedó suspendido.
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') desbloquearAudio()
+  }, { passive: true })
 }
 
 // Programa una o más notas [frecuencia, retardo s, duración s, volumen].
