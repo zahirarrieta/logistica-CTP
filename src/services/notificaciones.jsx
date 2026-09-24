@@ -226,6 +226,7 @@ export function solicitudCreada(solicitud = {}) {
   const id = solicitud.numeroReferencia || solicitud.id
   sileo.success({
     ...BASE,
+    sonido: 'default',
     title: titulo(id, 'Solicitud creada'),
     icon: <MdSend />,
     description: (
@@ -238,22 +239,23 @@ export function solicitudCreada(solicitud = {}) {
 }
 
 // Aviso para administradores/superadmin cuando OTRA persona crea una solicitud:
-// llega al instante por Realtime y no requiere refrescar la página.
-export function solicitudNueva(solicitud = {}) {
-  sileo.info({
-    ...BASE,
-    duration: 7000,
-    title: 'Solicitud nueva',
-    icon: <MdInbox />,
-    description: (
-      <>
-        {linea('Hay una solicitud nueva por revisar.')}
-        {solicitud.id && detalle(`Código: ${solicitud.id}`)}
-        {solicitud.cliente && detalle(`Cliente: ${solicitud.cliente}`)}
-      </>
-    ),
-  })
-}
+  // llega al instante por Realtime y no requiere refrescar la página.
+  export function solicitudNueva(solicitud = {}) {
+    sileo.info({
+      ...BASE,
+      duration: 7000,
+      sonido: 'asignada',
+      title: 'Solicitud nueva',
+      icon: <MdInbox />,
+      description: (
+        <>
+          {linea('Hay una solicitud nueva por revisar.')}
+          {solicitud.id && detalle(`Código: ${solicitud.id}`)}
+          {solicitud.cliente && detalle(`Cliente: ${solicitud.cliente}`)}
+        </>
+      ),
+    })
+  }
 
 export function estadoActualizado(id, estado) {
   const tipo = ESTADO_TIPO[estado] || 'info'
@@ -276,6 +278,7 @@ export function estadoActualizado(id, estado) {
 export function solicitudAsignada(id, asignadoA) {
   sileo.info({
     ...BASE,
+    sonido: 'asignada',
     title: titulo(id, 'Solicitud asignada'),
     icon: <MdAssignmentInd />,
     description: (
@@ -287,26 +290,28 @@ export function solicitudAsignada(id, asignadoA) {
 }
 
 // Aviso al administrador cuando el superadmin/admin le asigna una solicitud a su
-// nombre o correo: llega al instante por Realtime y aparece en «Mis asignaciones».
-export function asignacionRecibida(id, cliente) {
-  sileo.info({
-    ...BASE,
-    duration: 7000,
-    title: titulo(id, 'Solicitud asignada'),
-    icon: <MdAssignmentInd />,
-    description: (
-      <>
-        {linea('Te asignaron esta solicitud.')}
-        {cliente && detalle(`Cliente: ${cliente}`)}
-      </>
-    ),
-  })
-}
+  // nombre o correo: llega al instante por Realtime y aparece en «Mis asignaciones».
+  export function asignacionRecibida(id, cliente) {
+    sileo.info({
+      ...BASE,
+      duration: 7000,
+      sonido: 'asignada',
+      title: titulo(id, 'Solicitud asignada'),
+      icon: <MdAssignmentInd />,
+      description: (
+        <>
+          {linea('Te asignaron esta solicitud.')}
+          {cliente && detalle(`Cliente: ${cliente}`)}
+        </>
+      ),
+    })
+  }
 
 export function solicitudDevuelta(id, motivo) {
   sileo.warning({
     ...BASE,
     duration: 6500,
+    sonido: 'Devolución a Solicitante',
     title: titulo(id, 'Solicitud devuelta'),
     icon: <MdAssignmentReturn />,
     description: (
@@ -321,6 +326,7 @@ export function solicitudDevuelta(id, motivo) {
 export function solicitudCorregida(id) {
   sileo.success({
     ...BASE,
+    sonido: 'Abierto',
     title: titulo(id, 'Solicitud corregida'),
     icon: <MdSend />,
     description: linea('Tu corrección se envió y la solicitud volvió a estado Abierto.'),
