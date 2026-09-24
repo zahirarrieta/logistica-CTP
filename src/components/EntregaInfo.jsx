@@ -69,7 +69,11 @@ export default function EntregaInfo({ solicitud, entrega, mostrarEncuesta = true
   const encuestado = safeText(encuesta?.nombreEncuestado)
   const cargo = safeText(encuesta?.cargo)
   const correo = safeText(encuesta?.correo)
-  const evidencia = safeText(entrega?.evidencia)
+  // Varias imágenes de evidencia unidas por '|' (una sola no lleva separador).
+  const evidencias = safeText(entrega?.evidencia)
+    .split('|')
+    .map((u) => u.trim())
+    .filter(Boolean)
 
   const datos = [
     { icon: <MdLocalShipping className="text-xs" />, label: 'Conductor', value: safeText(entrega?.conductor) || safeText(solicitud.conductor) },
@@ -144,10 +148,16 @@ export default function EntregaInfo({ solicitud, entrega, mostrarEncuesta = true
       </div>
 
       {/* Evidencia */}
-      {evidencia && (
+      {evidencias.length > 0 && (
         <div className="space-y-2">
-          <Seccion icon={<MdPhotoCamera className="text-sm" />}>Evidencia</Seccion>
-          <EvidenciaVisor url={evidencia} />
+          <Seccion icon={<MdPhotoCamera className="text-sm" />}>
+            Evidencia{evidencias.length > 1 ? ` (${evidencias.length})` : ''}
+          </Seccion>
+          <div className="space-y-2">
+            {evidencias.map((url, i) => (
+              <EvidenciaVisor key={`${i}-${url}`} url={url} />
+            ))}
+          </div>
         </div>
       )}
 

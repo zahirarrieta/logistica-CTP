@@ -3,6 +3,10 @@ import { soloAdjuntosSolicitud } from '../components/pdfUtils.js'
 
 const EXPIRA_EVIDENCIA = 60 * 60 * 24 // 24 h
 
+// Separador de las varias imágenes de evidencia de una entrega. Se usa '|' porque
+// no aparece ni en dataUrls (base64) ni en las URLs de OneDrive/SharePoint.
+const SEP_EVIDENCIA = '|'
+
 let usuarioRegistrado = false
 
 async function preparar() {
@@ -101,16 +105,45 @@ function dataUrlABlob(dataUrl) {
   return { blob: new Blob([bytes], { type: mime }), mime }
 }
 
-async function subirEvidencia(codigo, entrada) {
-  const { blob, mime } = dataUrlABlob(entrada.evidencia)
+async function subirEvidenciaParte(codigo, id, dataUrl, indice) {
+  const { blob, mime } = dataUrlABlob(dataUrl)
   const extension = mime.includes('pdf') ? 'pdf' : 'jpg'
-  const ruta = `${codigo}/${entrada.id}.${extension}`
+  const ruta = `${codigo}/${id}_${indice}.${extension}`
   const { error } = await supabase.storage
     .from('evidencias')
     .upload(ruta, blob, { contentType: mime, upsert: true })
   if (error) throw error
   console.info(`[Supabase] evidencia subida a evidencias/${ruta}`)
   return ruta
+}
+
+// Una entrega puede tener varias imágenes de evidencia unidas por SEP_EVIDENCIA.
+// Cada parte data: se sube a Storage; las http (OneDrive) o rutas ya subidas se
+// conservan tal cual. Devuelve el mismo formato unido.
+async function resolverEvidencia(codigo, entrada) {
+  const valor = typeof entrada.evidencia === 'string' ? entrada.evidencia.trim() : ''
+  if (!valor) return ''
+  const partes = valor.split(SEP_EVIDENCIA).map((p) => p.trim()).filter(Boolean)
+  const resueltas = []
+  for (let i = 0; i < partes.length; i += 1) {
+    resueltas.push(
+      partes[i].startsWith('data:')
+        ? await subirEvidenciaParte(codigo, entrada.id, partes[i], i)
+        : partes[i]
+    )
+  }
+  return resueltas.join(SEP_EVIDENCIA)
+}
+
+// Firma cada ruta de Storage dentro de una evidencia (posiblemente múltiple) y
+// deja intactas las URLs http.
+function firmarEvidencia(evidenciaUrl, firmadas) {
+  return String(evidenciaUrl || '')
+    .split(SEP_EVIDENCIA)
+    .map((u) => u.trim())
+    .filter(Boolean)
+    .map((u) => firmadas[u] || u)
+    .join(SEP_EVIDENCIA)
 }
 
 // Trae las solicitudes y, de forma incremental, solo el historial de las que
@@ -152,7 +185,8 @@ export async function descargarSolicitudes(desde = '') {
   const rutas = [
     ...new Set(
       registros
-        .map((h) => h.evidencia_url)
+        .flatMap((h) => String(h.evidencia_url || '').split(SEP_EVIDENCIA))
+        .map((u) => u.trim())
         .filter((u) => u && !/^https?:\/\//i.test(u))
     ),
   ]
@@ -171,7 +205,7 @@ export async function descargarSolicitudes(desde = '') {
   const porSolicitud = new Map()
   for (const h of registros) {
     const lista = porSolicitud.get(h.solicitud) || []
-    lista.push(historialALocal(h, firmadas[h.evidencia_url] || h.evidencia_url || ''))
+    lista.push(historialALocal(h, firmarEvidencia(h.evidencia_url, firmadas)))
     porSolicitud.set(h.solicitud, lista)
   }
 
@@ -201,12 +235,7 @@ export async function empujarSolicitud(s) {
   const entradas = Array.isArray(s.historial) ? s.historial : []
   const filasHistorial = []
   for (const h of entradas) {
-    let ruta = ''
-    if (typeof h.evidencia === 'string' && h.evidencia.startsWith('data:')) {
-      ruta = await subirEvidencia(s.id, h)
-    } else if (typeof h.evidencia === 'string' && h.evidencia.startsWith('http')) {
-      ruta = h.evidencia
-    }
+    const ruta = await resolverEvidencia(s.id, h)
     filasHistorial.push({
       id: h.id,
       solicitud: s.id,

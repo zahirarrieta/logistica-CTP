@@ -3,8 +3,8 @@ import { shortName } from '../../../auth/user.js'
 import { supabase, backendActivo, iniciarSesion, datosUsuario } from '../../../services/supabaseClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../../../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud } from '../../../components/pdfUtils.js'
-import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada } from '../../../services/notificaciones.jsx'
-import { esConductorDe } from '../../../auth/roles.js'
+import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada, asignacionRecibida, entregaRealizada } from '../../../services/notificaciones.jsx'
+import { esConductorDe, esAsignadoA } from '../../../auth/roles.js'
 
 const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
@@ -147,17 +147,47 @@ function avisarCambiosRemotos(lista) {
       if (idsAvisados.has(s.id)) continue
       if (correo && correo === correoPropio) continue
       idsAvisados.add(s.id)
-      solicitudNueva(s)
+      // Si llega ya asignada al usuario actual, el aviso relevante es ése.
+      if (esAsignadoA(s, usuarioActualStore)) asignacionRecibida(s.id, s.cliente)
+      else solicitudNueva(s)
       continue
     }
     // Cambio sobre una solicitud existente.
+    const huella = fingerprint(s)
+    const esEcho = huella === mapaEchoLocal.get(s.id)
+
+    // Le acaban de asignar esta solicitud al usuario actual (admin/super): aviso
+    // en vivo. Se omite si es un eco de esta sesión o si ya estaba asignada a él.
+    if (!esEcho && esAsignadoA(s, usuarioActualStore) && !esAsignadoA(prev, usuarioActualStore)) {
+      const claveAviso = `asignacion:${s.id}:${(s.asignadoCorreo || s.asignadoA || '').toLowerCase()}`
+      if (!idsAvisados.has(claveAviso)) {
+        idsAvisados.add(claveAviso)
+        asignacionRecibida(s.id, s.cliente)
+      }
+    }
+
+    // Pedido entregado por el conductor: avisar a admin/superadmin (ven todo) y
+    // al solicitante dueño. Sustituye al aviso genérico de cambio de estado.
+    // También cubre Parcial → Entregado (cambio dentro de los estados de entrega).
+    const ahoraEntregado = ESTADOS_ENTREGA.includes(s.estado || '')
+    const cambioEstado = (prev.estado || '') !== (s.estado || '')
+    if (!esEcho && ahoraEntregado && cambioEstado) {
+      const duenoSolicitante = esSolicitante && correo && correo === correoPropio
+      if (esPrivilegiado || duenoSolicitante) {
+        const claveAviso = `entregado:${s.id}:${s.estado}`
+        if (!idsAvisados.has(claveAviso)) {
+          idsAvisados.add(claveAviso)
+          entregaRealizada(s.id, { cliente: s.cliente, estado: s.estado, conductor: s.conductor })
+        }
+      }
+    }
+
     if (!esSolicitante) continue
     if (correo && correo !== correoPropio) continue
-    const huella = fingerprint(s)
-    if (huella === fingerprint(prev) || huella === mapaEchoLocal.get(s.id)) continue
+    if (huella === fingerprint(prev) || esEcho) continue
     if (s.estado === 'Devolución a Solicitante') {
       solicitudDevuelta(s.id, (Array.isArray(s.historial) && s.historial[0]?.nota) || '')
-    } else if ((prev.estado || '') !== (s.estado || '')) {
+    } else if ((prev.estado || '') !== (s.estado || '') && !ESTADOS_ENTREGA.includes(s.estado || '')) {
       estadoActualizado(s.id, s.estado)
     } else if ((prev.asignadoA || '') !== (s.asignadoA || '')) {
       solicitudAsignada(s.id, s.asignadoA)

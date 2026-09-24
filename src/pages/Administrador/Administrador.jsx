@@ -70,12 +70,14 @@ export default function Administrador() {
 
   const nombreAdmin = (usuario?.nombre || account?.name || '').trim()
 
-  // Sin asignar: las que aún no tienen responsable (visibles para todo admin).
+  // Sin asignar: las que aún no tienen responsable. El admin las ve en el tab
+  // «Solicitudes» y puede auto-asignárselas; el super admin ve ahí todas.
   const sinAsignar = useMemo(
     () => solicitudes.filter((s) => !String(s.asignadoA || '').trim()),
     [solicitudes]
   )
-  // Mis asignaciones: las que están a mi nombre o correo.
+  // Mis asignaciones: las que están a mi nombre o correo. Es lo único que ve el
+  // administrador en el Dashboard.
   const misAsignaciones = useMemo(
     () => solicitudes.filter((s) => esAsignadoA(s, misDatos)),
     [solicitudes, misDatos]

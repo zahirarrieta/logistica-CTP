@@ -32,9 +32,14 @@ const PREGUNTAS = [
 
 const CALIFICACIONES = ['Malo', 'Regular', 'Bueno']
 
+// Máximo de fotos de evidencia por entrega y separador de las URLs resultantes
+// (debe coincidir con SEP_EVIDENCIA en solicitudesApi.js).
+const MAX_IMAGENES = 3
+const SEP_EVIDENCIA = '|'
+
 export default function EntregaConductor({ solicitud, open, onClose, onUpdate, destino }) {
   const [observaciones, setObservaciones] = useState('')
-  const [evidencia, setEvidencia] = useState('')
+  const [evidencias, setEvidencias] = useState([])
   const [nombreEncuestado, setNombreEncuestado] = useState('')
   const [cargo, setCargo] = useState('')
   const [correo, setCorreo] = useState('')
@@ -60,7 +65,13 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     const ultimo = recientes[0]
     setContactos(recientes)
     setObservaciones(borrador?.observaciones || '')
-    setEvidencia(borrador?.evidencia || '')
+    setEvidencias(
+      Array.isArray(borrador?.evidencias)
+        ? borrador.evidencias
+        : borrador?.evidencia
+          ? [borrador.evidencia]
+          : []
+    )
     // Si no hay borrador, precarga el último contacto usado para no repetir datos.
     setNombreEncuestado(borrador?.nombreEncuestado || ultimo?.nombre || '')
     setCargo(borrador?.cargo || ultimo?.cargo || '')
@@ -73,7 +84,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     const timer = setTimeout(() => {
       guardarBorradorEntrega(solicitud.id, {
         observaciones,
-        evidencia,
+        evidencias,
         nombreEncuestado,
         cargo,
         correo,
@@ -81,7 +92,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
       })
     }, 400)
     return () => clearTimeout(timer)
-  }, [open, solicitud, observaciones, evidencia, nombreEncuestado, cargo, correo, puntuaciones])
+  }, [open, solicitud, observaciones, evidencias, nombreEncuestado, cargo, correo, puntuaciones])
 
   if (!open || !solicitud) return null
 
@@ -89,7 +100,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
   const todasPuntuadas = PREGUNTAS.every((p) => (puntuaciones[p] || 0) >= 1)
   const puedeGuardar =
     observaciones.trim().length > 0 &&
-    evidencia.length > 0 &&
+    evidencias.length > 0 &&
     nombreEncuestado.trim().length > 0 &&
     cargo.trim().length > 0 &&
     correoValido &&
@@ -97,7 +108,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
 
   const faltantes = []
   if (!observaciones.trim()) faltantes.push('observaciones')
-  if (!evidencia) faltantes.push('evidencia fotográfica')
+  if (evidencias.length === 0) faltantes.push('evidencia fotográfica')
   if (!nombreEncuestado.trim()) faltantes.push('nombre del encuestado')
   if (!cargo.trim()) faltantes.push('cargo')
   if (!correoValido) faltantes.push(correo.trim() ? 'correo con formato válido' : 'correo')
@@ -105,6 +116,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
 
   const archivoFoto = (e) => {
     const file = e.target.files?.[0]
+    if (fileRef.current) fileRef.current.value = ''
     if (!file) return
     const reader = new FileReader()
     reader.onload = () => {
@@ -116,34 +128,51 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
         canvas.width = Math.round(img.width * escala)
         canvas.height = Math.round(img.height * escala)
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-        setEvidencia(canvas.toDataURL('image/jpeg', 0.72))
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.72)
+        setEvidencias((prev) => (prev.length >= MAX_IMAGENES ? prev : [...prev, dataUrl]))
       }
       img.src = reader.result
     }
     reader.readAsDataURL(file)
   }
 
+  const quitarImagen = (indice) => {
+    setEvidencias((prev) => prev.filter((_, i) => i !== indice))
+  }
+
   const handleSave = async () => {
     if (!puedeGuardar || guardando) return
     setGuardando(true)
-    let evidenciaFinal = evidencia
-    if (evidencia.startsWith('data:')) {
+    const partes = []
+    let subioAlguna = false
+    let falloAlguna = false
+    for (const imagen of evidencias) {
+      if (!imagen.startsWith('data:')) {
+        partes.push(imagen)
+        continue
+      }
       try {
         const subida = await subirDocEntregaOneDrive(
-          dataUrlABlob(evidencia),
+          dataUrlABlob(imagen),
           solicitud.numeroReferencia || solicitud.id,
           solicitud.nombreCompleto,
           solicitud.id
         )
         if (subida?.url) {
-          evidenciaFinal = subida.url
-          evidenciaSubida({ id: solicitud.id, archivo: solicitud.numeroReferencia || solicitud.id })
+          partes.push(subida.url)
+          subioAlguna = true
         } else throw new Error('OneDrive no devolvió el enlace del archivo')
       } catch (err) {
         console.warn('[OneDrive] no se pudo subir la evidencia, se guardará localmente:', err)
-        subidaPendiente(undefined, solicitud.id)
+        partes.push(imagen)
+        falloAlguna = true
       }
     }
+    if (subioAlguna) {
+      evidenciaSubida({ id: solicitud.id, archivo: solicitud.numeroReferencia || solicitud.id })
+    }
+    if (falloAlguna) subidaPendiente(undefined, solicitud.id)
+    const evidenciaFinal = partes.join(SEP_EVIDENCIA)
     eliminarBorradorEntrega(solicitud.id)
     const preguntas = PREGUNTAS.map((p) => ({ pregunta: p, puntuacion: puntuaciones[p] || 0 }))
     setContactos(
@@ -229,8 +258,11 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
 
           {/* Evidencia fotográfica */}
           <div>
-            <label className="flex items-center gap-1.5 text-[11px] font-extrabold text-brand-deep uppercase tracking-wide mb-2">
-              <MdPhotoCamera className="text-sm" /> Evidencia fotográfica
+            <label className="flex items-center justify-between gap-1.5 text-[11px] font-extrabold text-brand-deep uppercase tracking-wide mb-2">
+              <span className="inline-flex items-center gap-1.5">
+                <MdPhotoCamera className="text-sm" /> Evidencia fotográfica
+              </span>
+              <span className="text-brand-ink/50 tabular-nums">{evidencias.length}/{MAX_IMAGENES}</span>
             </label>
             <input
               ref={fileRef}
@@ -240,31 +272,41 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
               onChange={archivoFoto}
               className="hidden"
             />
-            {evidencia ? (
-              <div className="relative rounded-xl overflow-hidden border border-brand-deep/20">
-                <img src={evidencia} alt="Evidencia de la entrega" className="w-full max-h-52 object-cover" />
+            <div className="grid grid-cols-3 gap-2">
+              {evidencias.map((src, i) => (
+                <div
+                  key={`${i}-${src.slice(-16)}`}
+                  className="relative aspect-square rounded-xl overflow-hidden border border-brand-deep/20"
+                >
+                  <img src={src} alt={`Evidencia ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => quitarImagen(i)}
+                    aria-label={`Quitar imagen ${i + 1}`}
+                    title="Quitar"
+                    className="absolute top-1 right-1 grid place-items-center size-6 rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+                  >
+                    <MdClose className="text-sm" />
+                  </button>
+                  <span className="absolute bottom-1 left-1 grid place-items-center size-5 rounded-full bg-black/60 text-green-400">
+                    <MdCheckCircle className="text-xs" />
+                  </span>
+                </div>
+              ))}
+              {evidencias.length < MAX_IMAGENES && (
                 <button
                   type="button"
-                  onClick={() => { setEvidencia(''); if (fileRef.current) fileRef.current.value = '' }}
-                  className="absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-red-600 text-white px-3 py-1 text-xs font-bold hover:bg-red-700 transition"
+                  onClick={() => fileRef.current?.click()}
+                  className="aspect-square rounded-xl border-2 border-dashed border-brand-deep/30 bg-brand-mist/40 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors flex flex-col items-center justify-center gap-1 text-brand-deep"
                 >
-                  <MdClose className="text-sm" /> Quitar
+                  <MdPhotoCamera className="text-2xl" />
+                  <span className="text-[11px] font-bold">Tomar foto</span>
                 </button>
-                <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/60 text-white px-3 py-1 text-[11px] font-bold">
-                  <MdCheckCircle className="text-sm text-green-400" /> Foto guardada
-                </span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="w-full rounded-xl border-2 border-dashed border-brand-deep/30 bg-brand-mist/40 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors px-4 py-6 flex flex-col items-center justify-center gap-2 text-brand-deep"
-              >
-                <MdPhotoCamera className="text-3xl" />
-                <span className="text-sm font-bold">Tomar foto</span>
-                <span className="text-xs text-brand-ink/50">Abre la cámara del dispositivo</span>
-              </button>
-            )}
+              )}
+            </div>
+            <p className="mt-1.5 text-[11px] text-brand-ink/50">
+              Puedes tomar hasta {MAX_IMAGENES} fotos. Se guardan en la carpeta de la solicitud.
+            </p>
           </div>
 
           {/* Encuesta */}

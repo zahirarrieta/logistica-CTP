@@ -7,6 +7,7 @@ import {
   MdErrorOutline,
   MdFolderShared,
   MdInbox,
+  MdLocalShipping,
   MdRestartAlt,
   MdSend,
   MdSwapHoriz,
@@ -112,6 +113,23 @@ export function solicitudAsignada(id, asignadoA) {
   })
 }
 
+// Aviso al administrador cuando el superadmin/admin le asigna una solicitud a su
+// nombre o correo: llega al instante por Realtime y aparece en «Mis asignaciones».
+export function asignacionRecibida(id, cliente) {
+  sileo.info({
+    ...BASE,
+    duration: 7000,
+    title: titulo(id, 'Solicitud asignada'),
+    icon: <MdAssignmentInd />,
+    description: (
+      <>
+        {linea('Te asignaron esta solicitud.')}
+        {cliente && detalle(`Cliente: ${cliente}`)}
+      </>
+    ),
+  })
+}
+
 export function solicitudDevuelta(id, motivo) {
   sileo.warning({
     ...BASE,
@@ -161,6 +179,25 @@ export function entregaAsignada(id, cliente) {
       <>
         {linea('Te asignaron una entrega en tránsito.')}
         {id && detalle(`Solicitud: ${id}`)}
+        {cliente && detalle(`Cliente: ${cliente}`)}
+      </>
+    ),
+  })
+}
+
+// Aviso a solicitante, administrador y superadmin cuando el conductor marca una
+// solicitud como entregada: llega al instante por Realtime, sin refrescar.
+export function entregaRealizada(id, { cliente, estado, conductor } = {}) {
+  const parcial = estado === 'Entregado Parcial'
+  sileo.success({
+    ...BASE,
+    duration: 7000,
+    title: titulo(id, 'Pedido entregado'),
+    icon: <MdLocalShipping />,
+    description: (
+      <>
+        {linea(parcial ? 'El conductor registró una entrega parcial.' : 'El conductor entregó este pedido.')}
+        {conductor && detalle(`Conductor: ${conductor}`)}
         {cliente && detalle(`Cliente: ${cliente}`)}
       </>
     ),

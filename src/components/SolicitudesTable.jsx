@@ -43,9 +43,24 @@ const esDevolucion = (s) => s.estado === 'Devolución a Solicitante'
 const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !== '')
 
 // Cuando la solicitud está en tránsito, el adjunto relevante es la factura o
-// remisión que cargó el administrador, no el adjunto original del solicitante.
+// remisión que cargó el administrador al pasarla a «En Trámite». Esas URLs viven
+// en el historial (campo 'estado', nuevo 'En Trámite'); los campos de la fila
+// (nuevaFacturaUrls/adjuntosTramite) solo existen en la sesión que los subió.
+const urlsTramite = (s) => {
+  const entrada = (Array.isArray(s.historial) ? s.historial : []).find(
+    (h) => h.campo === 'estado' && h.nuevo === 'En Trámite' && h.adjunto
+  )
+  if (!entrada) return []
+  return String(entrada.adjunto)
+    .split(',')
+    .map((u) => u.trim())
+    .filter((u) => /^https?:\/\//i.test(u))
+}
+
 const adjuntosVisibles = (s) => {
   if (enTransito(s)) {
+    const tramite = urlsTramite(s)
+    if (tramite.length) return tramite
     if (s.nuevaFacturaUrls?.length) return s.nuevaFacturaUrls
     if (s.adjuntosTramite?.length) return s.adjuntosTramite
   }
@@ -119,12 +134,33 @@ function HistorialButton({ onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick }) {
+// Documento que el conductor debe entregar (adjunto de «En Trámite»/factura).
+// Se muestra bajo el nombre del cliente solo en el módulo del conductor.
+function DocEntregaPill({ count, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      title="Ver documento a entregar"
+      aria-label="Ver documento a entregar"
+      className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-400/40 hover:bg-amber-200 transition-colors px-3 py-1.5 text-[11px] font-bold"
+    >
+      <MdDescription className="text-sm" />
+      Documento a entregar · {count}
+    </button>
+  )
+}
+
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const cardBg = colorRow ? getEstadoBg(s.estado) : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
   const mostrarCorregir = Boolean(onCorregirClick) && esDevolucion(s)
   const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick || onSeguimientoClick || onEliminarClick || mostrarCorregir)
+  const docsEntrega = mostrarDocEntrega ? adjuntosVisibles(s) : null
 
   return (
     <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${cardBg}`}>
@@ -149,6 +185,11 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
           <MdExpandMore className={`text-xl text-brand-ink/50 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
         </div>
       </button>
+      {docsEntrega?.length > 0 && (
+        <div className="px-4 pb-3 -mt-1">
+          <DocEntregaPill count={docsEntrega.length} onClick={() => onVerAdjuntosClick?.(s)} />
+        </div>
+      )}
       {expanded && (
         <div className="px-4 pb-4 pt-2 space-y-2 text-sm border-t border-brand-ink/10 animate-fadeIn">
           <Row icon={<MdTag />} label="ID" value={s.id} />
@@ -329,7 +370,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
   )
 }
 
-export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCorregirClick, cardActions, empty, colorRowsPorEstado }) {
+export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCorregirClick, cardActions, empty, colorRowsPorEstado, mostrarDocEntrega }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [obsSolicitud, setObsSolicitud] = useState(null)
@@ -400,6 +441,7 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
             onClickObs={openObs}
             onVerAdjuntosClick={setAdjuntosSolicitud}
             colorRow={colorRowsPorEstado}
+            mostrarDocEntrega={mostrarDocEntrega}
           />
         ))}
       </div>
@@ -491,7 +533,14 @@ export default function SolicitudesTable({ items, onRowClick, onEstadoClick, onA
                     </span>
                   </td>
                   <td className="px-2 py-3 capitalize text-brand-ink/80 max-w-[110px] truncate whitespace-nowrap border-b border-l border-brand-ink/10">{s.tipoSolicitud}</td>
-                  <td className="px-2 py-3 text-brand-ink/80 max-w-[140px] truncate whitespace-nowrap border-b border-l border-brand-ink/10">{s.cliente}</td>
+                  <td className="px-2 py-3 text-brand-ink/80 max-w-[160px] border-b border-l border-brand-ink/10">
+                    <span className="block truncate whitespace-nowrap">{s.cliente}</span>
+                    {mostrarDocEntrega && adjuntosVisibles(s)?.length > 0 && (
+                      <span className="mt-1.5 block">
+                        <DocEntregaPill count={adjuntosVisibles(s).length} onClick={() => setAdjuntosSolicitud(s)} />
+                      </span>
+                    )}
+                  </td>
                   <td className="px-2 py-3 capitalize text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{s.zona}</td>
                   <td className="px-2 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
                     {adjuntosVisibles(s)?.length > 0 ? (

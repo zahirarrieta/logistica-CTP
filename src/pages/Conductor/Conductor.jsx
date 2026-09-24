@@ -246,6 +246,7 @@ export default function Conductor() {
               </button>
             ) : undefined}
             colorRowsPorEstado
+            mostrarDocEntrega
             empty={
               hayFiltroFecha
                 ? {
