@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RiSteering2Line } from 'react-icons/ri'
-import { MdLocalShipping, MdPendingActions, MdCheckCircle, MdDateRange, MdClose } from 'react-icons/md'
+import { MdLocalShipping, MdPendingActions, MdCheckCircle, MdDateRange, MdClose, MdInsights, MdSearch } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import IndicadorSinConexion from '../../components/IndicadorSinConexion.jsx'
 import EntregaConductor from './Components/modals/EntregaConductor.jsx'
+import ConductorDashboard from './Components/ConductorDashboard.jsx'
+import EntregaDetallesModal from '../Administrador/Components/modals/EntregaDetallesModal.jsx'
 import {
   loadSolicitudes,
   updateSolicitud,
@@ -19,6 +21,14 @@ import { esConductorDe } from '../../auth/roles.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const ESTADOS_ENTREGADOS = ['Entregado', 'Entregado Parcial']
+
+// Conductores externos sin cuenta en la app: admin/superadmin los ven en el
+// módulo Conductor para poder gestionar su entrega.
+const esConductorExterno = (s) => {
+  const c = String((s && s.conductor) || '').trim().toLowerCase()
+  return c === 'elite' || c === 'otro'
+}
+const ES_GESTOR = ['administrador', 'superadmin']
 
 // fechaSubida se guarda con toLocaleDateString('es-CO') → DD/MM/YYYY.
 const parsearFechaLocal = (str) => {
@@ -77,13 +87,15 @@ function destinoEntrega(s) {
 }
 
 export default function Conductor() {
-  const { account, usuario } = useAuth()
+  const { account, usuario, rol } = useAuth()
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [editarSolicitud, setEditarSolicitud] = useState(null)
+  const [detalleEntrega, setDetalleEntrega] = useState(null)
   const [tab, setTab] = useState('pendientes')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [fechaEntregaSel, setFechaEntregaSel] = useState('')
+  const [busqueda, setBusqueda] = useState('')
   const online = useOnline()
 
   const nombre = (usuario?.nombre || account?.name || '').trim()
@@ -100,9 +112,18 @@ export default function Conductor() {
     [usuario, account]
   )
 
+  const miasExternas = useMemo(
+    () => (ES_GESTOR.includes(rol) ? solicitudes.filter(esConductorExterno) : []),
+    [solicitudes, rol]
+  )
   const mias = useMemo(
-    () => solicitudes.filter((s) => esConductorDe(s, identidad)),
-    [solicitudes, identidad]
+    () => {
+      const propias = solicitudes.filter((s) => esConductorDe(s, identidad))
+      if (miasExternas.length === 0) return propias
+      const ids = new Set(propias.map((s) => s.id))
+      return propias.concat(miasExternas.filter((s) => !ids.has(s.id)))
+    },
+    [solicitudes, identidad, miasExternas]
   )
 
   const pendientes = useMemo(
@@ -114,7 +135,13 @@ export default function Conductor() {
     [mias]
   )
 
+  // Las entregas en tránsito (parcial o no) y las entregadas (parcial o no)
+  // son el universo que ve el dashboard del conductor.
   const base = tab === 'entregados' ? entregados : pendientes
+  const solicitudesDash = useMemo(
+    () => mias.filter((s) => ESTADOS_TRANSITO.includes(s.estado || '') || ESTADOS_ENTREGADOS.includes(s.estado || '')),
+    [mias]
+  )
 
   // En el tab de entregados el filtro es un desplegable: una opción por cada
   // fecha en la que se hizo entrega, con su conteo, ordenada de más reciente.
@@ -141,6 +168,17 @@ export default function Conductor() {
     return base.filter((s) => enRangoFechas(s.fechaSubida, desde, hasta))
   }, [base, tab, desde, hasta, fechaEntregaSel])
 
+  // Búsqueda por ID, nombre del solicitante o cliente (aplica a pendientes y entregados).
+  const terminoBusqueda = busqueda.trim().toLowerCase()
+  const filtradosTabla = useMemo(() => {
+    if (!terminoBusqueda) return filtrados
+    return filtrados.filter((s) =>
+      [s.id, s.nombreCompleto, s.cliente]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(terminoBusqueda))
+    )
+  }, [filtrados, terminoBusqueda])
+
   useEffect(() => {
     if (!online) return
     let activo = true
@@ -162,6 +200,7 @@ export default function Conductor() {
   const TABS = [
     { id: 'pendientes', label: 'Entregas pendientes', Icon: MdPendingActions, cuenta: pendientes.length },
     { id: 'entregados', label: 'Entregados', Icon: MdCheckCircle, cuenta: entregados.length },
+    { id: 'dashboard', label: 'Dashboard', Icon: MdInsights, cuenta: solicitudesDash.length },
   ]
 
   return (
@@ -218,8 +257,32 @@ export default function Conductor() {
             </div>
           </div>
 
+          {tab === 'dashboard' ? (
+            <ConductorDashboard solicitudes={solicitudesDash} />
+          ) : (
+            <>
           {/* Filtro por fechas */}
           <div className="mb-4 flex flex-col sm:flex-row sm:items-end gap-2.5">
+            <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 py-2 flex-1 sm:max-w-[320px]">
+              <MdSearch className="text-brand-deep shrink-0" />
+              <input
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por ID, nombre o cliente…"
+                className="w-full bg-transparent text-sm font-semibold text-brand-ink outline-none"
+              />
+              {busqueda && (
+                <button
+                  type="button"
+                  onClick={() => setBusqueda('')}
+                  aria-label="Limpiar búsqueda"
+                  className="grid place-items-center size-6 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-ink/20 transition-colors"
+                >
+                  <MdClose className="text-sm" />
+                </button>
+              )}
+            </div>
             {tab === 'entregados' ? (
               <>
                 <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 py-2 flex-1 sm:max-w-[340px]">
@@ -284,19 +347,9 @@ export default function Conductor() {
             )}
           </div>
 
-          {base.length > 0 && (
-            <div className="mb-4">
-              <span className="inline-flex items-center gap-2 rounded-full bg-indigo-100 text-indigo-700 px-4 py-2 text-sm font-bold">
-                <MdLocalShipping className="text-lg" />
-                {filtrados.length} de {base.length} solicitud(es)
-                {tab === 'pendientes' ? ' en tránsito' : ' entregada(s)'}
-              </span>
-            </div>
-          )}
-
           <SolicitudesTable
-            items={filtrados}
-            onRowClick={tab === 'pendientes' ? (s) => setEditarSolicitud(s) : undefined}
+            items={filtradosTabla}
+            onRowClick={tab === 'pendientes' ? (s) => setEditarSolicitud(s) : (s) => setDetalleEntrega(s)}
             cardActions={tab === 'pendientes' ? (s) => (
               <button
                 type="button"
@@ -311,8 +364,14 @@ export default function Conductor() {
             mostrarDocEntrega
             ocultarAdjuntos
             empty={
-              hayFiltroFecha
+              terminoBusqueda
                 ? {
+                    icon: <MdSearch />,
+                    title: 'No hay resultados para esa búsqueda',
+                    text: 'Prueba con otro ID, nombre o cliente.',
+                  }
+                : hayFiltroFecha
+                  ? {
                     icon: <MdDateRange />,
                     title: 'No hay solicitudes en esas fechas',
                     text: 'Cambia el rango de fechas o haz clic en «Limpiar».',
@@ -330,6 +389,8 @@ export default function Conductor() {
                     }
             }
           />
+            </>
+          )}
         </div>
       </main>
 
@@ -341,6 +402,12 @@ export default function Conductor() {
         onClose={() => setEditarSolicitud(null)}
         onUpdate={handleUpdateEstado}
         destino={editarSolicitud ? destinoEntrega(editarSolicitud) : undefined}
+      />
+
+      <EntregaDetallesModal
+        solicitud={detalleEntrega}
+        open={detalleEntrega !== null}
+        onClose={() => setDetalleEntrega(null)}
       />
 
       <IndicadorSinConexion />

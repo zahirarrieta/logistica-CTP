@@ -46,7 +46,7 @@ import { exportarExcel, exportarPdf } from './exportarInforme.js'
 
 const CARD_ICON = 'grid place-items-center size-10 rounded-xl text-white text-xl shadow-md'
 
-function Kpi({ icon, label, value, accent, sub }) {
+export function Kpi({ icon, label, value, accent, sub }) {
   return (
     <div className="rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-4 flex items-center gap-3.5">
       <span className={`${CARD_ICON} ${accent}`}>{icon}</span>
@@ -59,7 +59,7 @@ function Kpi({ icon, label, value, accent, sub }) {
   )
 }
 
-function Seccion({ icon, titulo, children, className = '' }) {
+export function Seccion({ icon, titulo, children, className = '' }) {
   return (
     <section className={`rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-5 sm:p-6 ${className}`}>
       <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep mb-5">
@@ -73,7 +73,7 @@ function Seccion({ icon, titulo, children, className = '' }) {
   )
 }
 
-function Donut({ porEstado, total }) {
+export function Donut({ porEstado, total }) {
   const R = 56
   const C = 2 * Math.PI * R
   let acumulado = 0
@@ -173,7 +173,7 @@ function BarrasAsignado({ items }) {
   )
 }
 
-function BarrasH({ items, colorHex, formato }) {
+export function BarrasH({ items, colorHex, formato }) {
   const max = Math.max(1, ...items.map((i) => i.valor))
   if (items.length === 0) return <p className="text-sm text-brand-ink/50">Sin datos</p>
   return (
@@ -198,7 +198,7 @@ function BarrasH({ items, colorHex, formato }) {
   )
 }
 
-function Histograma({ items }) {
+export function Histograma({ items }) {
   const max = Math.max(1, ...items.map((i) => i.count))
   return (
     <div className="flex items-end justify-between gap-2 sm:gap-3 h-40">
@@ -220,7 +220,7 @@ function Histograma({ items }) {
   )
 }
 
-function BarrasActividad({ serie }) {
+export function BarrasActividad({ serie }) {
   const max = Math.max(1, ...serie.flatMap((d) => [d.creadas, d.entregadas]))
   return (
     <div className="flex items-end justify-between gap-1.5 sm:gap-2 h-40">
@@ -245,7 +245,7 @@ function BarrasActividad({ serie }) {
   )
 }
 
-function EstadoMargen() {
+export function EstadoMargen() {
   return (
     <div className="flex items-center gap-4 text-[11px] font-bold text-brand-ink/50">
       <span className="inline-flex items-center gap-1.5">
