@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RiSteering2Line } from 'react-icons/ri'
 import { MdLocalShipping, MdPendingActions, MdCheckCircle, MdDateRange, MdClose, MdInsights, MdSearch } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -212,9 +211,9 @@ export default function Conductor() {
           {/* Barra superior */}
           <div className="mb-6 sm:mb-8">
             <h1 className="text-xl sm:text-3xl font-extrabold text-brand-ink inline-flex items-center gap-3">
-              <span className="grid place-items-center size-9 sm:size-11 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30">
-                <RiSteering2Line className="text-lg sm:text-2xl" />
-              </span>
+<span className="grid place-items-center size-9 sm:size-11 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 overflow-hidden">
+                  <img src="/ITitulos/ConductorI.png" alt="Conductor" className="size-full object-contain p-1" />
+                </span>
               <span>
                 CONDUCTOR
                 {nombre && (
