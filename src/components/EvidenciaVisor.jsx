@@ -303,7 +303,29 @@ export default function EvidenciaVisor({ urls }) {
                 </>
               )}
               {actual.esPdf ? (
-                enlacePdfCard(actual, lista[indice])
+                <div className="flex flex-col h-full w-full min-h-[400px]">
+                  <div className="flex items-center justify-between gap-2 mb-2 rounded-xl bg-brand-ink/10 px-3 py-2 text-xs font-bold text-brand-ink">
+                    <span className="inline-flex items-center gap-1.5 text-red-600">
+                      <MdPictureAsPdf className="text-sm" />
+                      Documento PDF de la evidencia
+                    </span>
+                    <a
+                      href={actual.abrir || lista[indice]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/20 text-brand-cyan px-2.5 py-1 text-[10px] font-bold hover:bg-brand-cyan/30 transition"
+                    >
+                      <MdOpenInNew className="text-xs" />
+                      Abrir en pestaña
+                    </a>
+                  </div>
+                  <iframe
+                    src={actual.src}
+                    title={`Evidencia de la entrega ${indice + 1}`}
+                    className="flex-1 w-full rounded-xl border border-brand-ink/10 bg-white"
+                    sandbox="allow-scripts allow-same-origin"
+                  />
+                </div>
               ) : actual.src ? (
                 <img
                   src={actual.src}
