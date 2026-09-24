@@ -47,15 +47,26 @@ const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !
 // en el historial (campo 'estado', nuevo 'En Trámite'); los campos de la fila
 // (nuevaFacturaUrls/adjuntosTramite) solo existen en la sesión que los subió.
 const urlsTramite = (s) => {
-  const entrada = (Array.isArray(s.historial) ? s.historial : []).find(
-    (h) => h.campo === 'estado' && h.nuevo === 'En Trámite' && h.adjunto
-  )
+  const historial = Array.isArray(s.historial) ? s.historial : []
+  // Se toma el «En Trámite» más reciente (un pedido pudo pasar a trámite varias veces).
+  let entrada = null
+  for (let i = historial.length - 1; i >= 0; i -= 1) {
+    if (historial[i].campo === 'estado' && historial[i].nuevo === 'En Trámite' && historial[i].adjunto) {
+      entrada = historial[i]
+      break
+    }
+  }
   if (!entrada) return []
   return String(entrada.adjunto)
     .split(',')
     .map((u) => u.trim())
     .filter((u) => /^https?:\/\//i.test(u))
 }
+
+// Documento que debe entregar el conductor: SIEMPRE la factura/remisión del
+// trámite (del historial), nunca el PDF que subió el solicitante al crear el
+// pedido.
+const documentoEntregable = urlsTramite
 
 const adjuntosVisibles = (s) => {
   if (enTransito(s)) {
@@ -164,7 +175,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
   const cardBg = colorRow ? getEstadoBg(s.estado) : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
   const mostrarCorregir = Boolean(onCorregirClick) && esDevolucion(s)
   const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick || onSeguimientoClick || onEliminarClick || mostrarCorregir)
-  const docsEntrega = mostrarDocEntrega ? adjuntosVisibles(s) : null
+  const docsEntrega = mostrarDocEntrega ? documentoEntregable(s) : null
 
   return (
     <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${cardBg}`}>
@@ -389,7 +400,6 @@ export default function SolicitudesTable({
   empty,
   colorRowsPorEstado,
   mostrarDocEntrega,
-  ocultarCorreo = false,
   ocultarAdjuntos = false,
 }) {
   const [currentPage, setCurrentPage] = useState(1)
@@ -397,13 +407,14 @@ export default function SolicitudesTable({
   const [obsSolicitud, setObsSolicitud] = useState(null)
   const [detalleSolicitud, setDetalleSolicitud] = useState(null)
   const [adjuntosSolicitud, setAdjuntosSolicitud] = useState(null)
-  const [correoTooltip, setCorreoTooltip] = useState(null)
+  const [tooltip, setTooltip] = useState(null)
 
-  const handleCorreoEnter = (e, correo) => {
+  const handleTipEnter = (e, texto) => {
+    if (!texto) return
     const rect = e.currentTarget.getBoundingClientRect()
-    setCorreoTooltip({ text: correo, x: rect.left + rect.width / 2, y: rect.bottom + 6 })
+    setTooltip({ text: texto, x: rect.left + rect.width / 2, y: rect.bottom + 6 })
   }
-  const handleCorreoLeave = () => setCorreoTooltip(null)
+  const handleTipLeave = () => setTooltip(null)
 
   const openObs = (s) => setObsSolicitud(s)
   const openDetalle = (s) => setDetalleSolicitud(s)
@@ -470,7 +481,7 @@ export default function SolicitudesTable({
       {/* Tabla — visible en tablet y desktop, con scroll horizontal si se alarga */}
       <div className="hidden md:block">
         <div className="overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
-          <table className={`w-full text-left text-sm border-separate border-spacing-0 ${ocultarCorreo && ocultarAdjuntos ? 'min-w-[900px]' : 'min-w-[1060px]'}`}>
+          <table className={`w-full text-left text-sm border-separate border-spacing-0 ${ocultarAdjuntos ? 'min-w-[980px]' : 'min-w-[1060px]'}`}>
             <thead>
               <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-14 text-center">N°</th>
@@ -483,11 +494,6 @@ export default function SolicitudesTable({
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdPerson className="text-base" /> Nombre</span>
                 </th>
-                {!ocultarCorreo && (
-                  <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center w-16">
-                    <span className="inline-flex items-center gap-1.5"><MdEmail className="text-base" /> Correo</span>
-                  </th>
-                )}
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdAssignmentAdd className="text-base" /> Tipo</span>
                 </th>
@@ -545,26 +551,28 @@ export default function SolicitudesTable({
                     <span className="block">{s.fechaSubida || '—'}</span>
                     {s.horaSubida && <span className="block text-xs text-brand-ink/50">{s.horaSubida}</span>}
                   </td>
-                  <td className="px-2 py-3 font-semibold text-brand-ink min-w-[150px] border-b border-l border-brand-ink/10">{s.nombreCompleto}</td>
-                  {!ocultarCorreo && (
-                    <td className="px-2 py-3 border-b border-l border-brand-ink/10 text-center">
-                      <span
-                        className="inline-flex items-center justify-center"
-                        onMouseEnter={(e) => handleCorreoEnter(e, s.correo)}
-                        onMouseLeave={handleCorreoLeave}
-                      >
-                        <span className="grid place-items-center size-8 rounded-full bg-brand-cyan/10 text-brand-deep cursor-help">
-                          <MdEmail className="text-lg" />
-                        </span>
-                      </span>
-                    </td>
-                  )}
-                  <td className="px-2 py-3 capitalize text-brand-ink/80 max-w-[110px] truncate whitespace-nowrap border-b border-l border-brand-ink/10">{s.tipoSolicitud}</td>
-                  <td className="px-2 py-3 text-brand-ink/80 max-w-[180px] border-b border-l border-brand-ink/10">
+                  <td className="px-2 py-3 font-semibold text-brand-ink min-w-[150px] border-b border-l border-brand-ink/10">
+                    <span className="block truncate whitespace-nowrap">{s.nombreCompleto}</span>
+                    {s.correo && (
+                      <span className="block text-xs font-normal text-brand-ink/50 truncate whitespace-nowrap">{s.correo}</span>
+                    )}
+                  </td>
+                  <td
+                    className="px-2 py-3 capitalize text-brand-ink/80 max-w-[110px] truncate whitespace-nowrap border-b border-l border-brand-ink/10"
+                    onMouseEnter={(e) => handleTipEnter(e, s.tipoSolicitud)}
+                    onMouseLeave={handleTipLeave}
+                  >
+                    {s.tipoSolicitud}
+                  </td>
+                  <td
+                    className="px-2 py-3 text-brand-ink/80 max-w-[180px] border-b border-l border-brand-ink/10"
+                    onMouseEnter={(e) => handleTipEnter(e, s.cliente)}
+                    onMouseLeave={handleTipLeave}
+                  >
                     <span className="flex items-center gap-2 min-w-0">
                       <span className="block truncate whitespace-nowrap">{s.cliente}</span>
-                      {mostrarDocEntrega && adjuntosVisibles(s)?.length > 0 && (
-                        <DocEntregaIcono count={adjuntosVisibles(s).length} onClick={() => setAdjuntosSolicitud(s)} />
+                      {mostrarDocEntrega && documentoEntregable(s).length > 0 && (
+                        <DocEntregaIcono count={documentoEntregable(s).length} onClick={() => setAdjuntosSolicitud(s)} />
                       )}
                     </span>
                   </td>
@@ -740,15 +748,21 @@ export default function SolicitudesTable({
       <AdjuntosModal
         open={adjuntosSolicitud !== null}
         onClose={() => setAdjuntosSolicitud(null)}
-        adjuntos={adjuntosSolicitud ? adjuntosVisibles(adjuntosSolicitud) : []}
+        adjuntos={
+          adjuntosSolicitud
+            ? mostrarDocEntrega
+              ? documentoEntregable(adjuntosSolicitud)
+              : adjuntosVisibles(adjuntosSolicitud)
+            : []
+        }
       />
 
-      {correoTooltip && (
+      {tooltip && (
         <div
           className="pointer-events-none fixed z-[1200] -translate-x-1/2 whitespace-nowrap rounded-lg bg-brand-navy text-white text-xs px-3 py-1.5 shadow-xl"
-          style={{ left: correoTooltip.x, top: correoTooltip.y }}
+          style={{ left: tooltip.x, top: tooltip.y }}
         >
-          {correoTooltip.text}
+          {tooltip.text}
         </div>
       )}
     </>

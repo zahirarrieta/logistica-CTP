@@ -30,7 +30,9 @@ export default function EvidenciaVisor({ urls }) {
   useEffect(() => {
     setIndice(0)
     setEstados([])
-  }, [clave, lista])
+    // Solo `clave` (estable): así el carrusel no se reinicia con cada re-render
+    // del padre (Realtime en el dashboard reinicia el componente de todas formas).
+  }, [clave])
 
   // Resuelve todas las imágenes (OneDrive → blob) de una vez; al ser máximo 3
   // no pesa y evita re-resolver al navegar por el carrusel.

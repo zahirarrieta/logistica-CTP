@@ -309,7 +309,6 @@ export default function Conductor() {
             ) : undefined}
             colorRowsPorEstado
             mostrarDocEntrega
-            ocultarCorreo
             ocultarAdjuntos
             empty={
               hayFiltroFecha
