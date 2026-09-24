@@ -136,6 +136,10 @@ input:focus, textarea:focus, select:focus {
     width: 1.8rem;
     font-size: 1.8rem;
   }
+  .ctp-links a img {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
   .ctp-brand-wrap {
     flex: 0 0 auto;
     width: auto;
@@ -213,6 +217,12 @@ input:focus, textarea:focus, select:focus {
   font-size: 1.4rem;
 }
 
+.ctp-links a img {
+  width: 1.4rem;
+  height: 1.4rem;
+  object-fit: contain;
+}
+
 .ctp-links a span {
   font-size: 0.78rem;
   font-weight: 600;
@@ -230,6 +240,10 @@ input:focus, textarea:focus, select:focus {
   .ctp-links a svg {
     width: 1.6rem;
     font-size: 1.6rem;
+  }
+  .ctp-links a img {
+    width: 1.6rem;
+    height: 1.6rem;
   }
   .ctp-brand-wrap {
     flex: 0 0 auto;
@@ -280,6 +294,12 @@ input:focus, textarea:focus, select:focus {
   font-size: 1.4rem;
 }
 
+.ctp-logout img {
+  width: 1.4rem;
+  height: 1.4rem;
+  object-fit: contain;
+}
+
 .ctp-logout span {
   font-size: 0.78rem;
   font-weight: 600;
@@ -298,6 +318,10 @@ input:focus, textarea:focus, select:focus {
   .ctp-logout svg {
     width: 1.8rem;
     font-size: 1.8rem;
+  }
+  .ctp-logout img {
+    width: 1.8rem;
+    height: 1.8rem;
   }
 }
 

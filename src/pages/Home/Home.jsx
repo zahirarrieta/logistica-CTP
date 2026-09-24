@@ -78,13 +78,13 @@ function Home() {
         <Header />
 
         {/* Hero Section */}
-        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(2rem,7vw,5rem)] relative md:min-h-[60vh] xl:min-h-[70vh] 2xl:min-h-[75vh] max-h-[90vh]">
+        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(2rem,7vw,5rem)] relative lg:min-h-[60vh] xl:min-h-[70vh] 2xl:min-h-[75vh] lg:max-h-[90vh]">
           <div className="mx-auto w-full max-w-[min(1680px,88vw)] px-5">
             {/* Card unificado para texto + carrusel */}
             <div className="relative rounded-[2rem] bg-white/[0.04] backdrop-blur-md ring-1 ring-brand-cyan/15 shadow-2xl p-5 sm:p-7 md:p-8 overflow-hidden">
               {/* Borde superior con degradado cian */}
               <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-cyan/60 to-transparent" />
-              <div className="grid grid-cols-1 md:grid-cols-[1.05fr_0.95fr] xl:grid-cols-[1fr_1fr] items-center gap-8 sm:gap-10">
+              <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] xl:grid-cols-[1fr_1fr] items-center gap-8 sm:gap-10">
                 <section className="text-white relative z-[1]">
                   <span className="inline-flex items-center gap-2 rounded-full bg-brand-cyan/10 ring-1 ring-brand-cyan/30 px-3 py-1.5 text-[clamp(0.65rem,1.6vw,0.9rem)] font-semibold tracking-wide text-brand-cyan">
                     <span className="size-2 rounded-full bg-brand-cyan shadow-cyanGlow" />
@@ -153,7 +153,7 @@ function Home() {
                       {/* Halo cian sutil alrededor del carrusel */}
                       <div aria-hidden className="absolute inset-[-10%] rounded-full bg-brand-cyan/12 blur-[80px] pointer-events-none" />
                       {/* Viewport fijo para evitar saltos por tamaños distintos */}
-                      <div className="relative w-[min(95vw,900px)] md:w-[clamp(500px,50vw,1000px)] xl:w-[clamp(600px,45vw,1100px)] 2xl:w-[clamp(700px,40vw,1200px)] max-w-full min-h-[280px] md:min-h-[400px] xl:min-h-[480px] aspect-[5/4] flex items-center justify-center">
+                      <div className="relative w-[min(95vw,900px)] lg:w-[clamp(500px,50vw,1000px)] xl:w-[clamp(600px,45vw,1100px)] 2xl:w-[clamp(700px,40vw,1200px)] max-w-full min-h-[280px] lg:min-h-[400px] xl:min-h-[480px] aspect-[5/4] flex items-center justify-center">
                         {ASSETS.heroImages.map((src, idx) => (
                           <img
                             key={src}

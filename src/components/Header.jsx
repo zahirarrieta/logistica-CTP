@@ -1,15 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
-import { MdHome, MdFolderOpen, MdSettings, MdLogout } from 'react-icons/md'
-import { RiSteering2Line } from 'react-icons/ri'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { shortName } from '../auth/user.js'
 import { puedeVer } from '../auth/roles.js'
 
 const MENU = [
-  { to: '/inicio', label: 'Inicio', Icon: MdHome },
-  { to: '/solicitudes', label: 'Solicitudes', Icon: MdFolderOpen },
-  { to: '/conductor', label: 'Conductor', Icon: RiSteering2Line },
-  { to: '/administrador', label: 'Administrador', Icon: MdSettings },
+  { to: '/inicio', label: 'Inicio', src: '/ImagHeader/inicio.png' },
+  { to: '/solicitudes', label: 'Solicitudes', src: '/ImagHeader/SolicitudI.png' },
+  { to: '/conductor', label: 'Conductor', src: '/ImagHeader/ConductorI.png' },
+  { to: '/administrador', label: 'Administrador', src: '/ImagHeader/AdministradorI.png' },
 ]
 
 export default function Header() {
@@ -30,11 +28,10 @@ export default function Header() {
 
         <div className="ctp-links">
           {enlaces.map((item) => {
-            const Icon = item.Icon
             const isActive = pathname.startsWith(item.to)
             return (
               <Link key={item.to} to={item.to} className={isActive ? 'active' : ''}>
-                <Icon />
+                <img src={item.src} alt={item.label} />
                 <span>{item.label}</span>
               </Link>
             )
@@ -48,7 +45,7 @@ export default function Header() {
           aria-label="Cerrar sesión"
           title={greeting}
         >
-          <MdLogout />
+          <img src="/ImagHeader/Salida.png" alt="Salida" />
           <span>{greeting}</span>
         </button>
       </nav>
