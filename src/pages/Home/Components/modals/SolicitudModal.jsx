@@ -74,24 +74,6 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
     .filter(Boolean)
   const corregirCliente = camposCorregir.includes('cliente')
 
-  // En edición de devolución: solo se permite editar los campos que el admin
-  // marcó explícitamente para corregir (CAMPOS_DEVOLUCION). Si no hay marcas
-  // (registros antiguos), se mantiene el comportamiento previo: tipo/obs/adjuntos.
-  const soloCorregidos = camposCorregir.length > 0
-  const puedeEditar = (campo) => {
-    if (!modoEdicion) return true
-    if (vencida) return false
-    if (!soloCorregidos) return campo !== 'cliente'
-    return camposCorregir.includes(campo)
-  }
-  const editarTipo = puedeEditar('tipoSolicitud')
-  const editarCliente = puedeEditar('cliente')
-  const editarAdjuntos = puedeEditar('adjuntos')
-  const editarObs = puedeEditar('observaciones')
-  const etiquetasEditables = soloCorregidos
-    ? etiquetasCorregir
-    : ['TIPO DE SOLICITUD', 'OBSERVACIONES', 'ADJUNTOS']
-
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
   const [formData, setFormData] = useState({
     nombreCompleto: account?.name || '',
@@ -124,6 +106,24 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
 
   const restante = enDevolucion ? restanteDevolucion(solicitud, ahora) : null
   const vencida = restante !== null && restante === 0
+
+  // En edición de devolución: solo se permite editar los campos que el admin
+  // marcó explícitamente para corregir (CAMPOS_DEVOLUCION). Si no hay marcas
+  // (registros antiguos), se mantiene el comportamiento previo: tipo/obs/adjuntos.
+  const soloCorregidos = camposCorregir.length > 0
+  const puedeEditar = (campo) => {
+    if (!modoEdicion) return true
+    if (vencida) return false
+    if (!soloCorregidos) return campo !== 'cliente'
+    return camposCorregir.includes(campo)
+  }
+  const editarTipo = puedeEditar('tipoSolicitud')
+  const editarCliente = puedeEditar('cliente')
+  const editarAdjuntos = puedeEditar('adjuntos')
+  const editarObs = puedeEditar('observaciones')
+  const etiquetasEditables = soloCorregidos
+    ? etiquetasCorregir
+    : ['TIPO DE SOLICITUD', 'OBSERVACIONES', 'ADJUNTOS']
 
   // Libera las URLs de vista previa al desmontar el modal.
   useEffect(() => () => {
