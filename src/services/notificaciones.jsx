@@ -47,37 +47,87 @@ const ESTADO_TIPO = {
 // -------------------------------------------------------------
 let audioCtx = null
 
-function reproducirTono(frecuencias = [660], duracionMs = 130) {
+function getCtx() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext
-    if (!Ctx) return
+    if (!Ctx) return null
     audioCtx = audioCtx || new Ctx()
     if (audioCtx.state === 'suspended') audioCtx.resume()
-    const ahora = audioCtx.currentTime
-    frecuencias.forEach((hz, i) => {
-      const osc = audioCtx.createOscillator()
-      const gan = audioCtx.createGain()
-      osc.type = 'sine'
-      osc.frequency.value = hz
-      const inicio = ahora + i * 0.16
-      const fin = inicio + duracionMs / 1000
-      gan.gain.setValueAtTime(0.0001, inicio)
-      gan.gain.exponentialRampToValueAtTime(0.22, inicio + 0.015)
-      gan.gain.exponentialRampToValueAtTime(0.0001, fin)
-      osc.connect(gan)
-      gan.connect(audioCtx.destination)
-      osc.start(inicio)
-      osc.stop(fin + 0.02)
-    })
+    return audioCtx
   } catch {
-    // Sin audio disponible: se ignora.
+    return null
   }
 }
 
+// 'blip': clic agudo y muy corto (sonido por defecto).
+function blip() {
+  const ctx = getCtx()
+  if (!ctx) return
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gan = ctx.createGain()
+  osc.type = 'square'
+  osc.frequency.setValueAtTime(1200, t)
+  gan.gain.setValueAtTime(0.0001, t)
+  gan.gain.exponentialRampToValueAtTime(0.16, t + 0.005)
+  gan.gain.exponentialRampToValueAtTime(0.0001, t + 0.07)
+  osc.connect(gan)
+  gan.connect(ctx.destination)
+  osc.start(t)
+  osc.stop(t + 0.09)
+}
+
+// 'pop': caída de tono tipo burbuja (cambio de conductor).
+function pop() {
+  const ctx = getCtx()
+  if (!ctx) return
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gan = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(900, t)
+  osc.frequency.exponentialRampToValueAtTime(320, t + 0.09)
+  gan.gain.setValueAtTime(0.0001, t)
+  gan.gain.exponentialRampToValueAtTime(0.25, t + 0.008)
+  gan.gain.exponentialRampToValueAtTime(0.0001, t + 0.12)
+  osc.connect(gan)
+  gan.connect(ctx.destination)
+  osc.start(t)
+  osc.stop(t + 0.14)
+}
+
+// 'ding': campana con armónicos y cola (cambio de estado).
+function ding() {
+  const ctx = getCtx()
+  if (!ctx) return
+  const t = ctx.currentTime
+  const base = 880
+  const parciales = [1, 2, 2.76, 5.4]
+  parciales.forEach((mult, i) => {
+    const osc = ctx.createOscillator()
+    const gan = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = base * mult
+    const vol = 0.16 / (i + 1)
+    const fin = t + 0.45 - i * 0.05
+    gan.gain.setValueAtTime(0.0001, t)
+    gan.gain.exponentialRampToValueAtTime(vol, t + 0.008)
+    gan.gain.exponentialRampToValueAtTime(0.0001, fin)
+    osc.connect(gan)
+    gan.connect(ctx.destination)
+    osc.start(t)
+    osc.stop(fin + 0.02)
+  })
+}
+
 export function sonidoNotificacion(tipo) {
-  if (tipo === 'estado') reproducirTono([523, 784]) // "din-don" (cambio de estado)
-  else if (tipo === 'conductor') reproducirTono([784, 523]) // tonalidad distinta (cambio de conductor)
-  else reproducirTono([660]) // tono simple para el resto
+  try {
+    if (tipo === 'estado') ding() // cambio de estado
+    else if (tipo === 'conductor') pop() // cambio de conductor
+    else blip() // resto de avisos
+  } catch {
+    // Sin audio disponible: se ignora.
+  }
 }
 
 let pidioPermiso = false
