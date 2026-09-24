@@ -59,58 +59,72 @@ function getCtx() {
   }
 }
 
-// Programa una o más notas [frecuencia, retardo s, duración s, volumen].
-function tocar(secuencias, tipo = 'sine') {
+// 'blip': clic agudo y muy corto (sonido por defecto).
+function blip() {
   const ctx = getCtx()
   if (!ctx) return
   const t = ctx.currentTime
-  secuencias.forEach(([hz, retardo, dur, vol]) => {
-    const osc = ctx.createOscillator()
-    const gan = ctx.createGain()
-    osc.type = tipo
-    osc.frequency.setValueAtTime(hz, t + retardo)
-    gan.gain.setValueAtTime(0.0001, t + retardo)
-    gan.gain.exponentialRampToValueAtTime(vol, t + retardo + 0.008)
-    gan.gain.exponentialRampToValueAtTime(0.0001, t + retardo + dur)
-    osc.connect(gan)
-    gan.connect(ctx.destination)
-    osc.start(t + retardo)
-    osc.stop(t + retardo + dur + 0.02)
-  })
+  const osc = ctx.createOscillator()
+  const gan = ctx.createGain()
+  osc.type = 'square'
+  osc.frequency.setValueAtTime(1200, t)
+  gan.gain.setValueAtTime(0.0001, t)
+  gan.gain.exponentialRampToValueAtTime(0.16, t + 0.005)
+  gan.gain.exponentialRampToValueAtTime(0.0001, t + 0.07)
+  osc.connect(gan)
+  gan.connect(ctx.destination)
+  osc.start(t)
+  osc.stop(t + 0.09)
 }
 
-function transito() { tocar([[1200, 0, 0.06, 0.16]], 'square') } // blip corto
-function transitoParcial() { tocar([[1200, 0, 0.06, 0.16], [1200, 0.13, 0.06, 0.16]], 'square') } // dos blips
-function tramite() { tocar([[523, 0, 0.18, 0.2]]) } // nota media suave
-function abierto() { tocar([[330, 0, 0.2, 0.22]]) } // nota baja suave
-function pendiente() { tocar([[587, 0, 0.12, 0.2], [440, 0.16, 0.14, 0.2]]) } // descendente media
-function devolucion() { tocar([[523, 0, 0.14, 0.22], [349, 0.18, 0.2, 0.22]]) } // descendente grave
-function retenido() { tocar([[220, 0, 0.09, 0.24], [220, 0.13, 0.1, 0.24]], 'square') } // doble zumbido
-function exitoParcial() { tocar([[659, 0, 0.28, 0.2]]) } // un ding suave
-function exito() { tocar([[659, 0, 0.2, 0.2], [988, 0.16, 0.32, 0.18]]) } // ding ascendente
-function conductor() { tocar([[900, 0, 0.1, 0.22]]) } // pop corto
-function defaultNotif() { tocar([[440, 0, 0.15, 0.18]]) } // nota simple
-function asignada() { tocar([[880, 0, 0.12, 0.2], [1320, 0.15, 0.18, 0.18]]) } // doble ascendente
+// 'pop': caída de tono tipo burbuja (cambio de conductor).
+function pop() {
+  const ctx = getCtx()
+  if (!ctx) return
+  const t = ctx.currentTime
+  const osc = ctx.createOscillator()
+  const gan = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(900, t)
+  osc.frequency.exponentialRampToValueAtTime(320, t + 0.09)
+  gan.gain.setValueAtTime(0.0001, t)
+  gan.gain.exponentialRampToValueAtTime(0.25, t + 0.008)
+  gan.gain.exponentialRampToValueAtTime(0.0001, t + 0.12)
+  osc.connect(gan)
+  gan.connect(ctx.destination)
+  osc.start(t)
+  osc.stop(t + 0.14)
+}
 
-// Sonido por tipo: cada estado tiene el suyo para distinguirlos al oído.
-const SONIDOS = {
-  default: defaultNotif,
-  conductor,
-  asignada,
-  'En Tránsito': transito,
-  'En Tránsito Parcial': transitoParcial,
-  'En Trámite': tramite,
-  'Abierto': abierto,
-  'Pendiente por Autorización': pendiente,
-  'Devolución a Solicitante': devolucion,
-  'Retenido por Cartera': retenido,
-  'Entregado Parcial': exitoParcial,
-  'Entregado': exito,
+// 'ding': campana con armónicos y cola (cambio de estado).
+function ding() {
+  const ctx = getCtx()
+  if (!ctx) return
+  const t = ctx.currentTime
+  const base = 880
+  const parciales = [1, 2, 2.76, 5.4]
+  parciales.forEach((mult, i) => {
+    const osc = ctx.createOscillator()
+    const gan = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = base * mult
+    const vol = 0.16 / (i + 1)
+    const fin = t + 0.45 - i * 0.05
+    gan.gain.setValueAtTime(0.0001, t)
+    gan.gain.exponentialRampToValueAtTime(vol, t + 0.008)
+    gan.gain.exponentialRampToValueAtTime(0.0001, fin)
+    osc.connect(gan)
+    gan.connect(ctx.destination)
+    osc.start(t)
+    osc.stop(fin + 0.02)
+  })
 }
 
 export function sonidoNotificacion(tipo) {
   try {
-    (SONIDOS[tipo] || SONIDOS.default)()
+    if (tipo === 'estado') ding() // cambio de estado
+    else if (tipo === 'conductor') pop() // cambio de conductor
+    else blip() // resto de avisos
   } catch {
     // Sin audio disponible: se ignora.
   }
@@ -226,7 +240,7 @@ export function estadoActualizado(id, estado) {
   const tipo = ESTADO_TIPO[estado] || 'info'
   sileo[tipo]({
     ...BASE,
-    sonido: estado || 'default',
+    sonido: 'estado',
     title: titulo(id, 'Estado actualizado'),
     icon: <MdSwapHoriz />,
     description: (
@@ -314,7 +328,7 @@ export function entregaAsignada(id, cliente) {
   sileo.info({
     ...BASE,
     duration: 8000,
-    sonido: 'asignada',
+    sonido: 'estado',
     title: titulo(id, 'Entrega asignada'),
     icon: <RiSteering2Line />,
     description: (
@@ -334,7 +348,7 @@ export function entregaRealizada(id, { cliente, estado, conductor } = {}) {
   sileo.success({
     ...BASE,
     duration: 7000,
-    sonido: estado || 'default',
+    sonido: 'estado',
     title: titulo(id, 'Pedido entregado'),
     icon: <MdLocalShipping />,
     description: (
