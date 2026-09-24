@@ -231,6 +231,11 @@ begin
   end if;
 
   v_rec := jsonb_populate_record(null::public.solicitudes, p_fila);
+  -- jsonb_populate_record deja en NULL las columnas ausentes en el JSON; la app
+  -- no envía creado_en/actualizado_en, así que se rellenan para no violar el
+  -- not-null (el trigger ya refresca actualizado_en de todos modos).
+  if v_rec.creado_en is null then v_rec.creado_en := now(); end if;
+  if v_rec.actualizado_en is null then v_rec.actualizado_en := now(); end if;
 
   insert into public.solicitudes values (v_rec.*)
   on conflict (codigo) do update set
