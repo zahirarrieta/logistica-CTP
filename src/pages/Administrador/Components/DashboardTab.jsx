@@ -42,6 +42,7 @@ import {
 import { getBadgeColor } from '../../Home/Components/estadoColors.js'
 import { nombreDeAsignado } from '../../Home/Components/solicitudesStore.js'
 import PedidoDetalleModal from './modals/PedidoDetalleModal.jsx'
+import EtapaPedidosModal from './modals/EtapaPedidosModal.jsx'
 import { exportarExcel, exportarPdf } from './exportarInforme.js'
 
 const CARD_ICON = 'grid place-items-center size-10 rounded-xl text-white text-xl shadow-md'
@@ -173,27 +174,42 @@ function BarrasAsignado({ items }) {
   )
 }
 
-export function BarrasH({ items, colorHex, formato }) {
+export function BarrasH({ items, colorHex, formato, onClick, hint }) {
   const max = Math.max(1, ...items.map((i) => i.valor))
   if (items.length === 0) return <p className="text-sm text-brand-ink/50">Sin datos</p>
   return (
     <div className="space-y-2.5">
-      {items.map((i) => (
-        <div key={i.nombre} className="space-y-1">
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <span className="truncate font-bold text-brand-deep">{i.nombre}</span>
-            <span className="shrink-0 whitespace-nowrap text-xs font-extrabold text-brand-ink tabular-nums">
-              {formato ? formato(i) : i.valor}
-            </span>
+      {items.map((i) => {
+        const barras = (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate font-bold text-brand-deep">{i.nombre}</span>
+              <span className="shrink-0 whitespace-nowrap text-xs font-extrabold text-brand-ink tabular-nums">
+                {formato ? formato(i) : i.valor}
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-brand-mist ring-1 ring-brand-ink/5">
+              <span
+                className={`block h-full rounded-full ${colorHex ? '' : 'bg-gradient-to-r from-brand-deep to-brand-cyan'}`}
+                style={colorHex ? { width: `${(i.valor / max) * 100}%`, backgroundColor: colorHex } : { width: `${(i.valor / max) * 100}%` }}
+              />
+            </div>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-brand-mist ring-1 ring-brand-ink/5">
-            <span
-              className={`block h-full rounded-full ${colorHex ? '' : 'bg-gradient-to-r from-brand-deep to-brand-cyan'}`}
-              style={colorHex ? { width: `${(i.valor / max) * 100}%`, backgroundColor: colorHex } : { width: `${(i.valor / max) * 100}%` }}
-            />
-          </div>
-        </div>
-      ))}
+        )
+        return onClick ? (
+          <button
+            key={i.nombre}
+            type="button"
+            onClick={() => onClick(i)}
+            title={hint || 'Ver pedidos de esta etapa'}
+            className="w-full rounded-xl px-2 py-1.5 -mx-2 text-left transition-colors hover:bg-brand-cyan/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/60"
+          >
+            {barras}
+          </button>
+        ) : (
+          <div key={i.nombre}>{barras}</div>
+        )
+      })}
     </div>
   )
 }
@@ -261,6 +277,7 @@ export function EstadoMargen() {
 export default function DashboardTab({ solicitudes }) {
   const informeRef = useRef(null)
   const [detalle, setDetalle] = useState(null)
+  const [etapaModal, setEtapaModal] = useState(null)
   const r = useMemo(() => resumen(solicitudes), [solicitudes])
   const porA = useMemo(() => porAsignado(solicitudes), [solicitudes])
   const tiempos = useMemo(() => histogramaTiempos(solicitudes), [solicitudes])
@@ -407,6 +424,8 @@ export default function DashboardTab({ solicitudes }) {
               colorHex: HEX_ESTADO[e.estado],
             }))}
             formato={(i) => `${formatHoras(i.valor)} · ${i.n ?? 0} ${i.n === 1 ? 'caso' : 'casos'}`}
+            onClick={(i) => setEtapaModal(etapas.find((e) => e.estado === i.nombre))}
+            hint="Ver los pedidos que estuvieron en esta etapa"
           />
         </Seccion>
         <Seccion icon={<MdLocalShipping />} titulo="Carga por conductor">
@@ -558,6 +577,16 @@ export default function DashboardTab({ solicitudes }) {
       solicitud={detalle}
       open={detalle !== null}
       onClose={() => setDetalle(null)}
+    />
+
+    <EtapaPedidosModal
+      etapa={etapaModal}
+      open={etapaModal !== null}
+      onClose={() => setEtapaModal(null)}
+      onVerPedido={(id) => {
+        setEtapaModal(null)
+        abrirDetalle(id)
+      }}
     />
     </>
   )

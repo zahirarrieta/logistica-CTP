@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck } from 'react-icons/md'
+import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck, MdAddCircleOutline } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
-import { peekNextId, refrescarProximoCodigo, reservarProximoCodigo, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../solicitudesStore.js'
+import { peekNextId, refrescarProximoCodigo, reservarProximoCodigo, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteDevolucion } from '../solicitudesStore.js'
+import CuentaRegresivaDevolucion from '../../../../components/CuentaRegresivaDevolucion.jsx'
 import { nombrePdfFromUrl } from '../../../../components/pdfUtils.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
@@ -63,7 +64,7 @@ function formatearBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function SolicitudModal({ open, onClose, onSubmit, solicitud = null, onEditSubmit }) {
+export default function SolicitudModal({ open, onClose, onSubmit, solicitud = null, onEditSubmit, onCrearNueva }) {
   const { account } = useAuth()
   const modoEdicion = Boolean(solicitud)
   const devolucion = modoEdicion ? buscarDevolucion(solicitud) : null
@@ -90,6 +91,20 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
   const [previewAbierto, setPreviewAbierto] = useState(null)
   const [siguiente, setSiguiente] = useState(peekNextId())
   const urlsRef = useRef(new Map())
+  const [ahora, setAhora] = useState(() => Date.now())
+
+  // Mientras se edita una solicitud devuelta, mantiene la hora al día para
+  // calcular la cuenta regresiva de los 5 minutos.
+  const enDevolucion = modoEdicion && Boolean(devolucion)
+  useEffect(() => {
+    if (!open || !enDevolucion) return undefined
+    setAhora(Date.now())
+    const id = setInterval(() => setAhora(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [open, enDevolucion])
+
+  const restante = enDevolucion ? restanteDevolucion(solicitud, ahora) : null
+  const vencida = restante !== null && restante === 0
 
   // Libera las URLs de vista previa al desmontar el modal.
   useEffect(() => () => {
@@ -223,6 +238,11 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    if (vencida) {
+      setErrores(['El tiempo de 5 minutos para corregir esta solicitud venció. Debes crear una solicitud nueva.'])
+      return
+    }
 
     const obligatorios = [
       { campo: 'nombreCompleto', etiqueta: 'Nombre completo' },
@@ -367,12 +387,37 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
 
         {/* Cuerpo del formulario */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
-          {modoEdicion && (
-            <div className="rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-3 py-2.5 text-sm text-fuchsia-800">
-              <p className="inline-flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px]">
-                <MdAssignmentReturn className="text-base" />
-                Solicitud devuelta — corrige y reenvía
+          {modoEdicion && vencida ? (
+            <div className="rounded-xl border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-800">
+              <p className="inline-flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px] text-red-700">
+                <MdCancel className="text-base" />
+                Tiempo de corrección vencido
               </p>
+              <p className="mt-1 font-medium text-red-800/90">
+                Pasaron los 5 minutos para corregir esta solicitud. Ya no se puede editar:
+                debes montar una solicitud nueva.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onCrearNueva) onCrearNueva()
+                  handleClose()
+                }}
+                className="mt-3 inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-red-700 hover:-translate-y-0.5 transition-all"
+              >
+                <MdAddCircleOutline className="text-lg" />
+                Crear solicitud nueva
+              </button>
+            </div>
+          ) : modoEdicion && (
+            <div className="rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-3 py-2.5 text-sm text-fuchsia-800">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="inline-flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px]">
+                  <MdAssignmentReturn className="text-base" />
+                  Solicitud devuelta — corrige y reenvía
+                </p>
+                <CuentaRegresivaDevolucion solicitud={solicitud} ahora={ahora} />
+              </div>
               {etiquetasCorregir.length > 0 && (
                 <div className="mt-1.5">
                   <p className="text-[11px] font-extrabold uppercase tracking-wide text-fuchsia-700/80">
@@ -641,7 +686,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || vencida}
               className="group inline-flex items-center rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
               <img

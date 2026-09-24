@@ -10,6 +10,9 @@ const STORAGE_KEY = 'ctp_solicitudes'
 const COUNTER_KEY = 'ctp_solicitudes_counter'
 const WATERMARK_KEY = 'ctp_sync_watermark'
 
+// Caché en memoria de los momentos de devolución (id → ms).
+const devolucionesCache = {}
+
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
 export const ESTADOS_ENTREGA = ['Entregado', 'Entregado Parcial']
@@ -280,6 +283,83 @@ export function buscarDevolucion(solicitud) {
       .reverse()
       .find((h) => h.campo === 'estado' && h.nuevo === 'Devolución a Solicitante') || null
   )
+}
+
+// ---------------------------------------------------------------------------
+// VENTANA DE CORRECCIÓN
+// Cuando el administrador devuelve una solicitud, el solicitante tiene 5
+// minutos para corregirla y reenviarla. Pasado el tiempo ya no se puede editar:
+// debe crear una nueva.
+// La hora exacta de la devolución se lee de la entrada de historial que dejó el
+// admin (fecha/hora en es-CO, escritas por la app), con una caché local como
+// respaldo; así la cuenta regresiva no depende de que la pestaña haya estado
+// abierta en el momento exacto de la devolución.
+// ---------------------------------------------------------------------------
+const TIEMPO_DEVOLUCION_MIN = 5
+export const TIEMPO_DEVOLUCION_MS = TIEMPO_DEVOLUCION_MIN * 60 * 1000
+const DEVOLUCION_TIMES_KEY = 'ctp_devolucion_times'
+
+function leerDevoluciones() {
+  try {
+    const crudo = JSON.parse(localStorage.getItem(DEVOLUCION_TIMES_KEY) || '{}') || {}
+    return crudo && typeof crudo === 'object' ? crudo : {}
+  } catch {
+    return {}
+  }
+}
+
+function guardarDevoluciones(mapa) {
+  try {
+    localStorage.setItem(DEVOLUCION_TIMES_KEY, JSON.stringify(mapa))
+  } catch {
+    // ignorar
+  }
+}
+
+// Convierte la fecha/hora (es-CO «24/09/2026 14:30:05») de una entrada de
+// historial en milisegundos. Null si no se puede interpretar.
+function tsHistorial(h) {
+  const fm = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(h?.fecha || ''))
+  if (!fm) return null
+  const hm = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(String(h?.hora || '').trim())
+  if (!hm) return null
+  const ts = new Date(
+    Number(fm[3]),
+    Number(fm[2]) - 1,
+    Number(fm[1]),
+    Number(hm[1]),
+    Number(hm[2]),
+    Number(hm[3] || 0)
+  ).getTime()
+  return Number.isFinite(ts) ? ts : null
+}
+
+// Momento (ms) en que se devolvió la solicitud, o null si no está en devolución.
+// Prioriza la caché en memoria, luego el timestamp del historial y por último
+// registra el momento en que se observó por primera vez.
+export function devolucionInicio(solicitud) {
+  if (!solicitud || solicitud.estado !== 'Devolución a Solicitante') return null
+  if (devolucionesCache[solicitud.id] != null) return devolucionesCache[solicitud.id]
+  const persistidas = leerDevoluciones()
+  const guardado = persistidas[solicitud.id]
+  if (typeof guardado === 'number' && Number.isFinite(guardado)) {
+    devolucionesCache[solicitud.id] = guardado
+    return guardado
+  }
+  const delHistorial = tsHistorial(buscarDevolucion(solicitud))
+  const inicio = delHistorial != null ? delHistorial : Date.now()
+  devolucionesCache[solicitud.id] = inicio
+  persistidas[solicitud.id] = inicio
+  guardarDevoluciones(persistidas)
+  return inicio
+}
+
+// Milisegundos que faltan de la ventana de corrección (0 si ya venció).
+// Null si la solicitud no está en devolución.
+export function restanteDevolucion(solicitud, ahora = Date.now()) {
+  const inicio = devolucionInicio(solicitud)
+  if (inicio == null) return null
+  return Math.max(0, TIEMPO_DEVOLUCION_MS - (ahora - inicio))
 }
 
 function currentPersona() {

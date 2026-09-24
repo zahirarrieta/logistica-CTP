@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   MdTag,
   MdCalendarToday,
@@ -29,6 +29,7 @@ import {
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../pages/Home/Components/estadoColors.js'
 import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
+import CuentaRegresivaDevolucion from './CuentaRegresivaDevolucion.jsx'
 import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'
 import DetalleModal from './DetalleModal.jsx'
@@ -169,7 +170,7 @@ function DocEntregaIcono({ count, onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, ahora }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const cardBg = colorRow ? getEstadoBg(s.estado) : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
@@ -266,6 +267,9 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
             <span className="text-brand-ink/50 w-24 shrink-0">Estado</span>
             <span className="flex flex-wrap items-center gap-2 min-w-0">
               <EstadoBadge estado={s.estado} />
+              {esDevolucion(s) && (
+                <CuentaRegresivaDevolucion solicitud={s} ahora={ahora} compacto />
+              )}
             </span>
           </div>
           {hasCardAcciones && (
@@ -408,6 +412,7 @@ export default function SolicitudesTable({
   const [detalleSolicitud, setDetalleSolicitud] = useState(null)
   const [adjuntosSolicitud, setAdjuntosSolicitud] = useState(null)
   const [tooltip, setTooltip] = useState(null)
+  const [ahora, setAhora] = useState(() => Date.now())
 
   const handleTipEnter = (e, texto) => {
     if (!texto) return
@@ -433,6 +438,15 @@ export default function SolicitudesTable({
   const page = Math.min(currentPage, totalPages)
   const startIndex = (page - 1) * ITEMS_PER_PAGE
   const currentItems = items.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+
+  // Mientras haya solicitudes devueltas a la vista se mantiene al día la hora,
+  // para que la cuenta regresiva de corrección (5 min) se vea en la lista.
+  const hayDevolucionVisible = currentItems.some(esDevolucion)
+  useEffect(() => {
+    if (!hayDevolucionVisible) return undefined
+    const id = setInterval(() => setAhora(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [hayDevolucionVisible])
 
   // La columna de acciones solo se dibuja si al menos una fila de la página
   // actual muestra algún botón; así no queda una columna en blanco junto a Estado.
@@ -474,6 +488,7 @@ export default function SolicitudesTable({
             onVerAdjuntosClick={setAdjuntosSolicitud}
             colorRow={colorRowsPorEstado}
             mostrarDocEntrega={mostrarDocEntrega}
+            ahora={ahora}
           />
         ))}
       </div>
@@ -611,7 +626,12 @@ export default function SolicitudesTable({
                     </span>
                   </td>
                   <td className="px-3 py-3 border-b border-l border-brand-ink/10">
-                    <EstadoBadge estado={s.estado} />
+                    <span className="flex flex-col items-start gap-1">
+                      <EstadoBadge estado={s.estado} />
+                      {esDevolucion(s) && (
+                        <CuentaRegresivaDevolucion solicitud={s} ahora={ahora} compacto />
+                      )}
+                    </span>
                   </td>
                   {hasAcciones && (
                     <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${colorRowsPorEstado ? getEstadoBg(s.estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')}`}>

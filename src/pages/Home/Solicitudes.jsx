@@ -81,6 +81,12 @@ export default function Solicitudes() {
     solicitudCorregida(id)
   }
 
+  const handleNewSolicitudAbierta = () => {
+    setEditarSolicitud(null)
+    setDetalleSolicitud(null)
+    setModalOpen(true)
+  }
+
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white text-brand-ink">
       <Header />
@@ -159,6 +165,7 @@ export default function Solicitudes() {
         solicitud={editarSolicitud}
         onClose={() => setEditarSolicitud(null)}
         onEditSubmit={handleEditSubmit}
+        onCrearNueva={handleNewSolicitudAbierta}
       />
 
       <SeguimientoModal

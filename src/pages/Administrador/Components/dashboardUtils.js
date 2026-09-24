@@ -259,6 +259,9 @@ export function tiempoPorEstado(solicitudes) {
         ts: parseStamp(h.fecha, h.hora),
         anterior: h.anterior,
         nuevo: h.nuevo || h.anterior,
+        id: h.id,
+        fecha: h.fecha,
+        hora: h.hora,
       }))
       .filter((x) => x.ts)
       .sort((a, b) => a.ts - b.ts)
@@ -266,14 +269,22 @@ export function tiempoPorEstado(solicitudes) {
       const estado = hist[i].nuevo
       const delta = (hist[i + 1].ts - hist[i].ts) / 3600000
       if (!estado || delta < 0) continue
-      const item = mapa.get(estado) || { estado, totalHoras: 0, n: 0 }
+      const item = mapa.get(estado) || { estado, totalHoras: 0, n: 0, pedidos: [] }
       item.totalHoras += delta
       item.n += 1
+      item.pedidos.push({
+        id: s.id,
+        cliente: s.cliente || '—',
+        zona: s.zona || '—',
+        horas: delta,
+        entro: `${hist[i].fecha || ''} ${hist[i].hora || ''}`.trim(),
+        salioHacia: hist[i + 1].nuevo,
+      })
       mapa.set(estado, item)
     }
   }
   return [...mapa.values()]
-    .map((x) => ({ estado: x.estado, promedio: x.totalHoras / x.n, n: x.n }))
+    .map((x) => ({ estado: x.estado, promedio: x.totalHoras / x.n, n: x.n, pedidos: x.pedidos }))
     .sort((a, b) => b.promedio - a.promedio)
 }
 
