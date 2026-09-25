@@ -246,7 +246,7 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                 <p className="text-lg sm:text-xl font-extrabold text-brand-navy uppercase tracking-wide">Planilla de salida</p>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-brand-deep/70">CTP Logística · Control de entregas</p>
               </div>
-              <img src="/ICOCTP.png" alt="ICOCYP" className="h-14 sm:h-20 w-auto object-contain shrink-0" />
+              <img src="/ICOCTP.png" alt="PEDRO-CTP" className="h-14 sm:h-20 w-auto object-contain shrink-0" />
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">

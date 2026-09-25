@@ -181,7 +181,7 @@ function notificacionSistema(titulo, cuerpo) {
   try {
     if (!document.hidden) return
     if (!permisoSistema()) return
-    const n = new Notification(titulo || 'Logística CTP', {
+    const n = new Notification(titulo || 'PEDRO-CTP', {
       body: textoPlano(cuerpo) || titulo || 'Tienes una notificación nueva.',
       tag: 'ctp-logistica',
     })
