@@ -1,0 +1,20 @@
+{
+  "name": "Logística CTP-PEDRO",
+  "short_name": "CTP Logística",
+  "description": "Gestión de solicitudes de logística CTP-PEDRO: creación, seguimiento, asignación y entregas.",
+  "start_url": "/inicio",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EAF4F7",
+  "theme_color": "#071A3D",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/CTPM.png",
+      "sizes": "346x346",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

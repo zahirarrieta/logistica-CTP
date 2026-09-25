@@ -3,7 +3,7 @@ import { shortName } from '../../../auth/user.js'
 import { supabase, backendActivo, iniciarSesion, datosUsuario } from '../../../services/supabaseClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../../../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud } from '../../../components/pdfUtils.js'
-import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada, asignacionRecibida, entregaRealizada } from '../../../services/notificaciones.jsx'
+import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada, asignacionRecibida, entregaRealizada, almacenamientoLleno } from '../../../services/notificaciones.jsx'
 import { esConductorDe, esAsignadoA } from '../../../auth/roles.js'
 
 const STORAGE_KEY = 'ctp_solicitudes'
@@ -57,6 +57,8 @@ export function parsearMotivoDevolucion(nota) {
 // otras pestañas o escrituras externas).
 let cache = null
 let cacheRaw = null
+// Evita spam de avisos si el almacenamiento falla repetidamente (ej. cuota llena).
+let avisoCuotaDado = false
 
 // Suscriptores en vivo: las pantallas (Solicitudes, Administrador, Conductor)
 // se registran para recibir la lista actualizada cada vez que cambian los datos,
@@ -233,8 +235,15 @@ function escribir(list) {
   try {
     raw = JSON.stringify(list)
     localStorage.setItem(STORAGE_KEY, raw)
-  } catch {
-    // Si falla el almacenamiento (ej. cuota), se ignora
+    avisoCuotaDado = false
+  } catch (error) {
+    // Falla de cuota/almacenamiento: avisar una sola vez para que el usuario sepa
+    // que los cambios locales NO se guardaron en este dispositivo.
+    if (!avisoCuotaDado) {
+      avisoCuotaDado = true
+      console.error('[Store] no se pudo guardar en localStorage:', error?.message || error)
+      almacenamientoLleno()
+    }
   }
   cache = list
   cacheRaw = raw

@@ -1,7 +1,15 @@
-const CACHE = 'ctp-logistica-v2'
+const CACHE = 'ctp-logistica-v3'
 
-self.addEventListener('install', () => {
-  self.skipWaiting()
+// Shell mínimo para que la app abra sin conexión mientras llegan los assets.
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/CTP.png', '/CTPM.png']
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(SHELL).catch(() => {}))
+      .then(() => self.skipWaiting())
+  )
 })
 
 self.addEventListener('activate', (event) => {

@@ -345,39 +345,47 @@ useEffect(() => {
     // Se reserva el código ahora (avanza la secuencia una sola vez): es el ID
     // autoritativo que usan OneDrive y el guardado final. Sin backend/conexión
     // se usa el número visible (derivación local).
-    const idSolicitud = (await reservarProximoCodigo()) || siguiente
-    // En creación también puede haber URLs ya subidas (plantilla de vencida).
-    // Separamos URLs existentes de archivos nuevos.
-    const existentes = formData.adjuntos.filter((a) => esUrlAdjunto(a))
-    const nuevos = formData.adjuntos.filter((a) => !esUrlAdjunto(a))
-    let adjuntosUrls = [...existentes]
+    try {
+      const idSolicitud = (await reservarProximoCodigo()) || siguiente
+      // En creación también puede haber URLs ya subidas (plantilla de vencida).
+      // Separamos URLs existentes de archivos nuevos.
+      const existentes = formData.adjuntos.filter((a) => esUrlAdjunto(a))
+      const nuevos = formData.adjuntos.filter((a) => !esUrlAdjunto(a))
+      let adjuntosUrls = [...existentes]
 
-    if (nuevos.length > 0) {
-      try {
-        setSubiendoMsg(`Subiendo ${nuevos.length} archivo(s) a OneDrive…`)
-        const subidos = await subirAdjuntosOneDrive(
-          nuevos,
-          formData.nombreCompleto,
-          idSolicitud,
-        )
-        adjuntosUrls = [...existentes, ...subidos.map((s) => s.url).filter(Boolean)]
-        documentosSubidos({ id: idSolicitud, nombres: nuevos.map((f) => f.name) })
-        setSubiendoMsg('')
-      } catch (err) {
-        console.error('[SolicitudModal] error subiendo a OneDrive:', err)
-        setSubiendoMsg('')
-        setLoading(false)
-        setErrores([`Error subiendo archivos: ${err.message}`])
-        notificarErrorSubida(err.message, idSolicitud)
-        return
+      if (nuevos.length > 0) {
+        try {
+          setSubiendoMsg(`Subiendo ${nuevos.length} archivo(s) a OneDrive…`)
+          const subidos = await subirAdjuntosOneDrive(
+            nuevos,
+            formData.nombreCompleto,
+            idSolicitud,
+          )
+          adjuntosUrls = [...existentes, ...subidos.map((s) => s.url).filter(Boolean)]
+          documentosSubidos({ id: idSolicitud, nombres: nuevos.map((f) => f.name) })
+          setSubiendoMsg('')
+        } catch (err) {
+          console.error('[SolicitudModal] error subiendo a OneDrive:', err)
+          setSubiendoMsg('')
+          setLoading(false)
+          setErrores([`Error subiendo archivos: ${err.message}`])
+          notificarErrorSubida(err.message, idSolicitud)
+          return
+        }
       }
-    }
 
-    if (onSubmit) {
-      onSubmit({ ...formData, adjuntos: adjuntosUrls }, idSolicitud)
+      if (onSubmit) {
+        await onSubmit({ ...formData, adjuntos: adjuntosUrls }, idSolicitud)
+      }
+      resetForm()
+      onClose()
+    } catch (err) {
+      console.error('[SolicitudModal] error creando la solicitud:', err)
+      setSubiendoMsg('')
+      setLoading(false)
+      setErrores([`No se pudo guardar la solicitud: ${err?.message || 'error inesperado'}`])
+      notificarErrorSubida(err?.message || 'Error inesperado', siguiente)
     }
-    resetForm()
-    onClose()
   }
 
   if (!open) return null
@@ -613,10 +621,13 @@ useEffect(() => {
                 {formData.adjuntos.map((archivo, i) => {
                   const esUrl = esUrlAdjunto(archivo)
                   const nombre = nombreAdjunto(archivo)
+                  const clave = esUrl
+                    ? `url-${archivo}`
+                    : `file-${archivo.name}-${archivo.size}-${archivo.lastModified || i}`
                   const abierto = previewAbierto === archivo
                   const puedePrevisualizar = !esUrl && (esImagen(archivo) || esPdf(archivo))
                   return (
-                    <div key={i} className="rounded-lg bg-brand-mist/50 border border-brand-ink/10 overflow-hidden">
+                    <div key={clave} className="rounded-lg bg-brand-mist/50 border border-brand-ink/10 overflow-hidden">
                       <div className="flex items-center justify-between gap-2 px-3 py-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-xl shrink-0">{iconoArchivo(archivo)}</span>

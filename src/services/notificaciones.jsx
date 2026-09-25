@@ -455,6 +455,18 @@ export function errorSubida(mensaje, id) {
   })
 }
 
+export function almacenamientoLleno() {
+  sileo.error({
+    ...BASE,
+    duration: 9000,
+    title: 'Almacenamiento del navegador lleno',
+    icon: <MdErrorOutline />,
+    description: linea(
+      'No se pudieron guardar los cambios en este dispositivo. Libera espacio o sincroniza con la base y recarga la página.'
+    ),
+  })
+}
+
 export function carpetaNoCompartida() {
   sileo.error({
     ...BASE,

@@ -26,6 +26,10 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
+      // El chunk `pdf` (jspdf + html2canvas) se carga de forma dinámica solo al
+      // exportar, así que su tamaño no afecta el arranque; se sube el umbral para
+      // no generar un aviso cosmético en cada build.
+      chunkSizeWarningLimit: 900,
       rollupOptions: {
         output: {
           manualChunks(id) {

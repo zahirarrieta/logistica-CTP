@@ -175,14 +175,22 @@ export async function descargarSolicitudes(desde = '') {
   if (!backendActivo) return null
   await preparar()
 
-  const { data, error } = await supabase
-    .from('solicitudes')
-    .select('*')
-    .order('actualizado_en', { ascending: false })
-    .limit(1000)
-  if (error) throw error
-
-  const filas = data || []
+  // Se pagina con .range() hasta agotar: un .limit() fijo dejaría fuera las
+  // solicitudes más antiguas cuando hay más de una página, rompiendo la marca de
+  // agua y la sincronización incremental.
+  const TAM_PAGINA = 1000
+  const filas = []
+  for (let inicio = 0; ; inicio += TAM_PAGINA) {
+    const { data, error } = await supabase
+      .from('solicitudes')
+      .select('*')
+      .order('actualizado_en', { ascending: false })
+      .range(inicio, inicio + TAM_PAGINA - 1)
+    if (error) throw error
+    const lote = data || []
+    filas.push(...lote)
+    if (lote.length < TAM_PAGINA) break
+  }
   const watermark = filas.reduce(
     (acc, f) => (f.actualizado_en && f.actualizado_en > acc ? f.actualizado_en : acc),
     desde || ''
@@ -193,14 +201,18 @@ export async function descargarSolicitudes(desde = '') {
     : filas.map((f) => f.codigo)
 
   let registros = []
-  if (codigos.length > 0) {
+  // Se consulta el historial por lotes: un .in() con miles de códigos alargaría
+  // demasiado la URL de la petición y podría fallar en algunos proxies.
+  const LOTE_IN = 200
+  for (let i = 0; i < codigos.length; i += LOTE_IN) {
+    const lote = codigos.slice(i, i + LOTE_IN)
     const { data: dataHist, error: errorHist } = await supabase
       .from('historial')
       .select('*')
-      .in('solicitud', codigos)
+      .in('solicitud', lote)
       .order('creado_en', { ascending: false })
     if (errorHist) throw errorHist
-    registros = dataHist || []
+    registros.push(...(dataHist || []))
   }
 
   const rutas = [
