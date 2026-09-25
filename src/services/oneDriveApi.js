@@ -293,8 +293,15 @@ export async function subirDocEntregaOneDrive(blob, referencia, usuario, idSolic
   )
 
   const base = sanitizarRuta(String(referencia || '').trim() || 'SinReferencia')
-  const extension = (blob.type || '').includes('png') ? 'png' : 'jpg'
+  const tipo = blob.type || ''
+  // La evidencia puede ser una foto (jpg/png) o un PDF; se conserva el formato.
+  const extension = tipo.includes('pdf')
+    ? 'pdf'
+    : tipo.includes('png')
+      ? 'png'
+      : 'jpg'
   const nombreDestino = `${base}_${Date.now().toString().slice(-6)}.${extension}`
+  const mime = tipo.includes('pdf') ? 'application/pdf' : 'image/jpeg'
 
   const subido = await subirArchivo(
     token,
@@ -302,7 +309,7 @@ export async function subirDocEntregaOneDrive(blob, referencia, usuario, idSolic
     carpeta.rootId,
     nombreDestino,
     blob,
-    blob.type || 'image/jpeg'
+    mime
   )
   console.info(`[OneDrive] evidencia de entrega subida a la carpeta compartida → ${subido.url || '(sin webUrl)'}`)
   return { nombre: nombreDestino, url: subido.url }

@@ -167,7 +167,7 @@ export function histogramaTiempos(solicitudes) {
       fechaHora: t.fechaHora,
     }))
     .sort((a, b) => (a.fechaHora > b.fechaHora ? -1 : a.fechaHora < b.fechaHora ? 1 : 0))
-    .slice(0, 8)
+    .slice(0, 10)
 
   return { buckets: conteo, promedioPorNombre, ultimasEntregas }
 }
@@ -299,6 +299,102 @@ export function porConductor(solicitudes) {
     mapa.set(nombre, item)
   }
   return [...mapa.values()].sort((a, b) => b.total - a.total)
+}
+
+// Encuestas de satisfacción (1 = Malo, 2 = Regular, 3 = Bueno)
+const CALIFICACIONES_ENCUESTA = [
+  { estrellas: 1, nombre: 'Malo' },
+  { estrellas: 2, nombre: 'Regular' },
+  { estrellas: 3, nombre: 'Bueno' },
+]
+
+function encuestasDe(solicitudes) {
+  const lista = []
+  for (const s of solicitudes) {
+    const hist = Array.isArray(s.historial) ? s.historial : []
+    for (const h of hist) {
+      const enc = h?.encuesta
+      if (!enc || typeof enc !== 'object') continue
+      const preguntas = Array.isArray(enc.preguntas)
+        ? enc.preguntas.filter((p) => Number(p?.puntuacion || 0) >= 1)
+        : []
+      if (preguntas.length === 0) continue
+      lista.push({
+        id: s.id,
+        cliente: s.cliente || '',
+        zona: s.zona || '',
+        conductor: String(h?.conductor || '').trim() || String(s.conductor || '').trim() || '',
+        estado: h?.nuevo || s.estado || '',
+        fechaHora: `${h?.fecha || ''} ${h?.hora || ''}`.trim(),
+        preguntas,
+        votos: preguntas.length,
+        puntos: preguntas.reduce((a, p) => a + Number(p.puntuacion || 0), 0),
+      })
+    }
+  }
+  return lista
+}
+
+export function resumenEncuestas(solicitudes) {
+  const lista = encuestasDe(solicitudes)
+  const votos = lista.reduce((a, e) => a + e.votos, 0)
+  const puntos = lista.reduce((a, e) => a + e.puntos, 0)
+  const porEstrella = CALIFICACIONES_ENCUESTA.map((c) => ({
+    ...c,
+    count: lista.reduce(
+      (a, e) => a + e.preguntas.filter((p) => Number(p.puntuacion || 0) === c.estrellas).length,
+      0
+    ),
+  }))
+  const entregasTotales = solicitudes.filter((s) => ESTADOS_FINALES.includes(s.estado || '')).length
+  return {
+    lista,
+    total: lista.length,
+    votos,
+    promedio: votos ? puntos / votos : null,
+    pctTres: votos ? Math.round((porEstrella[2].count / votos) * 100) : 0,
+    porEstrella,
+    pctEncuestadas: entregasTotales ? Math.round((lista.length / entregasTotales) * 100) : 0,
+  }
+}
+
+export function promedioDeEncuesta(e) {
+  return e?.votos ? e.puntos / e.votos : 0
+}
+
+export function nivelEstrella(promedio) {
+  return Math.min(3, Math.max(1, Math.round(promedio)))
+}
+
+export function promedioPorConductorEncuesta(solicitudes) {
+  const mapa = new Map()
+  for (const e of encuestasDe(solicitudes)) {
+    const nombre = e.conductor || 'Sin identificar'
+    const item = mapa.get(nombre) || { nombre, votos: 0, puntos: 0, entregas: 0 }
+    item.votos += e.votos
+    item.puntos += e.puntos
+    item.entregas += 1
+    mapa.set(nombre, item)
+  }
+  return [...mapa.values()]
+    .map((x) => ({ nombre: x.nombre, promedio: x.puntos / x.votos, votos: x.votos, entregas: x.entregas }))
+    .sort((a, b) => b.promedio - a.promedio)
+}
+
+export function topClientesSatisfaccion(solicitudes, n = 8) {
+  const mapa = new Map()
+  for (const e of encuestasDe(solicitudes)) {
+    const nombre = e.cliente || 'Sin definir'
+    const item = mapa.get(nombre) || { nombre, votos: 0, puntos: 0, entregas: 0 }
+    item.votos += e.votos
+    item.puntos += e.puntos
+    item.entregas += 1
+    mapa.set(nombre, item)
+  }
+  return [...mapa.values()]
+    .map((x) => ({ nombre: x.nombre, promedio: x.puntos / x.votos, votos: x.votos, entregas: x.entregas }))
+    .sort((a, b) => b.entregas - a.entregas)
+    .slice(0, n)
 }
 
 export function lentosActivos(solicitudes, umbralHoras = 48) {

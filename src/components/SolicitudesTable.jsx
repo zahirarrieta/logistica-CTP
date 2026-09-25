@@ -26,9 +26,11 @@ import {
   MdDescription,
   MdDeleteOutline,
   MdAssignmentReturn,
+  MdBadge,
+  MdReceiptLong,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../pages/Home/Components/estadoColors.js'
-import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
+import { nombreDeAsignado, restanteDevolucion } from '../pages/Home/Components/solicitudesStore.js'
 import CuentaRegresivaDevolucion from './CuentaRegresivaDevolucion.jsx'
 import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'
@@ -42,6 +44,8 @@ const enTransito = (s) => ESTADOS_TRANSITO.includes(s.estado)
 const esEntregado = (s) => ['Entregado', 'Entregado Parcial'].includes(s.estado)
 const esDevolucion = (s) => s.estado === 'Devolución a Solicitante'
 const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !== '')
+// Devolución cuyo tiempo de corrección venció: ya no se tramita.
+const devolucionVencida = (s, ahora) => esDevolucion(s) && restanteDevolucion(s, ahora) === 0
 
 // Cuando la solicitud está en tránsito, el adjunto relevante es la factura o
 // remisión que cargó el administrador al pasarla a «En Trámite». Esas URLs viven
@@ -173,9 +177,13 @@ function DocEntregaIcono({ count, onClick }) {
 function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, ahora }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
-  const cardBg = colorRow ? getEstadoBg(s.estado) : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
+  const vencidaDev = devolucionVencida(s, ahora)
+  const cardBg = colorRow
+    ? (vencidaDev ? 'bg-slate-200' : getEstadoBg(s.estado))
+    : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
   const mostrarCorregir = Boolean(onCorregirClick) && esDevolucion(s)
-  const hasCardAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onEstadoClick || onSeguimientoClick || onEliminarClick || mostrarCorregir)
+  const mostrarEstado = Boolean(onCambiarEstadoClick) && !esEntregado(s) && !vencidaDev
+  const hasCardAcciones = Boolean(onAsignarClick || mostrarEstado || onEstadoClick || onSeguimientoClick || onEliminarClick || mostrarCorregir)
   const docsEntrega = mostrarDocEntrega ? documentoEntregable(s) : null
 
   return (
@@ -216,6 +224,8 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
           <Row icon={<MdEmail />} label="Correo" value={s.correo} />
           <Row icon={<MdAssignmentAdd />} label="Tipo" value={s.tipoSolicitud} />
           <Row icon={<MdBusiness />} label="Cliente" value={s.cliente} />
+          {s.ordenCompra && <Row icon={<MdReceiptLong />} label="Ord. compra" value={s.ordenCompra} />}
+          {s.cedula && <Row icon={<MdBadge />} label="Cédula" value={s.cedula} />}
           <Row icon={<MdWarehouse />} label="Bodega" value={s.bodega} />
           <Row icon={<MdTag />} label="NIT" value={s.nit} />
           <Row icon={<MdPlace />} label="Zona" value={s.zona} />
@@ -305,7 +315,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Asignar
                 </button>
               )}
-              {onCambiarEstadoClick && !esEntregado(s) && (
+              {mostrarEstado && (
                 <button
                   type="button"
                   onClick={() => {
@@ -421,6 +431,13 @@ export default function SolicitudesTable({
   }
   const handleTipLeave = () => setTooltip(null)
 
+  // Fondo de fila: gris cuando es una devolución vencida (ya no se tramita);
+  // si no, pastel por estado (vista admin) o alternado (vistas simples).
+  const estiloFila = (s, i) =>
+    colorRowsPorEstado
+      ? (devolucionVencida(s, ahora) ? 'bg-slate-200' : getEstadoBg(s.estado))
+      : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')
+
   const openObs = (s) => setObsSolicitud(s)
   const openDetalle = (s) => setDetalleSolicitud(s)
 
@@ -428,7 +445,7 @@ export default function SolicitudesTable({
   const filaConAccion = (s) =>
     Boolean(
       (onAsignarClick && !esEntregado(s)) ||
-        (onCambiarEstadoClick && !esEntregado(s)) ||
+        (onCambiarEstadoClick && !esEntregado(s) && !devolucionVencida(s, ahora)) ||
         (onEntregaDetallesClick && esEntregado(s)) ||
         onEstadoClick ||
         onEliminarClick
@@ -544,7 +561,7 @@ export default function SolicitudesTable({
                 <tr
                   key={s.id}
                   onClick={() => onRowClick?.(s)}
-                  className={`group ${onRowClick ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${colorRowsPorEstado ? getEstadoBg(s.estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')}`}
+                  className={`group ${onRowClick ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${estiloFila(s, i)}`}
                 >
                   <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
                     <span className={`inline-flex items-center justify-center size-7 rounded-full text-xs font-extrabold ${i % 2 === 0 ? 'bg-brand-navy text-white' : 'bg-brand-deep text-white'}`}>
@@ -580,14 +597,22 @@ export default function SolicitudesTable({
                     {s.tipoSolicitud}
                   </td>
                   <td
-                    className="px-2 py-3 text-brand-ink/80 max-w-[180px] border-b border-l border-brand-ink/10"
+                    className="px-2 py-3 text-brand-ink/80 w-[190px] max-w-[190px] overflow-hidden border-b border-l border-brand-ink/10"
                     onMouseEnter={(e) => handleTipEnter(e, s.cliente)}
                     onMouseLeave={handleTipLeave}
                   >
-                    <span className="flex items-center gap-2 min-w-0">
-                      <span className="block truncate whitespace-nowrap">{s.cliente}</span>
-                      {mostrarDocEntrega && documentoEntregable(s).length > 0 && (
-                        <DocEntregaIcono count={documentoEntregable(s).length} onClick={() => setAdjuntosSolicitud(s)} />
+                    <span className="flex flex-col items-start gap-0.5 min-w-0 w-full">
+                      <span className="flex items-center gap-2 min-w-0 w-full">
+                        <span className="block truncate whitespace-nowrap min-w-0 flex-1">{s.cliente}</span>
+                        {mostrarDocEntrega && documentoEntregable(s).length > 0 && (
+                          <DocEntregaIcono count={documentoEntregable(s).length} onClick={() => setAdjuntosSolicitud(s)} />
+                        )}
+                      </span>
+                      {s.ordenCompra && (
+                        <span className="block text-[11px] text-brand-ink/50 truncate whitespace-nowrap w-full">Ord. compra: {s.ordenCompra}</span>
+                      )}
+                      {s.cedula && (
+                        <span className="block text-[11px] text-brand-ink/50 truncate whitespace-nowrap w-full">C.C. {s.cedula}</span>
                       )}
                     </span>
                   </td>
@@ -634,7 +659,7 @@ export default function SolicitudesTable({
                     </span>
                   </td>
                   {hasAcciones && (
-                    <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${colorRowsPorEstado ? getEstadoBg(s.estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')}`}>
+                    <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${estiloFila(s, i)}`}>
                       <div className="flex items-center justify-center gap-1.5">
 
                         {onAsignarClick && !esEntregado(s) && (
@@ -653,7 +678,7 @@ export default function SolicitudesTable({
                             <MdPersonAdd className="text-xl" />
                           </button>
                         )}
-                        {onCambiarEstadoClick && !esEntregado(s) && (
+                        {onCambiarEstadoClick && !esEntregado(s) && !devolucionVencida(s, ahora) && (
                           <button
                             type="button"
                             onClick={(e) => {

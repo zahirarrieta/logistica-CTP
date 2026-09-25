@@ -65,6 +65,8 @@ create table if not exists public.solicitudes (
   nit                text not null default '',
   bodega             text not null default '',
   zona               text not null default '',
+  cedula             text not null default '',
+  orden_compra       text not null default '',
   observaciones      text not null default '',
   adjuntos           text[] not null default '{}',
   solicitante_nombre text not null default '',
@@ -104,6 +106,11 @@ alter table public.solicitudes add column if not exists asignado_correo text not
 -- (único) además del nombre; los registros antiguos siguen usando solo `conductor`.
 alter table public.solicitudes add column if not exists conductor_correo text not null default '';
 create index if not exists solicitudes_conductor_correo_idx on public.solicitudes (conductor_correo);
+
+-- Cédula (solicitudes administrativas) y número de orden de compra (ventas
+-- directas). Aditivos: los registros antiguos simplemente quedan en blanco.
+alter table public.solicitudes add column if not exists cedula text not null default '';
+alter table public.solicitudes add column if not exists orden_compra text not null default '';
 
 create or replace function public.asignar_codigo()
 returns trigger
@@ -246,6 +253,8 @@ begin
     nit                = excluded.nit,
     bodega             = excluded.bodega,
     zona               = excluded.zona,
+    cedula             = excluded.cedula,
+    orden_compra       = excluded.orden_compra,
     observaciones      = excluded.observaciones,
     adjuntos           = excluded.adjuntos,
     solicitante_nombre = excluded.solicitante_nombre,

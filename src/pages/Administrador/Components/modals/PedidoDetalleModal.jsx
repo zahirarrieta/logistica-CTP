@@ -157,6 +157,8 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
               <Dato label="NIT" value={solicitud.nit} />
               <Dato label="Zona" value={solicitud.zona} />
               <Dato label="Nº referencia" value={solicitud.numeroReferencia} />
+              {solicitud.ordenCompra && <Dato label="Nº orden de compra" value={solicitud.ordenCompra} />}
+              {solicitud.cedula && <Dato label="Cédula" value={solicitud.cedula} />}
             </div>
 
             {/* Asignación */}

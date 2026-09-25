@@ -263,7 +263,7 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-center font-bold w-8">#</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-28">ID</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-40">Solicitante</th>
-                    <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold">Cliente</th>
+                    <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-44">Cliente</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-32">Zona</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-36">Tipo de solicitud</th>
                     <th className="border border-brand-deep/30 px-2 py-1.5 text-left font-bold w-36">Resultado</th>
@@ -306,7 +306,7 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                             <span className="px-1 font-semibold text-brand-ink">{f.solicitante || '—'}</span>
                           )}
                         </td>
-                        <td className="border border-brand-ink/10 px-1.5 py-1">
+                        <td className="border border-brand-ink/10 px-1.5 py-1 max-w-44 overflow-hidden">
                           {f.manual && !soloLectura ? (
                             <input
                               className={`${celdaInput} font-semibold`}
@@ -315,7 +315,9 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
                               onChange={(e) => editarFilaManual(f.key, 'cliente', e.target.value)}
                             />
                           ) : (
-                            <span className="px-1 font-semibold text-brand-ink">{f.cliente || '—'}</span>
+                            <span className="block px-1 font-semibold text-brand-ink truncate" title={f.cliente || ''}>
+                              {f.cliente || '—'}
+                            </span>
                           )}
                         </td>
                         <td className="border border-brand-ink/10 px-1.5 py-1">

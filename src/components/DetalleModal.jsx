@@ -1,4 +1,4 @@
-import { MdClose, MdTag, MdCalendarToday, MdAccessTime, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdAttachFile, MdNotes, MdAssignmentInd } from 'react-icons/md'
+import { MdClose, MdTag, MdCalendarToday, MdAccessTime, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdAttachFile, MdNotes, MdAssignmentInd, MdBadge, MdReceiptLong } from 'react-icons/md'
 import { getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
 import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
 
@@ -69,6 +69,8 @@ export default function DetalleModal({ solicitud, open, onClose }) {
             <Row icon={<MdEmail />} label="Correo" value={solicitud.correo} />
             <Row icon={<MdAssignmentAdd />} label="Tipo" value={solicitud.tipoSolicitud} />
             <Row icon={<MdBusiness />} label="Cliente" value={solicitud.cliente} />
+            {solicitud.cedula && <Row icon={<MdBadge />} label="Cédula" value={solicitud.cedula} />}
+            {solicitud.ordenCompra && <Row icon={<MdReceiptLong />} label="Ord. compra" value={solicitud.ordenCompra} />}
             <Row icon={<MdWarehouse />} label="Bodega" value={solicitud.bodega} />
             <Row icon={<MdTag />} label="NIT" value={solicitud.nit} />
             <Row icon={<MdPlace />} label="Zona" value={solicitud.zona} />

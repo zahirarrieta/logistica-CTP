@@ -27,6 +27,7 @@ import imgRemision from '../EstadoI/Remision.png'
 import imgTransitoCarro from '../EstadoI/TransitoCarro.png'
 import imgTransitoMoto from '../EstadoI/TransitoMoto.png'
 import imgTransitoElite from '../EstadoI/TransitoElite.png'
+import imgTransitoCarBog from '../EstadoI/TransitoCarBog.png'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
@@ -58,6 +59,9 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
   const conductor = nombreDeAsignado(solicitud.conductor)
   const esElite = conductor.toLowerCase() === 'elite'
+  const conductorNorm = conductor.toLowerCase().replace(/\s+/g, ' ').trim()
+  const esDiegoPena = conductorNorm.includes('diego peña') || conductorNorm.includes('diego pena')
+  const esCarroBogota = solicitud.vehiculo === 'KWL-381' || solicitud.placa === 'KWL-381'
   const estado = solicitud.estado || 'Abierto'
   const entrega = buscarEntrega(solicitud)
   const esDev = estado === 'Devolución a Solicitante'
@@ -69,11 +73,13 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const imagen =
     enTransito && esElite
       ? imgTransitoElite
-      : enTransito && solicitud.vehiculo === 'Moto'
-        ? imgTransitoMoto
-        : enTransito
-          ? imgTransitoCarro
-          : IMAGENES_POR_ESTADO[estado]
+      : enTransito && esDiegoPena && esCarroBogota
+        ? imgTransitoCarBog
+        : enTransito && solicitud.vehiculo === 'Moto'
+          ? imgTransitoMoto
+          : enTransito
+            ? imgTransitoCarro
+            : IMAGENES_POR_ESTADO[estado]
   const IconoEstado =
     (enTransito && !esElite && solicitud.vehiculo === 'Moto' ? MdTwoWheeler : ICONOS_POR_ESTADO[estado]) || MdDirectionsCar
 

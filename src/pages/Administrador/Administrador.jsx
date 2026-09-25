@@ -314,7 +314,7 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                 onCambiarEstadoClick={(s) => setEditSolicitud(s)}
                 onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
                 onEntregaDetallesClick={(s) => setEntregaDetallesSolicitud(s)}
-                onEliminarClick={handleEliminar}
+                onEliminarClick={esSuper ? handleEliminar : undefined}
                 colorRowsPorEstado
                 empty={
                   hasFilters

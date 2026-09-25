@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck, MdAddCircleOutline } from 'react-icons/md'
+import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck, MdAddCircleOutline, MdPersonAdd } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
 import { peekNextId, refrescarProximoCodigo, reservarProximoCodigo, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteDevolucion } from '../solicitudesStore.js'
@@ -7,18 +7,19 @@ import CuentaRegresivaDevolucion from '../../../../components/CuentaRegresivaDev
 import { nombrePdfFromUrl } from '../../../../components/pdfUtils.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
+import AgregarUsuarioModal from './AgregarUsuarioModal.jsx'
 import { subirAdjuntosOneDrive } from '../../../../services/oneDriveApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida } from '../../../../services/notificaciones.jsx'
 
 const TIPO_SOLICITUD_OPTIONS = [
   { value: 'EMERGENCIA / 2 Horas', label: 'EMERGENCIA / 2 Horas' },
   { value: 'ENVÍO REPOSICIÓN - CONSIGNACIÓN / Ventana de Pedido', label: 'ENVÍO REPOSICIÓN - CONSIGNACIÓN / Ventana de Pedido' },
-  { value: 'OPORTUNIDAD DE VENTA / 8 Horas', label: 'OPORTUNIDAD DE VENTA / 8 Horas' },
   { value: 'PROCEDIMIENTO ESPECIAL - CLIENTE TEMPORAL / Ventana', label: 'PROCEDIMIENTO ESPECIAL - CLIENTE TEMPORAL / Ventana' },
   { value: 'URGENCIA / 4 Horas', label: 'URGENCIA / 4 Horas' },
   { value: 'VENTA DIRECTA', label: 'VENTA DIRECTA' },
   { value: 'ADMINISTRATIVA', label: 'ADMINISTRATIVA' },
   { value: 'RECOLECCIÓN DE DISPOSITIVOS', label: 'RECOLECCIÓN DE DISPOSITIVOS' },
+  { value: 'TOMA DE INVENTARIO', label: 'TOMA DE INVENTARIO' },
 ]
 
 function nombreAdjunto(item) {
@@ -75,6 +76,7 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
   const corregirCliente = camposCorregir.includes('cliente')
 
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
+  const [usuarioPickerOpen, setUsuarioPickerOpen] = useState(false)
   const [formData, setFormData] = useState({
     nombreCompleto: account?.name || '',
     correo: account?.username || '',
@@ -83,6 +85,8 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
     bodega: '',
     nit: '',
     zona: '',
+    cedula: '',
+    ordenCompra: '',
     adjuntos: [],
     observaciones: '',
   })
@@ -163,6 +167,8 @@ useEffect(() => {
         bodega: solicitud.bodega || '',
         nit: solicitud.nit || '',
         zona: solicitud.zona || '',
+        cedula: solicitud.cedula || '',
+        ordenCompra: solicitud.ordenCompra || '',
         adjuntos: Array.isArray(solicitud.adjuntos) ? [...solicitud.adjuntos] : [],
         observaciones: solicitud.observaciones || '',
       })
@@ -177,6 +183,8 @@ useEffect(() => {
         bodega: plantilla.bodega || '',
         nit: plantilla.nit || '',
         zona: plantilla.zona || '',
+        cedula: plantilla.cedula || '',
+        ordenCompra: plantilla.ordenCompra || '',
         adjuntos: Array.isArray(plantilla.adjuntos) ? [...plantilla.adjuntos] : [],
         observaciones: plantilla.observaciones || '',
       })
@@ -189,6 +197,8 @@ useEffect(() => {
         bodega: '',
         nit: '',
         zona: '',
+        cedula: '',
+        ordenCompra: '',
         adjuntos: [],
         observaciones: '',
       })
@@ -204,7 +214,19 @@ useEffect(() => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData(prev => {
+      if (name === 'tipoSolicitud') {
+        // Al cambiar de tipo sensible se despejan los campos del bloque que no
+        // aplica, para que no queden datos viejos de un cliente anterior.
+        if (value === 'ADMINISTRATIVA') {
+          return { ...prev, [name]: value, cliente: '', bodega: '', nit: '', zona: '' }
+        }
+        if (prev.tipoSolicitud === 'ADMINISTRATIVA') {
+          return { ...prev, [name]: value, cedula: '' }
+        }
+      }
+      return { ...prev, [name]: value }
+    })
     if (errores.length > 0) setErrores([])
   }
 
@@ -245,6 +267,19 @@ useEffect(() => {
     if (errores.length > 0) setErrores([])
   }
 
+  const handleSelectUsuario = (u) => {
+    setFormData(prev => ({
+      ...prev,
+      cliente: u.cliente,
+      cedula: u.cedula,
+      bodega: '',
+      nit: '',
+      zona: '',
+    }))
+    setUsuarioPickerOpen(false)
+    if (errores.length > 0) setErrores([])
+  }
+
   const resetForm = () => {
     urlsRef.current.forEach((u) => URL.revokeObjectURL(u))
     urlsRef.current.clear()
@@ -257,6 +292,8 @@ useEffect(() => {
       bodega: '',
       nit: '',
       zona: '',
+      cedula: '',
+      ordenCompra: '',
       adjuntos: [],
       observaciones: '',
     })
@@ -275,16 +312,31 @@ useEffect(() => {
       return
     }
 
+    const esAdministrativa = formData.tipoSolicitud === 'ADMINISTRATIVA'
+    const esVentaDirecta = formData.tipoSolicitud === 'VENTA DIRECTA'
+
     const obligatorios = [
       { campo: 'nombreCompleto', etiqueta: 'Nombre completo' },
       { campo: 'correo', etiqueta: 'Correo' },
       { campo: 'tipoSolicitud', etiqueta: 'Tipo de solicitud' },
-      { campo: 'cliente', etiqueta: 'Cliente' },
-      { campo: 'bodega', etiqueta: 'Bodega' },
-      { campo: 'nit', etiqueta: 'NIT' },
-      { campo: 'zona', etiqueta: 'Zona' },
       { campo: 'adjuntos', etiqueta: 'Adjuntos' },
     ]
+    if (esAdministrativa) {
+      obligatorios.push(
+        { campo: 'cliente', etiqueta: 'Usuario' },
+        { campo: 'cedula', etiqueta: 'Cédula' },
+      )
+    } else {
+      obligatorios.push(
+        { campo: 'cliente', etiqueta: 'Cliente' },
+        { campo: 'bodega', etiqueta: 'Bodega' },
+        { campo: 'nit', etiqueta: 'NIT' },
+        { campo: 'zona', etiqueta: 'Zona' },
+      )
+    }
+    if (esVentaDirecta) {
+      obligatorios.push({ campo: 'ordenCompra', etiqueta: 'N° orden de compra' })
+    }
 
     const faltantes = obligatorios
       .filter((f) => {
@@ -332,10 +384,21 @@ useEffect(() => {
         if (editarObs) datosEdicion.observaciones = formData.observaciones
         if (editarAdjuntos) datosEdicion.adjuntos = [...existentes, ...urlsNuevas]
         if (editarCliente) {
-          datosEdicion.cliente = formData.cliente
-          datosEdicion.bodega = formData.bodega
-          datosEdicion.nit = formData.nit
-          datosEdicion.zona = formData.zona
+          if (formData.tipoSolicitud === 'ADMINISTRATIVA') {
+            datosEdicion.cliente = formData.cliente
+            datosEdicion.cedula = formData.cedula
+            datosEdicion.bodega = ''
+            datosEdicion.nit = ''
+            datosEdicion.zona = ''
+          } else {
+            datosEdicion.cliente = formData.cliente
+            datosEdicion.bodega = formData.bodega
+            datosEdicion.nit = formData.nit
+            datosEdicion.zona = formData.zona
+          }
+          if (formData.tipoSolicitud === 'VENTA DIRECTA') {
+            datosEdicion.ordenCompra = formData.ordenCompra
+          }
         }
         onEditSubmit(solicitud.id, datosEdicion)
       }
@@ -396,6 +459,8 @@ useEffect(() => {
   if (!open) return null
 
   const siguienteId = modoEdicion ? solicitud.id : siguiente
+  const esAdministrativa = formData.tipoSolicitud === 'ADMINISTRATIVA'
+  const esVentaDirecta = formData.tipoSolicitud === 'VENTA DIRECTA'
 
   return (
     <>
@@ -543,69 +608,130 @@ useEffect(() => {
               invalid={errores.includes('Tipo de solicitud')}
               disabled={!editarTipo}
             />
-            <div className="relative">
+            {esAdministrativa ? (
+              <>
+                <div className="relative">
+                  <FormField
+                    label="Usuario"
+                    type="text"
+                    name="cliente"
+                    value={formData.cliente}
+                    onChange={handleInputChange}
+                    placeholder="Nombre completo del usuario"
+                    required
+                    readOnly
+                    icon={<MdPerson className="text-sm" />}
+                    invalid={errores.includes('Usuario')}
+                  />
+                  {(!modoEdicion || editarCliente) && (
+                    <button
+                      type="button"
+                      onClick={() => setUsuarioPickerOpen(true)}
+                      title="Agregar usuario"
+                      aria-label="Agregar usuario"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                    >
+                      <MdPersonAdd className="text-lg" />
+                    </button>
+                  )}
+                </div>
+                <FormField
+                  label="Cédula"
+                  type="text"
+                  name="cedula"
+                  value={formData.cedula}
+                  onChange={handleInputChange}
+                  placeholder="Cédula del usuario"
+                  required
+                  readOnly
+                  icon={<MdTag className="text-sm" />}
+                  invalid={errores.includes('Cédula')}
+                />
+              </>
+            ) : (
+              <>
+                <div className="relative">
+                  <FormField
+                    label="Cliente"
+                    type="text"
+                    name="cliente"
+                    value={formData.cliente}
+                    onChange={handleInputChange}
+                    placeholder="Nombre del cliente"
+                    required
+                    readOnly
+                    icon={<MdBusiness className="text-sm" />}
+                    invalid={errores.includes('Cliente')}
+                  />
+                  {(!modoEdicion || editarCliente) && (
+                    <button
+                      type="button"
+                      onClick={() => setClientPickerOpen(true)}
+                      title="Buscar y seleccionar cliente"
+                      aria-label="Seleccionar cliente"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                    >
+                      <MdSearch className="text-lg" />
+                    </button>
+                  )}
+                </div>
+                <FormField
+                  label="Bodega"
+                  type="text"
+                  name="bodega"
+                  value={formData.bodega}
+                  onChange={handleInputChange}
+                  placeholder="Bodega del cliente"
+                  required
+                  readOnly
+                  icon={<MdWarehouse className="text-sm" />}
+                  invalid={errores.includes('Bodega')}
+                />
+                <FormField
+                  label="NIT"
+                  type="text"
+                  name="nit"
+                  value={formData.nit}
+                  onChange={handleInputChange}
+                  placeholder="NIT del cliente"
+                  required
+                  readOnly
+                  icon={<MdTag className="text-sm" />}
+                  invalid={errores.includes('NIT')}
+                />
+              </>
+            )}
+            {esVentaDirecta && (
               <FormField
-                label="Cliente"
+                label="N° orden de compra"
                 type="text"
-                name="cliente"
-                value={formData.cliente}
+                name="ordenCompra"
+                value={formData.ordenCompra}
                 onChange={handleInputChange}
-                placeholder="Nombre del cliente"
+                placeholder="Número de la orden de compra"
                 required
-                readOnly
-                icon={<MdBusiness className="text-sm" />}
-                invalid={errores.includes('Cliente')}
+                readOnly={modoEdicion && !editarCliente}
+                icon={<MdTag className="text-sm" />}
+                invalid={errores.includes('N° orden de compra')}
+                className="sm:col-span-2"
               />
-              {(!modoEdicion || editarCliente) && (
-                <button
-                  type="button"
-                  onClick={() => setClientPickerOpen(true)}
-                  title="Buscar y seleccionar cliente"
-                  aria-label="Seleccionar cliente"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
-                >
-                  <MdSearch className="text-lg" />
-                </button>
-              )}
-            </div>
-            <FormField
-              label="Bodega"
-              type="text"
-              name="bodega"
-              value={formData.bodega}
-              onChange={handleInputChange}
-              placeholder="Bodega del cliente"
-              required
-              readOnly
-              icon={<MdWarehouse className="text-sm" />}
-              invalid={errores.includes('Bodega')}
-            />
-            <FormField
-              label="NIT"
-              type="text"
-              name="nit"
-              value={formData.nit}
-              onChange={handleInputChange}
-              placeholder="NIT del cliente"
-              required
-              readOnly
-              icon={<MdTag className="text-sm" />}
-              invalid={errores.includes('NIT')}
-            />
+            )}
           </div>
 
-          <FormField
-            label="Zona"
-            type="text"
-            name="zona"
-            value={formData.zona}
-            onChange={handleInputChange}
-            placeholder="Zona (se llena al seleccionar el cliente)"
-            required
-            readOnly
-            icon={<MdPlace className="text-sm" />}
-            invalid={errores.includes('Zona')}
-          />
+          {!esAdministrativa && (
+            <FormField
+              label="Zona"
+              type="text"
+              name="zona"
+              value={formData.zona}
+              onChange={handleInputChange}
+              placeholder="Zona (se llena al seleccionar el cliente)"
+              required
+              readOnly
+              icon={<MdPlace className="text-sm" />}
+              invalid={errores.includes('Zona')}
+            />
+          )}
 
           {/* Adjuntos */}
           <div>
@@ -771,6 +897,12 @@ useEffect(() => {
         open={clientPickerOpen}
         onClose={() => setClientPickerOpen(false)}
         onSelect={handleSelectCliente}
+      />
+
+      <AgregarUsuarioModal
+        open={usuarioPickerOpen}
+        onClose={() => setUsuarioPickerOpen(false)}
+        onSelect={handleSelectUsuario}
       />
     </>
   )

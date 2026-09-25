@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MdClose, MdCheckCircle, MdNotes, MdPhotoCamera, MdPerson, MdWorkOutline, MdEmail, MdHistory } from 'react-icons/md'
+import { MdClose, MdCheckCircle, MdNotes, MdPhotoCamera, MdPictureAsPdf, MdPerson, MdWorkOutline, MdEmail, MdHistory } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
@@ -37,6 +37,23 @@ const CALIFICACIONES = ['Malo', 'Regular', 'Bueno']
 const MAX_IMAGENES = 3
 const SEP_EVIDENCIA = '|'
 
+// La evidencia puede ser una foto (data:image…) o un PDF (data:application/pdf).
+const esEvidenciaPdf = (src) => /^data:application\/pdf/i.test(src) || /\.pdf(\?|#|$)/i.test(src)
+
+function formatearBytes(bytes) {
+  if (!bytes && bytes !== 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// Tamaño aproximado de un data URL (base64: 3 bytes cada 4 caracteres).
+function tamanoDataUrl(dataUrl) {
+  const coma = dataUrl.indexOf(',')
+  if (coma === -1) return 0
+  return Math.floor(((dataUrl.length - coma - 1) * 3) / 4)
+}
+
 export default function EntregaConductor({ solicitud, open, onClose, onUpdate, destino }) {
   const [observaciones, setObservaciones] = useState('')
   const [evidencias, setEvidencias] = useState([])
@@ -47,6 +64,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
   const [guardando, setGuardando] = useState(false)
   const [contactos, setContactos] = useState([])
   const fileRef = useRef(null)
+  const pdfRef = useRef(null)
   const abiertoRef = useRef(false)
 
   const estadoEntrega =
@@ -108,7 +126,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
 
   const faltantes = []
   if (!observaciones.trim()) faltantes.push('observaciones')
-  if (evidencias.length === 0) faltantes.push('evidencia fotográfica')
+  if (evidencias.length === 0) faltantes.push('evidencia (foto o PDF)')
   if (!nombreEncuestado.trim()) faltantes.push('nombre del encuestado')
   if (!cargo.trim()) faltantes.push('cargo')
   if (!correoValido) faltantes.push(correo.trim() ? 'correo con formato válido' : 'correo')
@@ -136,7 +154,32 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     reader.readAsDataURL(file)
   }
 
-  const quitarImagen = (indice) => {
+  const archivoPdf = (e) => {
+    const file = e.target.files?.[0]
+    if (pdfRef.current) pdfRef.current.value = ''
+    if (!file) return
+    // Solo se aceptan PDFs reales (o archivos con extensión .pdf).
+    const esPdfReal =
+      file.type === 'application/pdf' ||
+      /\.pdf$/i.test(file.name) ||
+      file.type === '' // algunos dispositivos/Android no reportan el tipo
+    if (!esPdfReal) {
+      alert('Solo puedes adjuntar archivos PDF.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '')
+      if (dataUrl.length > 12 * 1024 * 1024) {
+        alert('El PDF es demasiado grande (máximo 12 MB).')
+        return
+      }
+      setEvidencias((prev) => (prev.length >= MAX_IMAGENES ? prev : [...prev, dataUrl]))
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const quitarEvidencia = (indice) => {
     setEvidencias((prev) => prev.filter((_, i) => i !== indice))
   }
 
@@ -146,14 +189,14 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     const partes = []
     let subioAlguna = false
     let falloAlguna = false
-    for (const imagen of evidencias) {
-      if (!imagen.startsWith('data:')) {
-        partes.push(imagen)
+    for (const evidencia of evidencias) {
+      if (!evidencia.startsWith('data:')) {
+        partes.push(evidencia)
         continue
       }
       try {
         const subida = await subirDocEntregaOneDrive(
-          dataUrlABlob(imagen),
+          dataUrlABlob(evidencia),
           solicitud.numeroReferencia || solicitud.id,
           solicitud.nombreCompleto,
           solicitud.id
@@ -164,7 +207,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
         } else throw new Error('OneDrive no devolvió el enlace del archivo')
       } catch (err) {
         console.warn('[OneDrive] no se pudo subir la evidencia, se guardará localmente:', err)
-        partes.push(imagen)
+        partes.push(evidencia)
         falloAlguna = true
       }
     }
@@ -256,11 +299,11 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
             />
           </div>
 
-          {/* Evidencia fotográfica */}
+          {/* Evidencia de la entrega */}
           <div>
             <label className="flex items-center justify-between gap-1.5 text-[11px] font-extrabold text-brand-deep uppercase tracking-wide mb-2">
               <span className="inline-flex items-center gap-1.5">
-                <MdPhotoCamera className="text-sm" /> Evidencia fotográfica
+                <MdPhotoCamera className="text-sm" /> Evidencia de la entrega
               </span>
               <span className="text-brand-ink/50 tabular-nums">{evidencias.length}/{MAX_IMAGENES}</span>
             </label>
@@ -272,40 +315,83 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
               onChange={archivoFoto}
               className="hidden"
             />
-            <div className="grid grid-cols-3 gap-2">
-              {evidencias.map((src, i) => (
-                <div
-                  key={`${i}-${src.slice(-16)}`}
-                  className="relative aspect-square rounded-xl overflow-hidden border border-brand-deep/20"
-                >
-                  <img src={src} alt={`Evidencia ${i + 1}`} className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => quitarImagen(i)}
-                    aria-label={`Quitar imagen ${i + 1}`}
-                    title="Quitar"
-                    className="absolute top-1 right-1 grid place-items-center size-6 rounded-full bg-red-600 text-white hover:bg-red-700 transition"
-                  >
-                    <MdClose className="text-sm" />
-                  </button>
-                  <span className="absolute bottom-1 left-1 grid place-items-center size-5 rounded-full bg-black/60 text-green-400">
-                    <MdCheckCircle className="text-xs" />
-                  </span>
-                </div>
-              ))}
-              {evidencias.length < MAX_IMAGENES && (
+            <input
+              ref={pdfRef}
+              type="file"
+              accept="application/pdf"
+              onChange={archivoPdf}
+              className="hidden"
+            />
+            {evidencias.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {evidencias.map((src, i) =>
+                  esEvidenciaPdf(src) ? (
+                    <div
+                      key={`${i}-${src.slice(-16)}`}
+                      className="relative col-span-3 flex items-center gap-2.5 rounded-xl border border-brand-deep/20 bg-white px-2.5 py-2"
+                    >
+                      <MdPictureAsPdf className="text-2xl text-red-500 shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-bold text-brand-ink">Documento PDF</span>
+                        <span className="block text-[11px] font-medium text-brand-ink/50">
+                          {esEvidenciaPdf(src) && src.startsWith('data:') ? formatearBytes(tamanoDataUrl(src)) : 'Adjunto'}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => quitarEvidencia(i)}
+                        aria-label={`Quitar PDF ${i + 1}`}
+                        title="Quitar"
+                        className="grid place-items-center size-7 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition shrink-0"
+                      >
+                        <MdClose className="text-sm" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      key={`${i}-${src.slice(-16)}`}
+                      className="relative aspect-square rounded-xl overflow-hidden border border-brand-deep/20"
+                    >
+                      <img src={src} alt={`Evidencia ${i + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => quitarEvidencia(i)}
+                        aria-label={`Quitar imagen ${i + 1}`}
+                        title="Quitar"
+                        className="absolute top-1 right-1 grid place-items-center size-6 rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+                      >
+                        <MdClose className="text-sm" />
+                      </button>
+                      <span className="absolute bottom-1 left-1 grid place-items-center size-5 rounded-full bg-black/60 text-green-400">
+                        <MdCheckCircle className="text-xs" />
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+            {evidencias.length < MAX_IMAGENES && (
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="aspect-square rounded-xl border-2 border-dashed border-brand-deep/30 bg-brand-mist/40 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors flex flex-col items-center justify-center gap-1 text-brand-deep"
+                  className="flex-1 rounded-xl border-2 border-dashed border-brand-deep/30 bg-brand-mist/40 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors flex items-center justify-center gap-1.5 px-2 py-3 text-brand-deep"
                 >
-                  <MdPhotoCamera className="text-2xl" />
+                  <MdPhotoCamera className="text-xl" />
                   <span className="text-[11px] font-bold">Tomar foto</span>
                 </button>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => pdfRef.current?.click()}
+                  className="flex-1 rounded-xl border-2 border-dashed border-brand-deep/30 bg-brand-mist/40 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors flex items-center justify-center gap-1.5 px-2 py-3 text-brand-deep"
+                >
+                  <MdPictureAsPdf className="text-xl" />
+                  <span className="text-[11px] font-bold">Subir PDF</span>
+                </button>
+              </div>
+            )}
             <p className="mt-1.5 text-[11px] text-brand-ink/50">
-              Puedes tomar hasta {MAX_IMAGENES} fotos. Se guardan en la carpeta de la solicitud.
+              Puedes agregar hasta {MAX_IMAGENES} elementos, fotos tomadas con la cámara o PDFs. Se guardan en la carpeta de la solicitud.
             </p>
           </div>
 

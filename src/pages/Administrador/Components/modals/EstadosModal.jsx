@@ -29,7 +29,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const [numeroRef, setNumeroRef] = useState('')
   const [adjuntoTramite, setAdjuntoTramite] = useState([])
   const [guardado, setGuardado] = useState(false)
-  const [editarFactura, setEditarFactura] = useState(false)
+  const [asignarFactura, setAsignarFactura] = useState(false)
   const [editarConductor, setEditarConductor] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [errorSubida, setErrorSubida] = useState('')
@@ -54,7 +54,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setNumeroRef(solicitud.numeroReferencia || '')
     setAdjuntoTramite([])
     setGuardado(false)
-    setEditarFactura(false)
+    setAsignarFactura(false)
     setEditarConductor(false)
     setSubiendo(false)
     setErrorSubida('')
@@ -116,10 +116,16 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const esDevolucion = estado === ESTADO_DEVOLUCION
   const notaObligatoria = esDevolucion && nota.trim().length > 0
   const camposObligatorios = esDevolucion && camposCorregir.length > 0
+  // «En Trámite» se puede aplicar varias veces: si la solicitud ya está en
+  // trámite, basta abrir el modal y guardar (solo observaciones) sin factura.
+  const tramiteReaplicado =
+    estado === 'En Trámite' && !esSeleccionado && (solicitud.estado || 'Abierto') === 'En Trámite'
   const puedeGuardar =
     !subiendo &&
     (estado === 'En Trámite'
-      ? numeroRefValido
+      ? asignarFactura
+        ? numeroRefValido
+        : esSeleccionado || tramiteReaplicado
       : esDevolucion
         ? esSeleccionado && notaObligatoria && camposObligatorios
         : esSeleccionado
@@ -127,12 +133,14 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
           : esTransitoActual && transporteListo)
 
   const handleSelect = (e) => {
-    if (isCurrent(e)) return
+    // «En Trámite» se puede volver a aplicar aunque ya sea el estado actual.
+    if (isCurrent(e) && e !== 'En Trámite') return
     setEstado(e)
     setNota('')
     setCamposCorregir([])
     setNumeroRef('')
     setAdjuntoTramite([])
+    setAsignarFactura(false)
     setErrorSubida('')
   }
 
@@ -149,7 +157,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
       estado,
       notaEstado: esDevolucion ? componerMotivoDevolucion(camposCorregir, nota.trim()) : nota.trim(),
     }
-    if (estado === 'En Trámite') {
+    if (estado === 'En Trámite' && asignarFactura) {
       if (!numeroRef.trim() || adjuntoTramite.length === 0) return
       setSubiendo(true)
       try {
@@ -243,22 +251,24 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
             {listaEstados.map((e) => {
               const current = isCurrent(e)
               const esTransitoEstado = ESTADOS_TRANSITO.includes(e)
-              const mostrarPanel = e === estado && esSeleccionado
-              const editarTramiteActual = e === 'En Trámite' && current && editarFactura
+              const tramiteActual = (solicitud.estado || 'Abierto') === 'En Trámite'
+              // El panel de «En Trámite» queda abierto aunque sea el estado actual,
+              // para poder reaplicarlo o asignar la factura después.
+              const mostrarPanel = e === estado && (esSeleccionado || (e === 'En Trámite' && tramiteActual))
               const editarConductorActual = esTransitoEstado && current && editarConductor
-              const abrirPanel = mostrarPanel || editarTramiteActual || editarConductorActual
+              const abrirPanel = mostrarPanel || editarConductorActual
               return (
                 <div key={e}>
                   <button
                     type="button"
                     onClick={() => handleSelect(e)}
-                    disabled={current}
-                    title={current ? 'La solicitud ya está en este estado' : `Cambiar a ${e}`}
+                    disabled={current && e !== 'En Trámite'}
+                    title={current && e !== 'En Trámite' ? 'La solicitud ya está en este estado' : e === 'En Trámite' && current ? 'Reaplicar En Trámite (puede volver a guardarse sin factura)' : `Cambiar a ${e}`}
                     className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-brand-deep transition-all ${
                       current
                         ? 'bg-brand-cyan/15 ring-2 ring-brand-cyan/50 cursor-not-allowed'
                         : 'bg-brand-mist/40 hover:bg-brand-cyan/15 hover:ring-1 hover:ring-brand-cyan/40'
-                    }`}
+                    } ${current && e === 'En Trámite' ? 'ring-2 ring-brand-cyan/50' : ''}`}
                   >
                     <span className="inline-flex items-center gap-2.5 min-w-0">
                       <span className={`size-2.5 rounded-full shrink-0 ${getDotColor(e)}`} />
@@ -272,20 +282,6 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                       <MdSwapHoriz className="text-brand-cyan/60 shrink-0" />
                     )}
                   </button>
-                  {current && e === 'En Trámite' && (
-                    <button
-                      type="button"
-                      onClick={() => setEditarFactura((v) => !v)}
-                      className={`mt-1 w-full inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                        editarFactura
-                          ? 'bg-brand-deep/10 text-brand-deep'
-                          : 'bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/40 hover:bg-brand-cyan/25'
-                      }`}
-                    >
-                      <MdNumbers className="text-sm" />
-                      {editarFactura ? 'Ocultar campos de factura' : 'Editar factura o remisión'}
-                    </button>
-                  )}
                   {current && esTransitoEstado && (
                     <button
                       type="button"
@@ -362,11 +358,31 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                       )}
                       {e === 'En Trámite' && (
                         <div className="mt-2 space-y-2">
-                          <div>
-                            <label className="flex items-center gap-2 text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-2">
-                              <MdNumbers className="text-base text-brand-cyan" />
-                              Número de factura o remisión
-                            </label>
+                          <button
+                            type="button"
+                            onClick={() => setAsignarFactura((v) => !v)}
+                            className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
+                              asignarFactura
+                                ? 'bg-brand-deep text-white shadow-md'
+                                : 'bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/40 hover:bg-brand-cyan/25'
+                            }`}
+                          >
+                            {asignarFactura ? <MdCheck className="text-base" /> : <MdNumbers className="text-base" />}
+                            {asignarFactura ? 'Factura o remisión asignada — quitar' : 'Asignar factura o remisión'}
+                          </button>
+                          {!asignarFactura && (
+                            <p className="inline-flex items-start gap-1.5 text-[11px] font-semibold text-brand-ink/60">
+                              <MdInfoOutline className="text-sm shrink-0 mt-0.5" />
+                              Puedes guardar «En Trámite» con solo observaciones. Cuando tengas la factura o remisión, actívala aquí para adjuntarla.
+                            </p>
+                          )}
+                          {asignarFactura && (
+                          <div className="rounded-xl border border-brand-cyan/30 bg-brand-mist/30 p-3 space-y-2 animate-fadeIn">
+                            <div>
+                              <label className="flex items-center gap-2 text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-2">
+                                <MdNumbers className="text-base text-brand-cyan" />
+                                Número de factura o remisión <span className="text-red-500">*</span>
+                              </label>
                             <input
                               type="text"
                               inputMode="numeric"
@@ -446,6 +462,8 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                               </ul>
                             )}
                           </div>
+                          </div>
+                        )}
                         </div>
                       )}
                       {ESTADOS_TRANSITO.includes(e) && (
@@ -505,7 +523,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
             {bloqueadoCerrar && (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
                 <MdInfoOutline className="text-base shrink-0" />
-                {estado === 'En Trámite' && !numeroRefValido
+                {estado === 'En Trámite' && asignarFactura && !numeroRefValido
                   ? 'Completa número de factura o remisión y adjúntala para poder guardar'
                   : esDevolucion && !notaObligatoria
                     ? 'Escribe el motivo de la devolución para poder guardar'

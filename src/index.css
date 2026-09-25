@@ -397,6 +397,24 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
+/* Animacion de crecimiento de las barras de graficas del dashboard */
+@keyframes dbBarGrow {
+  from {
+    width: 0;
+    height: 0;
+  }
+}
+
+.db-bar-anim {
+  animation: dbBarGrow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: left center;
+}
+
+.db-bar-anim-v {
+  animation: dbBarGrow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: bottom center;
+}
+
 
 
 

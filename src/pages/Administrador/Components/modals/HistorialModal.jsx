@@ -82,6 +82,12 @@ export default function HistorialModal({ solicitud, open, onClose }) {
             <span className="inline-flex items-center gap-1 font-bold text-brand-deep"><MdTag className="text-brand-cyan" /> {solicitud.id}</span>
             <span className="inline-flex items-center gap-1 text-brand-ink/70"><MdBusiness className="text-brand-cyan" /> {solicitud.cliente || '—'}</span>
             <span className="inline-flex items-center gap-1 capitalize text-brand-ink/70"><MdPlace className="text-brand-cyan" /> {solicitud.zona || '—'}</span>
+            {solicitud.ordenCompra && (
+              <span className="inline-flex items-center gap-1 text-brand-ink/70"><MdTag className="text-brand-cyan" /> Ord. compra: {solicitud.ordenCompra}</span>
+            )}
+            {solicitud.cedula && (
+              <span className="inline-flex items-center gap-1 text-brand-ink/70"><MdTag className="text-brand-cyan" /> C.C. {solicitud.cedula}</span>
+            )}
           </div>
 
           {/* Lista de cambios (estado o asignación según tab) */}
