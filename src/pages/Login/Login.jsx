@@ -10,6 +10,7 @@ const ASSETS = {
   heroImages: [
     '/Principal/PEDRO.png',
     '/Principal/PRY-590.png',
+    '/Principal/KWL-381.png',
     '/Principal/CARDIO.png',
     '/Principal/MUNDO.png',
   ],

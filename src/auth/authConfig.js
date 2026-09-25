@@ -8,7 +8,7 @@ export const loginRequest = {
 }
 
 export const graphTokenRequest = {
-  scopes: ['Files.ReadWrite'],
+  scopes: ['Files.ReadWrite', 'Mail.Send'],
 }
 
 export const msalConfig = {

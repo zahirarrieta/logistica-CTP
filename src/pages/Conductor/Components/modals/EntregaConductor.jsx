@@ -4,6 +4,7 @@ import { RiSteering2Line } from 'react-icons/ri'
 import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
 import { subirDocEntregaOneDrive } from '../../../../services/oneDriveApi.js'
+import { enviarAlertaMalaCalificacion, UMBRAL_ALERTA_CALIDAD } from '../../../../services/enviarCorreo.js'
 import { evidenciaSubida, subidaPendiente } from '../../../../services/notificaciones.jsx'
 import {
   guardarBorradorEntrega,
@@ -218,6 +219,22 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     const evidenciaFinal = partes.join(SEP_EVIDENCIA)
     eliminarBorradorEntrega(solicitud.id)
     const preguntas = PREGUNTAS.map((p) => ({ pregunta: p, puntuacion: puntuaciones[p] || 0 }))
+    const promedio = preguntas.reduce((a, b) => a + b.puntuacion, 0) / preguntas.length
+    const encuesta = {
+      nombreEncuestado: nombreEncuestado.trim().toUpperCase(),
+      cargo: cargo.trim().toUpperCase(),
+      correo: correo.trim().toUpperCase(),
+      preguntas,
+      promedio,
+    }
+    // Alerta automática de control de calidad: si el promedio general es ≤ 2.5,
+    // se envía un correo al solicitante (To) con 5 destinatarios internos (CC).
+    // No bloquea el guardado: si falla (sin Mail.Send / sin red) solo se avisa.
+    if (promedio <= UMBRAL_ALERTA_CALIDAD) {
+      enviarAlertaMalaCalificacion(solicitud, encuesta).catch((err) => {
+        console.warn('[Correo alerta] no se pudo enviar la alerta de mala calificación:', err?.message)
+      })
+    }
     setContactos(
       guardarContactoEncuesta({
         nombre: nombreEncuestado.trim().toUpperCase(),
@@ -229,13 +246,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
       estado: estadoEntrega,
       notaEstado: observaciones.trim().toUpperCase(),
       evidencia: evidenciaFinal,
-      encuesta: {
-        nombreEncuestado: nombreEncuestado.trim().toUpperCase(),
-        cargo: cargo.trim().toUpperCase(),
-        correo: correo.trim().toUpperCase(),
-        preguntas,
-        promedio: preguntas.reduce((a, b) => a + b.puntuacion, 0) / preguntas.length,
-      },
+      encuesta,
     })
     onClose()
   }
@@ -391,7 +402,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
               </div>
             )}
             <p className="mt-1.5 text-[11px] text-brand-ink/50">
-              Puedes agregar hasta {MAX_IMAGENES} elementos, fotos tomadas con la cámara o PDFs. Se guardan en la carpeta de la solicitud.
+              Puedes agregar hasta {MAX_IMAGENES} elementos, fotos tomadas con la cámara o PDFs.
             </p>
           </div>
 
