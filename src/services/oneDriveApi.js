@@ -203,7 +203,9 @@ async function asegurarCarpetaSolicitud(token, raiz, usuario, idSolicitud, sub =
   return { driveId: raiz.driveId, rootId: padre.rootId }
 }
 
-export async function subirAdjuntosOneDrive(archivos, usuario, idSolicitud) {
+// Sube los adjuntos en paralelo (Promise.all): acelera el guardado cuando hay
+// varios archivos. `onProgreso(listos, total)` permite reportar cuántos van.
+export async function subirAdjuntosOneDrive(archivos, usuario, idSolicitud, onProgreso = null) {
   if (!Array.isArray(archivos) || archivos.length === 0) return []
 
   const token = await obtenerTokenGraph()
@@ -212,24 +214,29 @@ export async function subirAdjuntosOneDrive(archivos, usuario, idSolicitud) {
   // al abrir la carpeta del solicitante se ve todo junto, por pedido.
   const carpeta = await asegurarCarpetaSolicitud(token, raiz, usuario, idSolicitud)
 
-  const resultados = []
-  for (const archivo of archivos) {
-    const subido = await subirArchivo(
-      token,
-      carpeta.driveId,
-      carpeta.rootId,
-      sanitizarRuta(archivo.name),
-      archivo,
-      archivo.type || 'application/octet-stream'
-    )
-    resultados.push({
-      nombre: archivo.name,
-      url: subido.url,
-      tamaño: archivo.size,
-      tipo: archivo.type,
+  const total = archivos.length
+  let listos = 0
+  const resultados = await Promise.all(
+    archivos.map(async (archivo) => {
+      const subido = await subirArchivo(
+        token,
+        carpeta.driveId,
+        carpeta.rootId,
+        sanitizarRuta(archivo.name),
+        archivo,
+        archivo.type || 'application/octet-stream'
+      )
+      listos += 1
+      if (onProgreso) onProgreso(listos, total)
+      console.info(`[OneDrive] adjunto subido a la carpeta compartida → ${subido.url || '(sin webUrl)'}`)
+      return {
+        nombre: archivo.name,
+        url: subido.url,
+        tamaño: archivo.size,
+        tipo: archivo.type,
+      }
     })
-    console.info(`[OneDrive] adjunto subido a la carpeta compartida → ${subido.url || '(sin webUrl)'}`)
-  }
+  )
 
   return resultados
 }

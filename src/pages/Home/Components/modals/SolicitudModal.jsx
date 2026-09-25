@@ -310,8 +310,10 @@ useEffect(() => {
       let urlsNuevas = []
       if (nuevos.length > 0) {
         try {
-          setSubiendoMsg(`Subiendo ${nuevos.length} archivo(s) a OneDrive…`)
-          const subidos = await subirAdjuntosOneDrive(nuevos, formData.nombreCompleto, solicitud.id)
+          setSubiendoMsg(`Subiendo ${nuevos.length} ${nuevos.length === 1 ? 'archivo' : 'archivos'} a OneDrive…`)
+          const subidos = await subirAdjuntosOneDrive(nuevos, formData.nombreCompleto, solicitud.id, (listos, total) => {
+            setSubiendoMsg(`Subiendo ${listos} de ${total} a OneDrive…`)
+          })
           urlsNuevas = subidos.map((s) => s.url).filter(Boolean)
           documentosSubidos({ id: solicitud.id, nombres: nuevos.map((f) => f.name) })
           setSubiendoMsg('')
@@ -355,11 +357,14 @@ useEffect(() => {
 
       if (nuevos.length > 0) {
         try {
-          setSubiendoMsg(`Subiendo ${nuevos.length} archivo(s) a OneDrive…`)
+          setSubiendoMsg(`Subiendo ${nuevos.length} ${nuevos.length === 1 ? 'archivo' : 'archivos'} a OneDrive…`)
           const subidos = await subirAdjuntosOneDrive(
             nuevos,
             formData.nombreCompleto,
             idSolicitud,
+            (listos, total) => {
+              setSubiendoMsg(`Subiendo ${listos} de ${total} a OneDrive…`)
+            },
           )
           adjuntosUrls = [...existentes, ...subidos.map((s) => s.url).filter(Boolean)]
           documentosSubidos({ id: idSolicitud, nombres: nuevos.map((f) => f.name) })
