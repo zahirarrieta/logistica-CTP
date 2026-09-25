@@ -73,7 +73,7 @@ export function Kpi({ icon, label, value, accent, sub }) {
 
 export function Seccion({ icon, titulo, children, className = '' }) {
   return (
-    <section className={`rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-5 sm:p-6 ${className}`}>
+    <section className={`rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-5 sm:p-6 ${className} db-chart-enter`}>
       <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep mb-5">
         <span className="grid place-items-center size-8 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30">
           {icon}
@@ -90,14 +90,16 @@ export function Donut({ porEstado, total }) {
   const C = 2 * Math.PI * R
   let acumulado = 0
   return (
-    <div className="flex flex-col items-center justify-center gap-6 pt-2 sm:flex-row sm:items-center sm:justify-center sm:gap-12 sm:pt-5">
-      <div className="relative shrink-0 animate-fadeIn">
+    <div className="flex flex-col items-center justify-center gap-6 pt-2 sm:flex-row sm:items-center sm:justify-center sm:gap-12 sm:pt-5 db-chart-enter">
+      <div className="relative shrink-0">
         <svg viewBox="0 0 140 140" className="w-56 h-56 sm:w-64 sm:h-64 drop-shadow-sm">
           <circle cx="70" cy="70" r={R} fill="none" stroke="#EAF4F7" strokeWidth="16" />
-          {porEstado.map(({ estado, count }) => {
+          {porEstado.map(({ estado, count }, idx) => {
             const frac = total ? count / total : 0
             const len = Math.max(frac * C - 1.5, 0.4)
             const inicio = acumulado
+            const offset = -inicio * C
+            const dashOffset = C - len
             acumulado += frac
             return (
               <circle
@@ -110,8 +112,10 @@ export function Donut({ porEstado, total }) {
                 strokeWidth="16"
                 strokeLinecap="butt"
                 strokeDasharray={`${len} ${C}`}
-                strokeDashoffset={-inicio * C}
+                strokeDashoffset={dashOffset}
                 transform="rotate(-90 70 70)"
+                className="db-donut-sector"
+                style={{ animationDelay: `${idx * 0.1}s`, '--dash-offset': dashOffset }}
               >
                 <title>{`${estado}: ${count} pedidos`}</title>
               </circle>
@@ -149,9 +153,9 @@ export function Donut({ porEstado, total }) {
 function BarrasAsignado({ items, onClick, hint }) {
   const max = Math.max(1, ...items.map((i) => i.total))
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2.5 db-chart-enter">
       {items.length === 0 && <p className="text-sm text-brand-ink/50">Sin asignaciones</p>}
-      {items.map((i) => {
+      {items.map((i, idx) => {
         const fila = (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2 text-sm">
@@ -162,12 +166,12 @@ function BarrasAsignado({ items, onClick, hint }) {
             </div>
             <div className="flex h-3 w-full overflow-hidden rounded-full bg-brand-mist ring-1 ring-brand-ink/5">
               <span
-                className="db-bar-anim h-full rounded-l-full bg-gradient-to-r from-brand-deep to-brand-cyan"
+                className="db-bar-anim db-bar-stagger-1 h-full rounded-l-full bg-gradient-to-r from-brand-deep to-brand-cyan"
                 style={{ width: `${(i.activos / max) * 100}%` }}
                 title={`${i.activos} activos`}
               />
               <span
-                className="db-bar-anim h-full rounded-r-full bg-green-500"
+                className="db-bar-anim db-bar-stagger-2 h-full rounded-r-full bg-green-500"
                 style={{ width: `${(i.entregados / max) * 100}%` }}
                 title={`${i.entregados} entregados`}
               />
@@ -204,8 +208,9 @@ export function BarrasH({ items, colorHex, formato, onClick, hint }) {
   const max = Math.max(1, ...items.map((i) => i.valor))
   if (items.length === 0) return <p className="text-sm text-brand-ink/50">Sin datos</p>
   return (
-    <div className="space-y-2.5">
-      {items.map((i) => {
+    <div className="space-y-2.5 db-chart-enter">
+      {items.map((i, idx) => {
+        const stagger = `db-bar-stagger-${Math.min(idx + 1, 12)}`
         const barras = (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2 text-sm">
@@ -216,7 +221,7 @@ export function BarrasH({ items, colorHex, formato, onClick, hint }) {
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-brand-mist ring-1 ring-brand-ink/5">
               <span
-                className={`db-bar-anim block h-full rounded-full ${colorHex ? '' : 'bg-gradient-to-r from-brand-deep to-brand-cyan'}`}
+                className={`${stagger} db-bar-anim block h-full rounded-full ${colorHex ? '' : 'bg-gradient-to-r from-brand-deep to-brand-cyan'}`}
                 style={colorHex ? { width: `${(i.valor / max) * 100}%`, backgroundColor: colorHex } : { width: `${(i.valor / max) * 100}%` }}
               />
             </div>
@@ -243,14 +248,15 @@ export function BarrasH({ items, colorHex, formato, onClick, hint }) {
 export function Histograma({ items }) {
   const max = Math.max(1, ...items.map((i) => i.count))
   return (
-    <div className="flex items-end justify-between gap-2 sm:gap-3 h-40">
+    <div className="flex items-end justify-between gap-2 sm:gap-3 h-40 db-chart-enter">
       {items.map((b, idx) => {
         const alto = Math.max(6, Math.round((b.count / max) * 100))
+        const stagger = `db-bar-stagger-${Math.min(idx + 1, 12)}`
         return (
           <div key={b.key || idx} className="flex flex-1 flex-col items-center justify-end gap-1.5 h-full">
             <span className="text-xs font-extrabold text-brand-ink tabular-nums">{b.count}</span>
             <div
-              className="db-bar-anim-v w-full rounded-t-lg transition-all"
+              className={`${stagger} db-bar-anim-v w-full rounded-t-lg transition-all`}
               style={{ height: `${alto}%`, backgroundColor: b.color }}
               title={`${b.label}: ${b.count}`}
             />
@@ -265,24 +271,27 @@ export function Histograma({ items }) {
 export function BarrasActividad({ serie }) {
   const max = Math.max(1, ...serie.flatMap((d) => [d.creadas, d.entregadas]))
   return (
-    <div className="flex items-end justify-between gap-1.5 sm:gap-2 h-40">
-      {serie.map((d) => (
-        <div key={d.clave} className="flex flex-1 flex-col items-center justify-end gap-1 h-full">
-          <div className="flex items-end gap-[3px] w-full h-28">
-            <span
-              className="db-bar-anim-v flex-1 rounded-t-md bg-gradient-to-t from-brand-deep to-brand-cyan"
-              style={{ height: `${Math.max(3, (d.creadas / max) * 100)}%` }}
-              title={`${d.creadas} creadas · ${d.clave}`}
-            />
-            <span
-              className="db-bar-anim-v flex-1 rounded-t-md bg-green-500"
-              style={{ height: `${Math.max(3, (d.entregadas / max) * 100)}%` }}
-              title={`${d.entregadas} entregadas · ${d.clave}`}
-            />
+    <div className="flex items-end justify-between gap-1.5 sm:gap-2 h-40 db-chart-enter">
+      {serie.map((d, idx) => {
+        const stagger = `db-bar-stagger-${Math.min(idx + 1, 12)}`
+        return (
+          <div key={d.clave} className="flex flex-1 flex-col items-center justify-end gap-1 h-full">
+            <div className="flex items-end gap-[3px] w-full h-28">
+              <span
+                className={`${stagger} db-bar-anim-v flex-1 rounded-t-md bg-gradient-to-t from-brand-deep to-brand-cyan`}
+                style={{ height: `${Math.max(3, (d.creadas / max) * 100)}%` }}
+                title={`${d.creadas} creadas · ${d.clave}`}
+              />
+              <span
+                className={`${stagger} db-bar-anim-v flex-1 rounded-t-md bg-green-500`}
+                style={{ height: `${Math.max(3, (d.entregadas / max) * 100)}%` }}
+                title={`${d.entregadas} entregadas · ${d.clave}`}
+              />
+            </div>
+            <span className="text-[9px] font-bold text-brand-ink/50 whitespace-nowrap">{d.nombre}</span>
           </div>
-          <span className="text-[9px] font-bold text-brand-ink/50 whitespace-nowrap">{d.nombre}</span>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -292,9 +301,10 @@ const ESTRELLA_BAR = { 1: 'bg-red-500', 2: 'bg-amber-500', 3: 'bg-green-500' }
 export function DistribucionEstrellas({ items, total, onClick, hint }) {
   if (items.length === 0) return <p className="text-sm text-brand-ink/50">Sin datos</p>
   return (
-    <div className="space-y-2.5">
-      {items.map((s) => {
+    <div className="space-y-2.5 db-chart-enter">
+      {items.map((s, idx) => {
         const pct = total ? Math.round((s.count / total) * 100) : 0
+        const stagger = `db-bar-stagger-${Math.min(idx + 1, 12)}`
         const fila = (
           <div className="flex items-center gap-2.5">
             <span className="w-9 shrink-0">
@@ -303,7 +313,7 @@ export function DistribucionEstrellas({ items, total, onClick, hint }) {
             <span className="w-20 truncate text-sm font-bold text-brand-deep">{s.nombre}</span>
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-brand-mist ring-1 ring-brand-ink/5">
               <span
-                className={`db-bar-anim block h-full rounded-full ${ESTRELLA_BAR[s.estrellas]}`}
+                className={`${stagger} db-bar-anim block h-full rounded-full ${ESTRELLA_BAR[s.estrellas]}`}
                 style={{ width: `${pct}%` }}
                 title={`${s.count} respuestas (${pct}%)`}
               />
@@ -334,8 +344,9 @@ export function SatisfaccionLista({ items, onClick, hint }) {
   const max = Math.max(1, ...items.map((i) => i.valor))
   if (items.length === 0) return <p className="text-sm text-brand-ink/50">Sin encuestas</p>
   return (
-    <div className="space-y-2.5">
-      {items.map((i) => {
+    <div className="space-y-2.5 db-chart-enter">
+      {items.map((i, idx) => {
+        const stagger = `db-bar-stagger-${Math.min(idx + 1, 12)}`
         const fila = (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2 text-sm">
@@ -346,7 +357,7 @@ export function SatisfaccionLista({ items, onClick, hint }) {
               <StarRating value={Math.round(i.valor)} max={3} disabled compact />
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-brand-mist ring-1 ring-brand-ink/5">
                 <span
-                  className="db-bar-anim block h-full rounded-full bg-gradient-to-r from-brand-deep to-brand-cyan"
+                  className={`${stagger} db-bar-anim block h-full rounded-full bg-gradient-to-r from-brand-deep to-brand-cyan`}
                   style={{ width: `${(i.valor / max) * 100}%` }}
                 />
               </div>

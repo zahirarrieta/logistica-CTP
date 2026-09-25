@@ -397,7 +397,7 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
-/* Animacion de crecimiento de las barras de graficas del dashboard */
+/* Animación de crecimiento de las barras de gráficas del dashboard */
 @keyframes dbBarGrow {
   from {
     width: 0;
@@ -405,14 +405,79 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
+@keyframes dbBarGrowV {
+  from {
+    height: 0;
+  }
+}
+
+@keyframes dbBarBounce {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(1.02); }
+}
+
+@keyframes dbBarPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes dbFadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dbFadeInLeft {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Barras horizontales: crecimiento desde la izquierda */
 .db-bar-anim {
   animation: dbBarGrow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: left center;
 }
 
+/* Barras verticales: crecimiento desde abajo */
 .db-bar-anim-v {
-  animation: dbBarGrow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: dbBarGrowV 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: bottom center;
+}
+
+/* Entrada escalonada para contenedores de gráficas */
+.db-chart-enter {
+  animation: dbFadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Efecto hover en barras */
+.db-bar-anim:hover,
+.db-bar-anim-v:hover {
+  animation: dbBarBounce 0.3s ease-out, dbBarPulse 1.5s ease-in-out infinite;
+  filter: brightness(1.1);
+}
+
+/* Stagger delays para listas de barras */
+.db-bar-stagger-1  { animation-delay: 0.05s; }
+.db-bar-stagger-2  { animation-delay: 0.1s; }
+.db-bar-stagger-3  { animation-delay: 0.15s; }
+.db-bar-stagger-4  { animation-delay: 0.2s; }
+.db-bar-stagger-5  { animation-delay: 0.25s; }
+.db-bar-stagger-6  { animation-delay: 0.3s; }
+.db-bar-stagger-7  { animation-delay: 0.35s; }
+.db-bar-stagger-8  { animation-delay: 0.4s; }
+.db-bar-stagger-9  { animation-delay: 0.45s; }
+.db-bar-stagger-10 { animation-delay: 0.5s; }
+.db-bar-stagger-11 { animation-delay: 0.55s; }
+.db-bar-stagger-12 { animation-delay: 0.6s; }
+
+/* Donut chart animation */
+@keyframes dbDonutDraw {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: var(--dash-offset, 0); }
+}
+
+.db-donut-sector {
+  animation: dbDonutDraw 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
 }
 
 
