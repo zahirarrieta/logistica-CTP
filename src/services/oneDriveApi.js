@@ -17,9 +17,14 @@ export async function obtenerTokenGraph() {
     })
     return resp.accessToken
   } catch (err) {
-    console.warn('[OneDrive] token silencioso falló, intentando popup:', err.message)
-    const resp = await msalInstance.acquireTokenPopup(graphTokenRequest)
-    return resp.accessToken
+    // Fallback por redirección: evita `popup_window_error` en tabletas/navegadores
+    // que bloquean ventanas emergentes. La página recarga y `handleRedirectPromise()`
+    // (auth/msal.js) procesa la respuesta al volver.
+    console.warn('[OneDrive] token silencioso falló, redirigiendo para autorizar:', err.message)
+    msalInstance.acquireTokenRedirect(graphTokenRequest).catch((e) => {
+      console.error('[OneDrive] no se pudo iniciar la redirección de autorización:', e?.message)
+    })
+    throw new Error('Autorizando con Microsoft… la página se recargará.')
   }
 }
 
