@@ -58,7 +58,7 @@ function Login() {
         </div>
 
         {/* Hero Section, mismo diseño que el Home */}
-        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(2rem,7vw,5rem)] relative lg:min-h-[60vh] xl:min-h-[70vh] 2xl:min-h-[75vh] lg:max-h-[90vh]">
+        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(0.75rem,3vw,2rem)] relative lg:min-h-[46vh] xl:min-h-[52vh] 2xl:min-h-[56vh] lg:max-h-[82vh]">
           <div className="mx-auto w-full max-w-[min(1680px,88vw)] px-5">
             <div className="relative rounded-[2rem] bg-white/[0.04] backdrop-blur-md ring-1 ring-brand-cyan/15 shadow-2xl p-5 sm:p-7 md:p-8 overflow-hidden">
               <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-cyan/60 to-transparent" />
@@ -78,6 +78,10 @@ function Login() {
                   <h2 className="mt-3 sm:mt-4 text-[clamp(1rem,2.2vw,1.7rem)] font-extrabold text-brand-mist drop-shadow-[0_4px_14px_rgba(0,0,0,0.4)] login-enter">
                     LOGÍSTICA Y TRANSPORTE
                   </h2>
+                  <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand-cyan/10 ring-1 ring-brand-cyan/30 px-3 py-1.5 text-[clamp(0.65rem,1.6vw,0.9rem)] font-semibold tracking-wide text-brand-cyan login-enter">
+                    <span className="size-2 rounded-full bg-brand-cyan shadow-cyanGlow" />
+                    SERVICIO NACIONAL
+                  </span>
                   <div className="mt-6 flex flex-wrap gap-2 opacity-95 login-enter">
                     {TAGS.map((tag) => (
                       <span

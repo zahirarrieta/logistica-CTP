@@ -26,6 +26,14 @@ const ASSETS = {
 
 const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional', 'Logística inversa']
 
+// Etiqueta del rol del usuario que inició sesión (badge junto al de Servicio Nacional).
+const ROL_BADGE = {
+  superadmin: 'SUPER ADMINISTRADOR',
+  administrador: 'ADMINISTRADOR',
+  conductor: 'CONDUCTOR',
+  solicitante: 'SOLICITANTE',
+}
+
 function Home() {
   const { account, rol } = useAuth()
   const navigate = useNavigate()
@@ -79,7 +87,7 @@ function Home() {
         <Header />
 
         {/* Hero Section */}
-        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(2rem,7vw,5rem)] relative lg:min-h-[60vh] xl:min-h-[70vh] 2xl:min-h-[75vh] lg:max-h-[90vh]">
+        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(0.75rem,3vw,2rem)] relative lg:min-h-[46vh] xl:min-h-[52vh] 2xl:min-h-[56vh] lg:max-h-[82vh]">
           <div className="mx-auto w-full max-w-[min(1680px,88vw)] px-5">
             {/* Card unificado para texto + carrusel */}
             <div className="relative rounded-[2rem] bg-white/[0.04] backdrop-blur-md ring-1 ring-brand-cyan/15 shadow-2xl p-5 sm:p-7 md:p-8 overflow-hidden">
@@ -89,7 +97,7 @@ function Home() {
                 <section className="text-white relative z-[1]">
                   <span className="inline-flex items-center gap-2 rounded-full bg-brand-cyan/10 ring-1 ring-brand-cyan/30 px-3 py-1.5 text-[clamp(0.65rem,1.6vw,0.9rem)] font-semibold tracking-wide text-brand-cyan">
                     <span className="size-2 rounded-full bg-brand-cyan shadow-cyanGlow" />
-                    Servicio nacional 
+                    {ROL_BADGE[rol] || ROL_BADGE.solicitante}
                   </span>
                   <h1 className="mt-4 font-display text-[clamp(2.4rem,5.8vw,6rem)] leading-[0.9] font-black text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
                     <span className="block">BIENVENIDO</span>
@@ -101,6 +109,10 @@ function Home() {
                   <h2 className="mt-3 sm:mt-4 text-[clamp(1rem,2.2vw,1.7rem)] font-extrabold text-brand-mist drop-shadow-[0_4px_14px_rgba(0,0,0,0.4)]">
                     LOGÍSTICA Y TRANSPORTE
                   </h2>
+                  <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand-cyan/10 ring-1 ring-brand-cyan/30 px-3 py-1.5 text-[clamp(0.65rem,1.6vw,0.9rem)] font-semibold tracking-wide text-brand-cyan">
+                    <span className="size-2 rounded-full bg-brand-cyan shadow-cyanGlow" />
+                    SERVICIO NACIONAL
+                  </span>
                   <div className="mt-6 flex flex-wrap gap-2 opacity-95">
                     {TAGS.map((tag) => (
                       <span

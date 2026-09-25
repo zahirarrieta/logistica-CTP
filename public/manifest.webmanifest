@@ -1,7 +1,7 @@
 {
-  "name": "Logística CTP-PEDRO",
-  "short_name": "CTP Logística",
-  "description": "Gestión de solicitudes de logística CTP-PEDRO: creación, seguimiento, asignación y entregas.",
+  "name": "ICOCYP",
+  "short_name": "ICOCYP",
+  "description": "Gestión de solicitudes de logística PEDRO: creación, seguimiento, asignación y entregas.",
   "start_url": "/inicio",
   "scope": "/",
   "display": "standalone",
@@ -11,8 +11,8 @@
   "lang": "es",
   "icons": [
     {
-      "src": "/CTPM.png",
-      "sizes": "346x346",
+      "src": "/ICOCTP.png",
+      "sizes": "62x61",
       "type": "image/png",
       "purpose": "any maskable"
     }
