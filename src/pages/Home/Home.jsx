@@ -35,7 +35,7 @@ const ROL_BADGE = {
 }
 
 function Home() {
-  const { account, rol } = useAuth()
+  const { account, rol, usuario } = useAuth()
   const navigate = useNavigate()
   const conductor = esConductor(rol)
   const [showModal, setShowModal] = useState(false)
@@ -102,7 +102,7 @@ function Home() {
                   <h1 className="mt-4 font-display text-[clamp(2.4rem,5.8vw,6rem)] leading-[0.9] font-black text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
                     <span className="block">BIENVENIDO</span>
                     <span className="block relative bg-gradient-to-r from-brand-cyan via-brand-cyanSoft to-brand-cyan bg-clip-text text-transparent text-[clamp(1.6rem,4.4vw,4.2rem)]">
-                      {shortName(account) || 'ADMINISTRADOR'}
+                      {shortName({ name: usuario?.nombre || account?.name }) || 'ADMINISTRADOR'}
                       <span aria-hidden className="absolute -inset-x-1 -bottom-1 h-2 bg-gradient-to-r from-brand-cyan/40 via-brand-cyan/60 to-brand-cyan/40 blur-md" />
                     </span>
                   </h1>

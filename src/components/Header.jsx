@@ -14,9 +14,10 @@ const MENU = [
 
 export default function Header() {
   const { pathname } = useLocation()
-  const { logout, account, rol } = useAuth()
+  const { logout, account, rol, usuario } = useAuth()
 
-  const greeting = account?.name ? `Hola, ${shortName(account)}` : 'Cerrar sesión'
+  const nombreUsuario = usuario?.nombre || account?.name || ''
+  const greeting = nombreUsuario ? `Hola, ${shortName({ name: nombreUsuario })}` : 'Cerrar sesión'
   const enlaces = MENU.filter((item) => puedeVer(rol, item.to))
 
   return (
