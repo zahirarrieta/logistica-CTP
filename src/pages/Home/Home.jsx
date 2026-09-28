@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MdClose, MdSend } from 'react-icons/md'
 import { FiTruck } from 'react-icons/fi'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -10,8 +9,6 @@ import { solicitudCreada } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { shortName } from '../../auth/user.js'
 import { esConductor } from '../../auth/roles.js'
-
-
 
 const ASSETS = {
   logo: '/CTPM.png',
@@ -38,10 +35,7 @@ function Home() {
   const { account, rol, usuario } = useAuth()
   const navigate = useNavigate()
   const conductor = esConductor(rol)
-  const [showModal, setShowModal] = useState(false)
   const [solicitudModalOpen, setSolicitudModalOpen] = useState(false)
-  const [email, setEmail] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const touchStartXRef = useRef(null)
@@ -58,13 +52,6 @@ function Home() {
     }, 5000)
     return () => clearInterval(id)
   }, [totalSlides, isPaused])
-
-  const handleModalSubmit = (e) => {
-    e.preventDefault()
-    // Aquí iría la lógica de autenticación
-    console.log('Email:', email, 'Remember:', rememberMe)
-    setShowModal(false)
-  }
 
   const handleNewSolicitud = async (data, idSolicitud) => {
     const siguiente = await saveSolicitud(data, idSolicitud)
@@ -195,44 +182,6 @@ className={`absolute inset-0 m-auto max-h-full max-w-full object-contain transit
           </div>
         </main>
       </div>
-
-      {/* Modal de Acceso Restringido */}
-      {showModal && (
-        <div className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 animate-fadeIn" onClick={() => setShowModal(false)}>
-          <div className="relative bg-white text-[#333] w-full max-w-[420px] rounded-2xl shadow-2xl p-5 sm:p-6 animate-scaleIn" onClick={(e) => e.stopPropagation()}>
-            <button aria-label="Cerrar" className="absolute top-3 right-3 w-8 h-8 grid place-items-center text-[#666] hover:bg-[#f0f0f0] rounded-full transition" onClick={() => setShowModal(false)}>
-              <MdClose className="text-xl" />
-            </button>
-            <h3 className="text-lg sm:text-xl font-bold text-center mb-4 sm:mb-5">ACCESO RESTRINGIDO</h3>
-            <form onSubmit={handleModalSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="font-medium text-[#555]" htmlFor="email">Correo Electrónico</label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="px-3 py-2.5 border-2 border-[#ddd] rounded-lg focus:outline-none focus:border-[#00E5FF]"
-                />
-              </div>
-              <label htmlFor="remember" className="inline-flex items-center gap-2 select-none">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="size-4"
-                />
-                <span className="text-[#555]">Recuérdame</span>
-              </label>
-              <button type="submit" className="mt-2 bg-gradient-to-r from-[#00E5FF] to-[#003B73] text-brand-ink font-semibold rounded-lg py-2.5 hover:-translate-y-0.5 transition shadow-md">
-                REGISTRAR
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
       <Footer />
       <SolicitudModal

@@ -151,7 +151,7 @@ function BarrasAsignado({ items, onClick, hint }) {
   return (
     <div className="space-y-2.5 db-chart-enter">
       {items.length === 0 && <p className="text-sm text-brand-ink/50">Sin asignaciones</p>}
-      {items.map((i, idx) => {
+      {items.map((i) => {
         const fila = (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2 text-sm">

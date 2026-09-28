@@ -38,7 +38,6 @@ export default defineConfig(({ mode }) => {
             if (id.includes('@supabase')) return 'supabase'
             if (id.includes('react-icons')) return 'icons'
             if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf'
-            if (id.includes('animejs') || /node_modules[\\/]anime[\\/]/.test(id)) return 'anime'
             if (id.includes('react-router')) return 'router'
             if (
               id.includes('node_modules/react/')
