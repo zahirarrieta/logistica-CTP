@@ -94,12 +94,10 @@ export function Donut({ porEstado, total }) {
       <div className="relative shrink-0">
         <svg viewBox="0 0 140 140" className="w-56 h-56 sm:w-64 sm:h-64 drop-shadow-sm">
           <circle cx="70" cy="70" r={R} fill="none" stroke="#EAF4F7" strokeWidth="16" />
-          {porEstado.map(({ estado, count }, idx) => {
+          {porEstado.map(({ estado, count }) => {
             const frac = total ? count / total : 0
             const len = Math.max(frac * C - 1.5, 0.4)
             const inicio = acumulado
-            const offset = -inicio * C
-            const dashOffset = C - len
             acumulado += frac
             return (
               <circle
@@ -112,10 +110,8 @@ export function Donut({ porEstado, total }) {
                 strokeWidth="16"
                 strokeLinecap="butt"
                 strokeDasharray={`${len} ${C}`}
-                strokeDashoffset={dashOffset}
+                strokeDashoffset={-inicio * C}
                 transform="rotate(-90 70 70)"
-                className="db-donut-sector"
-                style={{ animationDelay: `${idx * 0.1}s`, '--dash-offset': dashOffset }}
               >
                 <title>{`${estado}: ${count} pedidos`}</title>
               </circle>

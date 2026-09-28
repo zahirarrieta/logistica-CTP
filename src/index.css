@@ -469,17 +469,6 @@ input:focus, textarea:focus, select:focus {
 .db-bar-stagger-11 { animation-delay: 0.55s; }
 .db-bar-stagger-12 { animation-delay: 0.6s; }
 
-/* Donut chart animation */
-@keyframes dbDonutDraw {
-  from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: var(--dash-offset, 0); }
-}
-
-.db-donut-sector {
-  animation: dbDonutDraw 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-  transform-origin: center;
-}
-
 
 
 
