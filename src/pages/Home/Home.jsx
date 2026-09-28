@@ -87,33 +87,33 @@ function Home() {
         <Header />
 
         {/* Hero Section */}
-        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(0.75rem,3vw,2rem)] relative lg:min-h-[46vh] xl:min-h-[52vh] 2xl:min-h-[56vh] lg:max-h-[82vh]">
+        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(0.75rem,3vw,2rem)] md:pt-4 md:pb-4 relative lg:min-h-[46vh] xl:min-h-[52vh] 2xl:min-h-[56vh] lg:max-h-[82vh]">
           <div className="mx-auto w-full max-w-[min(1680px,88vw)] px-5">
             {/* Card unificado para texto + carrusel */}
-            <div className="relative rounded-[2rem] bg-white/[0.04] backdrop-blur-md ring-1 ring-brand-cyan/15 shadow-2xl p-5 sm:p-7 md:p-8 overflow-hidden">
+            <div className="relative rounded-[2rem] bg-white/[0.04] backdrop-blur-md ring-1 ring-brand-cyan/15 shadow-2xl p-5 sm:p-7 md:p-6 lg:p-8 overflow-hidden">
               {/* Borde superior con degradado cian */}
               <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-cyan/60 to-transparent" />
-              <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] xl:grid-cols-[1fr_1fr] items-center gap-8 sm:gap-10">
+              <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] xl:grid-cols-[1fr_1fr] items-center gap-8 sm:gap-10 md:gap-6 lg:gap-10">
                 <section className="text-white relative z-[1]">
                   <span className="inline-flex items-center gap-2 rounded-full bg-brand-cyan/10 ring-1 ring-brand-cyan/30 px-3 py-1.5 text-[clamp(0.65rem,1.6vw,0.9rem)] font-semibold tracking-wide text-brand-cyan">
                     <span className="size-2 rounded-full bg-brand-cyan shadow-cyanGlow" />
                     {ROL_BADGE[rol] || ROL_BADGE.solicitante}
                   </span>
-                  <h1 className="mt-4 font-display text-[clamp(2.4rem,5.8vw,6rem)] leading-[0.9] font-black text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+                  <h1 className="mt-4 font-display text-[clamp(2.4rem,5.8vw,6rem)] md:text-[clamp(1.9rem,4.4vw,2.7rem)] leading-[0.9] font-black text-white drop-shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
                     <span className="block">BIENVENIDO</span>
-                    <span className="block relative bg-gradient-to-r from-brand-cyan via-brand-cyanSoft to-brand-cyan bg-clip-text text-transparent text-[clamp(1.6rem,4.4vw,4.2rem)]">
+                    <span className="block relative bg-gradient-to-r from-brand-cyan via-brand-cyanSoft to-brand-cyan bg-clip-text text-transparent text-[clamp(1.6rem,4.4vw,4.2rem)] md:text-[clamp(1.4rem,3.4vw,2.2rem)]">
                       {shortName({ name: usuario?.nombre || account?.name }) || 'ADMINISTRADOR'}
                       <span aria-hidden className="absolute -inset-x-1 -bottom-1 h-2 bg-gradient-to-r from-brand-cyan/40 via-brand-cyan/60 to-brand-cyan/40 blur-md" />
                     </span>
                   </h1>
-                  <h2 className="mt-3 sm:mt-4 text-[clamp(1rem,2.2vw,1.7rem)] font-extrabold text-brand-mist drop-shadow-[0_4px_14px_rgba(0,0,0,0.4)]">
+                  <h2 className="mt-3 sm:mt-4 text-[clamp(1rem,2.2vw,1.7rem)] md:text-[clamp(1rem,2.1vw,1.25rem)] font-extrabold text-brand-mist drop-shadow-[0_4px_14px_rgba(0,0,0,0.4)]">
                     LOGÍSTICA Y TRANSPORTE
                   </h2>
-                  <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand-cyan/10 ring-1 ring-brand-cyan/30 px-3 py-1.5 text-[clamp(0.65rem,1.6vw,0.9rem)] font-semibold tracking-wide text-brand-cyan">
+                  <span className="mt-4 md:mt-3 inline-flex items-center gap-2 rounded-full bg-brand-cyan/10 ring-1 ring-brand-cyan/30 px-3 py-1.5 text-[clamp(0.65rem,1.6vw,0.9rem)] font-semibold tracking-wide text-brand-cyan">
                     <span className="size-2 rounded-full bg-brand-cyan shadow-cyanGlow" />
                     SERVICIO NACIONAL
                   </span>
-                  <div className="mt-6 flex flex-wrap gap-2 opacity-95">
+                  <div className="mt-6 md:mt-4 flex flex-wrap gap-2 opacity-95">
                     {TAGS.map((tag) => (
                       <span
                         key={tag}
@@ -123,11 +123,11 @@ function Home() {
                       </span>
                     ))}
                   </div>
-                  <div className="mt-8 sm:mt-10 flex flex-wrap justify-start gap-3">
+                  <div className="mt-8 sm:mt-10 md:mt-6 lg:mt-10 flex flex-wrap justify-start gap-3">
                     <button
                       type="button"
                       onClick={() => (conductor ? navigate('/conductor') : setSolicitudModalOpen(true))}
-                      className="group relative inline-flex items-center justify-center rounded-2xl px-10 py-4 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40"
+                      className="group relative inline-flex items-center justify-center rounded-2xl px-10 py-4 md:px-8 md:py-3.5 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40"
                     >
                       <span className="relative z-10 flex w-full items-center gap-3 transition-all duration-500 group-hover:gap-10">
                         <img
@@ -166,7 +166,7 @@ function Home() {
                       {/* Halo cian sutil alrededor del carrusel */}
                       <div aria-hidden className="absolute inset-[-10%] rounded-full bg-brand-cyan/12 blur-[80px] pointer-events-none" />
                       {/* Viewport fijo para evitar saltos por tamaños distintos */}
-                      <div className="relative w-[min(95vw,900px)] lg:w-[clamp(500px,50vw,1000px)] xl:w-[clamp(600px,45vw,1100px)] 2xl:w-[clamp(700px,40vw,1200px)] max-w-full min-h-[280px] lg:min-h-[400px] xl:min-h-[480px] aspect-[5/4] flex items-center justify-center">
+                      <div className="relative w-[min(95vw,900px)] md:w-[min(48vw,340px)] lg:w-[clamp(500px,50vw,1000px)] xl:w-[clamp(600px,45vw,1100px)] 2xl:w-[clamp(700px,40vw,1200px)] max-w-full min-h-[280px] md:min-h-[210px] lg:min-h-[400px] xl:min-h-[480px] aspect-[5/4] flex items-center justify-center">
                         {ASSETS.heroImages.map((src, idx) => (
                           <img
                             key={src}
