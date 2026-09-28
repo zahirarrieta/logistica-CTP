@@ -10,8 +10,8 @@ import {
   tiempoPorEstado,
   tiempoEntrega,
   formatHoras,
-} from './dashboardUtils.js'
-import { ESTADOS } from '../../Home/Components/estadoColors.js'
+} from '../utils/dashboardUtils.js'
+import { ESTADOS } from '../utils/estadoColors.js'
 
 let libs = null
 

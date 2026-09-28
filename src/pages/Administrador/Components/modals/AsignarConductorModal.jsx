@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { RiSteering2Line } from 'react-icons/ri'
 import { MdClose, MdCheckCircle, MdTag, MdCheck, MdLocalShipping, MdEdit, MdTwoWheeler, MdDirectionsCar, MdNumbers, MdDirectionsBus, MdLock } from 'react-icons/md'
-import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
+import { nombreDeAsignado } from '../../../../store/solicitudesStore.js'
 import useUsuarios from '../../../../hooks/useUsuarios.js'
 import { esConductorUsuario } from '../../../../auth/roles.js'
+import Modal from '../../../../components/Modal.jsx'
 
 const OPCION_OTRO = 'Otro'
 
@@ -115,10 +116,7 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
-    >
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-md rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -316,6 +314,6 @@ export default function AsignarConductorModal({ solicitud, open, onClose, onUpda
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

@@ -22,8 +22,8 @@ import {
   seriesPorDia,
   histogramaTiempos,
   formatHoras,
-} from '../../Administrador/Components/dashboardUtils.js'
-import { getBadgeColor } from '../../Home/Components/estadoColors.js'
+} from '../../../utils/dashboardUtils.js'
+import { getBadgeColor } from '../../../utils/estadoColors.js'
 import PedidoDetalleModal from '../../Administrador/Components/modals/PedidoDetalleModal.jsx'
 import {
   Kpi,

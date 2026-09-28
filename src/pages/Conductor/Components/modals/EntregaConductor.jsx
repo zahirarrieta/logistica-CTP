@@ -12,7 +12,8 @@ import {
   eliminarBorradorEntrega,
   cargarContactosEncuesta,
   guardarContactoEncuesta,
-} from '../../../Home/Components/solicitudesStore.js'
+} from '../../../../store/solicitudesStore.js'
+import Modal from '../../../../components/Modal.jsx'
 
 function dataUrlABlob(dataUrl) {
   const [cabecera, contenido] = dataUrl.split(',')
@@ -257,10 +258,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
       : 'bg-green-100 text-green-700 ring-green-500/40'
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
-    >
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-lg rounded-2xl shadow-2xl animate-scaleIn max-h-[92vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -548,6 +546,6 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

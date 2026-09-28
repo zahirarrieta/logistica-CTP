@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { MdTimer, MdTimerOff } from 'react-icons/md'
-import { restanteDevolucion } from '../pages/Home/Components/solicitudesStore.js'
+import { restanteDevolucion } from '../store/solicitudesStore.js'
 
 // Formatea milisegundos como «4:32» (min:seg).
 function formatearMs(ms) {

@@ -29,8 +29,8 @@ import {
   MdBadge,
   MdReceiptLong,
 } from 'react-icons/md'
-import { getBadgeColor, getDotColor, getEstadoBg } from '../pages/Home/Components/estadoColors.js'
-import { nombreDeAsignado, restanteDevolucion } from '../pages/Home/Components/solicitudesStore.js'
+import { getBadgeColor, getDotColor, getEstadoBg } from '../utils/estadoColors.js'
+import { nombreDeAsignado, restanteDevolucion } from '../store/solicitudesStore.js'
 import CuentaRegresivaDevolucion from './CuentaRegresivaDevolucion.jsx'
 import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'

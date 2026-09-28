@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers, MdCloudUpload, MdInfoOutline, MdPictureAsPdf, MdVisibility, MdDeleteOutline } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
-import { ESTADOS, getBadgeColor, getDotColor } from '../../../Home/Components/estadoColors.js'
+import { ESTADOS, getBadgeColor, getDotColor } from '../../../../utils/estadoColors.js'
 import { subirFacturaRemisionOneDrive } from '../../../../services/oneDriveApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida, solicitudDevuelta } from '../../../../services/notificaciones.jsx'
-import { CAMPOS_DEVOLUCION, componerMotivoDevolucion } from '../../../Home/Components/solicitudesStore.js'
+import { CAMPOS_DEVOLUCION, componerMotivoDevolucion } from '../../../../store/solicitudesStore.js'
+import Modal from '../../../../components/Modal.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const ESTADO_DEVOLUCION = 'Devolución a Solicitante'
@@ -193,10 +194,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={bloqueadoCerrar ? () => {} : onClose}
-    >
+    <Modal onClose={bloqueadoCerrar ? () => {} : onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-md rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -546,6 +544,6 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

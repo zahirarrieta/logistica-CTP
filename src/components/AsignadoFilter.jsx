@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { MdAssignmentInd, MdExpandMore } from 'react-icons/md'
-import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
+import { nombreDeAsignado } from '../store/solicitudesStore.js'
 
 function initials(name) {
   if (!name) return ''

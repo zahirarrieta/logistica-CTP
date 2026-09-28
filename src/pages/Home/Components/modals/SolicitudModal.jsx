@@ -2,14 +2,15 @@ import { useState, useEffect, useRef } from 'react'
 import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck, MdAddCircleOutline, MdPersonAdd } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
-import { peekNextId, refrescarProximoCodigo, reservarProximoCodigo, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteDevolucion } from '../solicitudesStore.js'
+import { peekNextId, refrescarProximoCodigo, reservarProximoCodigo, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteDevolucion } from '../../../../store/solicitudesStore.js'
 import CuentaRegresivaDevolucion from '../../../../components/CuentaRegresivaDevolucion.jsx'
-import { nombrePdfFromUrl } from '../../../../components/pdfUtils.js'
+import { nombrePdfFromUrl } from '../../../../utils/pdfUtils.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
 import AgregarUsuarioModal from './AgregarUsuarioModal.jsx'
 import { subirAdjuntosOneDrive } from '../../../../services/oneDriveApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida } from '../../../../services/notificaciones.jsx'
+import Modal from '../../../../components/Modal.jsx'
 
 const TIPO_SOLICITUD_OPTIONS = [
   { value: 'EMERGENCIA / 2 Horas', label: 'EMERGENCIA / 2 Horas' },
@@ -457,10 +458,7 @@ useEffect(() => {
 
   return (
     <>
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={handleClose}
-    >
+    <Modal onClose={handleClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-2xl rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -877,7 +875,7 @@ useEffect(() => {
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
 
       {loading && (
         <div className="fixed inset-0 z-[1100] flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">

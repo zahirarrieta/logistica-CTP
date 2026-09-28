@@ -1,13 +1,11 @@
 import { MdClose, MdNotes } from 'react-icons/md'
+import Modal from './Modal.jsx'
 
 export default function ObservacionesModal({ solicitud, open, onClose }) {
   if (!open || !solicitud) return null
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
-    >
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-md rounded-2xl shadow-2xl animate-scaleIn max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
@@ -43,6 +41,6 @@ export default function ObservacionesModal({ solicitud, open, onClose }) {
           </p>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

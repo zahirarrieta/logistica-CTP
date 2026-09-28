@@ -17,9 +17,9 @@ import {
   MdChevronRight,
   MdLocalShipping,
 } from 'react-icons/md'
-import { getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
-import { safeText } from '../pages/Home/Components/solicitudesStore.js'
-import { esPdfUrl } from './pdfUtils.js'
+import { getBadgeColor, getDotColor } from '../utils/estadoColors.js'
+import { safeText } from '../store/solicitudesStore.js'
+import { esPdfUrl } from '../utils/pdfUtils.js'
 import AdjuntoFileCard from './AdjuntoFileCard.jsx'
 import VisorPdfModal from './VisorPdfModal.jsx'
 

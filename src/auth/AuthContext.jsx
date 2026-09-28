@@ -3,7 +3,7 @@ import { getActiveAccount, msalInstance, msalReady } from './msal.js'
 import { loginRequest } from './authConfig.js'
 import { cargarUsuarioActual } from '../services/solicitudesApi.js'
 import { cerrarSesion } from '../services/supabaseClient.js'
-import { setRolActual, setUsuarioActual } from '../pages/Home/Components/solicitudesStore.js'
+import { setRolActual, setUsuarioActual } from '../store/solicitudesStore.js'
 
 const AuthContext = createContext(null)
 

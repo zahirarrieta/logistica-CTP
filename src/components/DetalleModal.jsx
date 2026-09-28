@@ -1,6 +1,7 @@
 import { MdClose, MdTag, MdCalendarToday, MdAccessTime, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdAttachFile, MdNotes, MdAssignmentInd, MdBadge, MdReceiptLong } from 'react-icons/md'
-import { getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
-import { nombreDeAsignado } from '../pages/Home/Components/solicitudesStore.js'
+import { getBadgeColor, getDotColor } from '../utils/estadoColors.js'
+import { nombreDeAsignado } from '../store/solicitudesStore.js'
+import Modal from './Modal.jsx'
 
 function Row({ icon, label, value }) {
   const text = typeof value === 'string' || typeof value === 'number' ? String(value) : ''
@@ -19,10 +20,7 @@ export default function DetalleModal({ solicitud, open, onClose }) {
   const asignado = nombreDeAsignado(solicitud.asignadoA)
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
-    >
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-md rounded-2xl shadow-2xl animate-scaleIn max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
@@ -80,6 +78,6 @@ export default function DetalleModal({ solicitud, open, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

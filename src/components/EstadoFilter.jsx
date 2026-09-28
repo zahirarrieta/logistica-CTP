@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { MdFilterList, MdExpandMore } from 'react-icons/md'
-import { ESTADOS, getBadgeColor, getDotColor } from '../pages/Home/Components/estadoColors.js'
+import { ESTADOS, getBadgeColor, getDotColor } from '../utils/estadoColors.js'
 
 export default function EstadoFilter({ solicitudes, value, onChange }) {
   const [open, setOpen] = useState(false)

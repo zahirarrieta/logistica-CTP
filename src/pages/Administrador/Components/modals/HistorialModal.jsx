@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { MdClose, MdHistory, MdTag, MdBusiness, MdPlace, MdPerson, MdAccessTime, MdArrowForward, MdCheckCircle, MdAssignmentInd } from 'react-icons/md'
-import { getBadgeColor, getDotColor } from '../../../Home/Components/estadoColors.js'
+import { getBadgeColor, getDotColor } from '../../../../utils/estadoColors.js'
 import VisorPdfModal from '../../../../components/VisorPdfModal.jsx'
 import AdjuntoEnlace from '../../../../components/AdjuntoEnlace.jsx'
+import Modal from '../../../../components/Modal.jsx'
 
 export default function HistorialModal({ solicitud, open, onClose }) {
   const [tab, setTab] = useState('estado')
@@ -21,10 +22,7 @@ export default function HistorialModal({ solicitud, open, onClose }) {
 
   return (
     <>
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
-    >
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-lg rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -171,7 +169,7 @@ export default function HistorialModal({ solicitud, open, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </Modal>
 
     <VisorPdfModal
       open={Boolean(pdfUrl)}

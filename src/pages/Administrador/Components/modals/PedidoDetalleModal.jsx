@@ -12,13 +12,14 @@ import {
   MdEvent,
   MdPictureAsPdf,
 } from 'react-icons/md'
-import { getBadgeColor } from '../../../Home/Components/estadoColors.js'
-import { nombreDeAsignado, buscarEntrega } from '../../../Home/Components/solicitudesStore.js'
-import { tiempoEntrega, formatHoras } from '../dashboardUtils.js'
+import { getBadgeColor } from '../../../../utils/estadoColors.js'
+import { nombreDeAsignado, buscarEntrega } from '../../../../store/solicitudesStore.js'
+import { tiempoEntrega, formatHoras } from '../../../../utils/dashboardUtils.js'
 import EntregaInfo from '../../../../components/EntregaInfo.jsx'
 import AdjuntosModal from '../../../../components/AdjuntosModal.jsx'
 import AdjuntoEnlace from '../../../../components/AdjuntoEnlace.jsx'
 import VisorPdfModal from '../../../../components/VisorPdfModal.jsx'
+import Modal from '../../../../components/Modal.jsx'
 
 const enTransito = (s) => ['En Tránsito', 'En Tránsito Parcial'].includes(s.estado)
 
@@ -93,9 +94,9 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm animate-fadeIn"
-        onClick={onClose}
+      <Modal
+        onClose={onClose}
+        overlayClassName="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm animate-fadeIn"
       >
         <div
           className="relative w-full max-w-3xl rounded-2xl overflow-hidden bg-white shadow-2xl animate-scaleIn max-h-[92vh] flex flex-col"
@@ -253,7 +254,7 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
             </button>
           </footer>
         </div>
-      </div>
+      </Modal>
 
       <AdjuntosModal open={verAdjuntos} onClose={() => setVerAdjuntos(false)} adjuntos={adjuntos} />
 

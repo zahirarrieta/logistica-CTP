@@ -1,7 +1,8 @@
 import { MdClose, MdStar, MdChevronRight } from 'react-icons/md'
 import StarRating from '../../../../components/StarRating.jsx'
-import { getBadgeColor } from '../../../Home/Components/estadoColors.js'
-import { nivelEstrella } from '../dashboardUtils.js'
+import { getBadgeColor } from '../../../../utils/estadoColors.js'
+import { nivelEstrella } from '../../../../utils/dashboardUtils.js'
+import Modal from '../../../../components/Modal.jsx'
 
 // Modal que lista pedidos o entregas (por conductor, cliente, asignado,
 // respuesta con X estrellas, etc.). Cada fila abre el detalle completo del pedido.
@@ -9,10 +10,7 @@ export default function PedidosListaModal({ titulo, items = [], open, onClose, o
   if (!open || !titulo) return null
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
-    >
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-lg rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -80,6 +78,6 @@ export default function PedidosListaModal({ titulo, items = [], open, onClose, o
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

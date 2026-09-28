@@ -1,6 +1,6 @@
 import { MdOpenInNew } from 'react-icons/md'
 import AdjuntoFileCard from './AdjuntoFileCard.jsx'
-import { esPdfUrl } from './pdfUtils.js'
+import { esPdfUrl } from '../utils/pdfUtils.js'
 
 export default function AdjuntoEnlace({ adjunto, onVerPdf }) {
   const urls = String(adjunto || '')

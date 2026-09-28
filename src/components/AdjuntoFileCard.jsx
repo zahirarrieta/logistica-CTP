@@ -1,5 +1,5 @@
 import { MdImage, MdPictureAsPdf, MdInsertDriveFile, MdTableChart, MdOpenInNew, MdDownload, MdVisibility } from 'react-icons/md'
-import { esPdfUrl, nombrePdfFromUrl } from './pdfUtils.js'
+import { esPdfUrl, nombrePdfFromUrl } from '../utils/pdfUtils.js'
 
 function esImagen(url) {
   return /\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url)

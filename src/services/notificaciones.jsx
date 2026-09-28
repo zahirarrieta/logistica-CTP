@@ -14,7 +14,7 @@ import {
   MdSwapHoriz,
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
-import { getBadgeColor } from '../pages/Home/Components/estadoColors.js'
+import { getBadgeColor } from '../utils/estadoColors.js'
 
 const BASE = {
   duration: 4500,

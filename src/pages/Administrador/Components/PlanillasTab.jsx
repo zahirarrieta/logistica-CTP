@@ -11,10 +11,10 @@ import {
   MdInbox,
   MdFilterList,
 } from 'react-icons/md'
-import { nombreDeAsignado } from '../../Home/Components/solicitudesStore.js'
-import { getBadgeColor } from '../../Home/Components/estadoColors.js'
+import { nombreDeAsignado } from '../../../store/solicitudesStore.js'
+import { getBadgeColor } from '../../../utils/estadoColors.js'
 import PlanillaModal from './modals/PlanillaModal.jsx'
-import { loadPlanillas } from './planillaStore.js'
+import { loadPlanillas } from '../../../store/planillaStore.js'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 

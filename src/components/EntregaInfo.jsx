@@ -16,7 +16,7 @@ import {
 import { FiStar } from 'react-icons/fi'
 import StarRating from './StarRating.jsx'
 import EvidenciaVisor from './EvidenciaVisor.jsx'
-import { safeText } from '../pages/Home/Components/solicitudesStore.js'
+import { safeText } from '../store/solicitudesStore.js'
 
 const CALIFICACIONES = ['Malo', 'Regular', 'Bueno']
 

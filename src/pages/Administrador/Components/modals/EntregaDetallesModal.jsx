@@ -1,7 +1,8 @@
 import { MdClose, MdDescription, MdTag, MdVerified, MdDoneAll, MdEvent } from 'react-icons/md'
 import EntregaInfo from '../../../../components/EntregaInfo.jsx'
-import { getSoftColor } from '../../../Home/Components/estadoColors.js'
-import { safeText, buscarEntrega } from '../../../Home/Components/solicitudesStore.js'
+import { getSoftColor } from '../../../../utils/estadoColors.js'
+import { safeText, buscarEntrega } from '../../../../store/solicitudesStore.js'
+import Modal from '../../../../components/Modal.jsx'
 
 export default function EntregaDetallesModal({ solicitud, open, onClose }) {
   if (!open || !solicitud) return null
@@ -11,9 +12,9 @@ export default function EntregaDetallesModal({ solicitud, open, onClose }) {
   const soft = getSoftColor(estado)
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm animate-fadeIn"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      overlayClassName="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm animate-fadeIn"
     >
       <div
         className="relative w-full max-w-2xl rounded-2xl overflow-hidden bg-white shadow-2xl animate-scaleIn max-h-[92vh] flex flex-col"
@@ -89,6 +90,6 @@ export default function EntregaDetallesModal({ solicitud, open, onClose }) {
           </button>
         </footer>
       </div>
-    </div>
+    </Modal>
   )
 }

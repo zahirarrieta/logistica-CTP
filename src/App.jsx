@@ -4,7 +4,7 @@ import { Toaster } from 'sileo'
 import Loader from './loader/Loader.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
 import { puedeVer, rutaInicial, RUTA_INICIO } from './auth/roles.js'
-import { sincronizarInicial, iniciarTiempoReal, detenerTiempoReal } from './pages/Home/Components/solicitudesStore.js'
+import { sincronizarInicial, iniciarTiempoReal, detenerTiempoReal } from './store/solicitudesStore.js'
 
 // Marca guardada en sessionStorage: la primera vez que esta pestaña abre una
 // sesión (login nuevo o recarga desde cero) se va al Home; después de ese primer

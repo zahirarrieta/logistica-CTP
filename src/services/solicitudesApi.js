@@ -1,5 +1,5 @@
 import { supabase, iniciarSesion, datosUsuario, backendActivo } from './supabaseClient.js'
-import { soloAdjuntosSolicitud } from '../components/pdfUtils.js'
+import { soloAdjuntosSolicitud } from '../utils/pdfUtils.js'
 import { subirDocEntregaOneDrive } from './oneDriveApi.js'
 
 const EXPIRA_EVIDENCIA = 60 * 60 * 24 // 24 h

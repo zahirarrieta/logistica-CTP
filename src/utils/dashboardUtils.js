@@ -1,4 +1,4 @@
-import { ESTADOS } from '../../Home/Components/estadoColors.js'
+import { ESTADOS } from './estadoColors.js'
 
 export const ESTADOS_FINALES = ['Entregado', 'Entregado Parcial']
 export const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']

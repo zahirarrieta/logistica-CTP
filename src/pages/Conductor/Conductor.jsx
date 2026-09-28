@@ -13,7 +13,7 @@ import {
   marcarPendienteSync,
   sincronizarPendientes,
   suscribir,
-} from '../Home/Components/solicitudesStore.js'
+} from '../../store/solicitudesStore.js'
 import { estadoActualizado, syncRestablecida } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { esConductorDe } from '../../auth/roles.js'

@@ -14,8 +14,8 @@ import {
   MdEvent,
   MdNotes,
 } from 'react-icons/md'
-import { nombreDeAsignado } from '../../../Home/Components/solicitudesStore.js'
-import { getBadgeColor } from '../../../Home/Components/estadoColors.js'
+import { nombreDeAsignado } from '../../../../store/solicitudesStore.js'
+import { getBadgeColor } from '../../../../utils/estadoColors.js'
 import { descargarPlanillaPdf } from '../../../../services/planillaPdf.js'
 import {
   getPlanilla,
@@ -23,7 +23,8 @@ import {
   resetPlanilla,
   nuevaClaveFila,
   fechaHoy,
-} from '../planillaStore.js'
+} from '../../../../store/planillaStore.js'
+import Modal from '../../../../components/Modal.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const ESTADOS_ENTREGA = ['Entregado', 'Entregado Parcial']
@@ -203,9 +204,9 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
   const soloLectura = capturando
 
   return (
-    <div
-      className="planilla-overlay fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center px-2 sm:px-4 py-4 sm:py-6 overflow-y-auto"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      overlayClassName="planilla-overlay fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center px-2 sm:px-4 py-4 sm:py-6 overflow-y-auto"
     >
       <div
         className="planilla-dialog relative bg-white text-brand-ink w-full max-w-6xl rounded-2xl shadow-2xl animate-scaleIn my-auto"
@@ -525,6 +526,6 @@ export default function PlanillaModal({ conductor, solicitudes = [], open, onClo
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

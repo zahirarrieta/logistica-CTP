@@ -50,6 +50,9 @@ logistica-CTP/
     │                              sesión (sessionStorage), arranque de sync + Realtime
     ├── index.css               ✅ Tailwind base + utilidades globales
     │
+    ├── assets/                 ✅ Recursos estáticos procesados por Vite
+    │   └── estado/                Iconos de estado (Abierto, Tránsito, DevoSol…)
+    │
     ├── auth/                   ✅ Autenticación y permisos
     │   ├── msal.js                Instancia MSAL, handleRedirectPromise, msalReady
     │   ├── authConfig.js          Client/tenant Azure AD, scopes (Graph, Mail.Send)
@@ -60,6 +63,8 @@ logistica-CTP/
     ├── components/             ✅ UI compartida entre módulos
     │   ├── Header.jsx             Menú superior por rol + identidad
     │   ├── Footer.jsx             Pie de página
+    │   ├── Modal.jsx              Shell base de modal (overlay z-[1000] + blur +
+    │   │                          cierre por click fuera; overlayClassName p/ variantes)
     │   ├── SolicitudesTable.jsx   Tabla/cards de solicitudes (usada por los 3 módulos);
     │   │                          badges de estado/asignado/conductor, pill «Documento
     │   │                          a entregar» del conductor, adjuntos visibles
@@ -74,7 +79,18 @@ logistica-CTP/
     │   ├── IndicadorSinConexion.jsx       Aviso offline / cola pendiente
     │   ├── NotificationsPanel.jsx         Panel de notificaciones
     │   ├── StarRating.jsx (+ starRating.css)  Estrellas de la encuesta (configurable a 3)
-    │   ├── ErrorBoundary.jsx      Captura errores; recarga 1 vez si es chunk viejo
+    │   └── ErrorBoundary.jsx      Captura errores; recarga 1 vez si es chunk viejo
+    │
+    ├── store/                  ✅ Estado global local-first (no pertenece a una página)
+    │   ├── solicitudesStore.js ★ STORE central: localStorage + cola offline +
+    │   │                          sync por marca de agua + Realtime + avisos por
+    │   │                          rol + borradores de entrega + ventana 5 min +
+    │   │                          códigos CTPLOG y contactos de encuesta
+    │   └── planillaStore.js     Store de planillas (mismo patrón local-first)
+    │
+    ├── utils/                  ✅ Utilidades y constantes puras compartidas
+    │   ├── estadoColors.js        Paletas de colores por estado (ESTADOS, badges…)
+    │   ├── dashboardUtils.js      Cálculos del dashboard (ESTADOS_FINALES, parseStamp…)
     │   └── pdfUtils.js            esPdfUrl, esUrlFactura, soloAdjuntosSolicitud,
     │                              nombrePdfFromUrl (pure utils, sin jspdf)
     │
@@ -97,13 +113,7 @@ logistica-CTP/
     │   │   ├── Solicitudes.jsx    «Mis solicitudes»: tabla filtrable + modales
     │   │   │                      crear / corregir / seguimiento
     │   │   └── Components/
-    │   │       ├── solicitudesStore.js  ★ STORE central: localStorage + cola offline +
-    │   │       │                        sync por marca de agua + Realtime + avisos por
-    │   │       │                        rol + borradores de entrega + ventana 5 min +
-    │   │       │                        códigos CTPLOG y contactos de encuesta
     │   │       ├── FormField.jsx      Input/select/textarea con label flotante
-    │   │       ├── estadoColors.js    Paletas de colores por estado
-    │   │       ├── EstadoI/*.png      Iconos de estado (Abierto, Tránsito, DevoSol…)
     │   │       └── modals/
     │   │           ├── SolicitudModal.jsx    Crear / corregir solicitud (adjuntos ≤3,
     │   │           │                         reserva de código, subida a OneDrive)
@@ -115,10 +125,7 @@ logistica-CTP/
     │   │   ├── Administrador.jsx   Tabs: pedidos, dashboard, planillas, usuarios
     │   │   └── Components/
     │   │       ├── DashboardTab.jsx     Métricas y barras por asignado
-    │   │       ├── dashboardUtils.js    Cálculos del dashboard (ESTADOS_FINALES, parseStamp…)
     │   │       ├── PlanillasTab.jsx     Gestión de planillas
-    │   │       ├── planillaStore.js     Store de planillas (mismo patrón local-first)
-    │   │       ├── exportarInforme.js   PDF de informe (jspdf lazy)
     │   │       └── modals/
     │   │           ├── EstadosModal.jsx           Cambiar estado + devolución con campos
     │   │           │                              por corregir + motivo obligatorio
@@ -152,6 +159,7 @@ logistica-CTP/
         ├── oneDriveVisor.js       Resolver URLs/enlaces/nombres viejos a blob visible
         ├── notificaciones.jsx     Todos los toasts (sileo) + sonidos por tipo de evento
         ├── enviarCorreo.js        Alerta de calidad por Graph Mail.Send (promedio ≤ 2.5)
+        ├── exportarInforme.js     PDF de informe del dashboard (jspdf lazy)
         └── planillaPdf.js         PDF de planilla (jspdf lazy)
 ```
 
@@ -159,10 +167,14 @@ logistica-CTP/
 
 - Una pantalla nueva → `src/pages/<Modulo>/` + ruta lazy en `App.jsx` + permiso en
   `auth/roles.js` (+ RLS en `supabase/schema.sql` si toca datos).
-- Un modal de un módulo → `pages/<Modulo>/Components/modals/`.
+- Un modal de un módulo → `pages/<Modulo>/Components/modals/` (usar `components/Modal.jsx`
+  como shell; `overlayClassName` solo si el modal necesita un overlay distinto).
 - UI usada por ≥2 módulos → `src/components/`.
+- Estado global / stores local-first → `src/store/`.
+- Utilidades y constantes puras usadas por ≥2 capas → `src/utils/`.
+- Imágenes importadas desde código → `src/assets/` (las de `public/` se sirven tal cual).
 - Llamadas a Supabase/Graph/correo → `src/services/` (nunca dentro de componentes).
-- Reglas de negocio del flujo de solicitudes → `solicitudesStore.js` (no en la UI).
+- Reglas de negocio del flujo de solicitudes → `store/solicitudesStore.js` (no en la UI).
 - Todo cambio de esquema/RLS/RPC → `supabase/schema.sql` **y ejecutarlo en la base
   antes de desplegar** (política DB-first del proyecto).
 - Textos de formularios y observaciones en **MAYÚSCULAS** (transformar el valor

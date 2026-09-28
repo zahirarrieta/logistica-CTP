@@ -7,7 +7,7 @@ import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
-import { loadSolicitudes, saveSolicitud, corregirSolicitud, suscribir } from './Components/solicitudesStore.js'
+import { loadSolicitudes, saveSolicitud, corregirSolicitud, suscribir } from '../../store/solicitudesStore.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { solicitudCreada, solicitudCorregida } from '../../services/notificaciones.jsx'
 

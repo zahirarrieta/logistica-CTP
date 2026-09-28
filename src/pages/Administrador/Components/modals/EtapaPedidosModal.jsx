@@ -1,5 +1,6 @@
 import { MdClose, MdHourglassEmpty, MdChevronRight } from 'react-icons/md'
-import { formatHoras, HEX_ESTADO } from '../dashboardUtils.js'
+import { formatHoras, HEX_ESTADO } from '../../../../utils/dashboardUtils.js'
+import Modal from '../../../../components/Modal.jsx'
 
 // Modal que lista los pedidos que pasaron por una etapa (estado) con su tiempo
 // de permanencia. Cada fila abre el detalle completo del pedido.
@@ -10,10 +11,7 @@ export default function EtapaPedidosModal({ etapa, open, onClose, onVerPedido })
   const color = HEX_ESTADO[etapa.estado] || '#94A3B8'
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
-    >
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-lg rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -75,6 +73,6 @@ export default function EtapaPedidosModal({ etapa, open, onClose, onVerPedido })
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

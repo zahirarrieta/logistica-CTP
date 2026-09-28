@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MdApartment, MdBadge, MdBusiness, MdCheck, MdClose, MdInventory, MdKeyboardArrowDown, MdLocationPin } from 'react-icons/md'
 import { cargarClientes } from '../../../../services/solicitudesApi.js'
+import Modal from '../../../../components/Modal.jsx'
 
 const WITH_ICON = 'w-10 h-10 rounded-full bg-brand-mist border border-brand-ink/10 grid place-items-center text-brand-deep'
 
@@ -55,10 +56,7 @@ export default function ClientPickerModal({ open, onClose, onSelect }) {
   if (!open) return null
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
-    >
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-5xl rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -287,6 +285,6 @@ export default function ClientPickerModal({ open, onClose, onSelect }) {
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

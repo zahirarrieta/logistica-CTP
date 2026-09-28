@@ -59,7 +59,7 @@
 | Entrada | `main.jsx`, `App.jsx`, `index.html`, `sw.js` | Boot, rutas lazy, guards por rol, registro SW, PWA |
 | Auth | `auth/msal.js`, `authConfig.js`, `AuthContext.jsx`, `roles.js`, `user.js` | Login Microsoft, carga del rol desde tabla `usuarios`, permisos por ruta |
 | UI | `pages/**`, `components/**`, `loader/` | Pantallas, tablas, modales, filtros, loaders |
-| Store | `pages/Home/Components/solicitudesStore.js`, `pages/Administrador/Components/planillaStore.js` | Estado local, cola offline, avisos en vivo, borradores, ventana de corrección (5 min) |
+| Store | `store/solicitudesStore.js`, `store/planillaStore.js` | Estado local, cola offline, avisos en vivo, borradores, ventana de corrección (5 min) |
 | Servicios | `services/*.js` | Supabase (sesión anónima + API), OneDrive/Graph, notificaciones (sileo), PDF, correo de calidad |
 | Backend | `supabase/schema.sql` + seeds | Tablas `solicitudes`, `historial`, `usuarios`, `clientes`, RLS, RPC, publication Realtime |
 

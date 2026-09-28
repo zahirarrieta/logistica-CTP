@@ -14,20 +14,21 @@ import {
   MdCheck,
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
-import { getBadgeColor } from '../estadoColors.js'
-import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../solicitudesStore.js'
+import { getBadgeColor } from '../../../../utils/estadoColors.js'
+import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../../../../store/solicitudesStore.js'
 import CuentaRegresivaDevolucion from '../../../../components/CuentaRegresivaDevolucion.jsx'
 import NotificationsPanel from '../../../../components/NotificationsPanel.jsx'
 import EntregaInfo from '../../../../components/EntregaInfo.jsx'
-import imgAbierto from '../EstadoI/Abierto.png'
-import imgPdAuto from '../EstadoI/PdAuto.png'
-import imgDevoSol from '../EstadoI/DevoSol.png'
-import imgCartera from '../EstadoI/Cartera.png'
-import imgRemision from '../EstadoI/Remision.png'
-import imgTransitoCarro from '../EstadoI/TransitoCarro.png'
-import imgTransitoMoto from '../EstadoI/TransitoMoto.png'
-import imgTransitoElite from '../EstadoI/TransitoElite.png'
-import imgTransitoCarBog from '../EstadoI/TransitoCarBog.png'
+import imgAbierto from '../../../../assets/estado/Abierto.png'
+import imgPdAuto from '../../../../assets/estado/PdAuto.png'
+import imgDevoSol from '../../../../assets/estado/DevoSol.png'
+import imgCartera from '../../../../assets/estado/Cartera.png'
+import imgRemision from '../../../../assets/estado/Remision.png'
+import imgTransitoCarro from '../../../../assets/estado/TransitoCarro.png'
+import imgTransitoMoto from '../../../../assets/estado/TransitoMoto.png'
+import imgTransitoElite from '../../../../assets/estado/TransitoElite.png'
+import imgTransitoCarBog from '../../../../assets/estado/TransitoCarBog.png'
+import Modal from '../../../../components/Modal.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
@@ -85,10 +86,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
 
   return (
     <>
-    <div
-      className="fixed inset-0 z-[1000] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3 sm:px-4 py-4 sm:py-6 animate-fadeIn overflow-y-auto"
-      onClick={onClose}
-    >
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-lg sm:max-w-2xl max-h-[92vh] rounded-2xl shadow-2xl animate-scaleIn flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -225,7 +223,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
           </div>
         )}
       </div>
-    </div>
+    </Modal>
     </>
   )
 }

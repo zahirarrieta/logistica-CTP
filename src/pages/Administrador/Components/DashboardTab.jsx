@@ -48,13 +48,13 @@ import {
   nivelEstrella,
   formatHoras,
   HEX_ESTADO,
-} from './dashboardUtils.js'
-import { getBadgeColor } from '../../Home/Components/estadoColors.js'
-import { nombreDeAsignado } from '../../Home/Components/solicitudesStore.js'
+} from '../../../utils/dashboardUtils.js'
+import { getBadgeColor } from '../../../utils/estadoColors.js'
+import { nombreDeAsignado } from '../../../store/solicitudesStore.js'
 import PedidoDetalleModal from './modals/PedidoDetalleModal.jsx'
 import EtapaPedidosModal from './modals/EtapaPedidosModal.jsx'
 import PedidosListaModal from './modals/PedidosListaModal.jsx'
-import { exportarExcel, exportarPdf } from './exportarInforme.js'
+import { exportarExcel, exportarPdf } from '../../../services/exportarInforme.js'
 
 const CARD_ICON = 'grid place-items-center size-10 rounded-xl text-white text-xl shadow-md'
 
