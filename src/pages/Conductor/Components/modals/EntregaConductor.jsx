@@ -543,7 +543,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
               className="inline-flex items-center gap-2 rounded-full bg-brand-cyan text-brand-ink px-5 py-2 text-sm font-bold shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
             >
               <MdCheckCircle className="text-lg" />
-              {guardando ? 'Subiendo evidencia…' : 'Finalizar entrega'}
+              {guardando ? 'Guardando…' : 'Finalizar entrega'}
             </button>
           </div>
         </div>

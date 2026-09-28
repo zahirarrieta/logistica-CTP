@@ -92,7 +92,6 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
   })
   const [loading, setLoading] = useState(false)
   const [errores, setErrores] = useState([])
-  const [subiendoMsg, setSubiendoMsg] = useState('')
   const [previewAbierto, setPreviewAbierto] = useState(null)
   const [siguiente, setSiguiente] = useState(peekNextId())
   const urlsRef = useRef(new Map())
@@ -157,7 +156,6 @@ useEffect(() => {
     setPreviewAbierto(null)
     setErrores([])
     setLoading(false)
-    setSubiendoMsg('')
     if (solicitud) {
       setFormData({
         nombreCompleto: solicitud.nombreCompleto || account?.name || '',
@@ -368,16 +366,11 @@ useEffect(() => {
       let urlsNuevas = []
       if (nuevos.length > 0) {
         try {
-          setSubiendoMsg(`Subiendo ${nuevos.length} ${nuevos.length === 1 ? 'archivo' : 'archivos'} a OneDrive…`)
-          const subidos = await subirAdjuntosOneDrive(nuevos, formData.nombreCompleto, solicitud.id, (listos, total) => {
-            setSubiendoMsg(`Subiendo ${listos} de ${total} a OneDrive…`)
-          })
+          const subidos = await subirAdjuntosOneDrive(nuevos, formData.nombreCompleto, solicitud.id, () => {})
           urlsNuevas = subidos.map((s) => s.url).filter(Boolean)
           documentosSubidos({ id: solicitud.id, nombres: nuevos.map((f) => f.name) })
-          setSubiendoMsg('')
         } catch (err) {
           console.error('[SolicitudModal] error subiendo a OneDrive (edición):', err)
-          setSubiendoMsg('')
           setLoading(false)
           setErrores([`Error subiendo archivos: ${err.message}`])
           notificarErrorSubida(err.message, solicitud.id)
@@ -426,21 +419,16 @@ useEffect(() => {
 
       if (nuevos.length > 0) {
         try {
-          setSubiendoMsg(`Subiendo ${nuevos.length} ${nuevos.length === 1 ? 'archivo' : 'archivos'} a OneDrive…`)
           const subidos = await subirAdjuntosOneDrive(
             nuevos,
             formData.nombreCompleto,
             idSolicitud,
-            (listos, total) => {
-              setSubiendoMsg(`Subiendo ${listos} de ${total} a OneDrive…`)
-            },
+            () => {},
           )
           adjuntosUrls = [...existentes, ...subidos.map((s) => s.url).filter(Boolean)]
           documentosSubidos({ id: idSolicitud, nombres: nuevos.map((f) => f.name) })
-          setSubiendoMsg('')
         } catch (err) {
           console.error('[SolicitudModal] error subiendo a OneDrive:', err)
-          setSubiendoMsg('')
           setLoading(false)
           setErrores([`Error subiendo archivos: ${err.message}`])
           notificarErrorSubida(err.message, idSolicitud)
@@ -455,7 +443,6 @@ useEffect(() => {
       onClose()
     } catch (err) {
       console.error('[SolicitudModal] error creando la solicitud:', err)
-      setSubiendoMsg('')
       setLoading(false)
       setErrores([`No se pudo guardar la solicitud: ${err?.message || 'error inesperado'}`])
       notificarErrorSubida(err?.message || 'Error inesperado', siguiente)
@@ -895,9 +882,6 @@ useEffect(() => {
       {loading && (
         <div className="fixed inset-0 z-[1100] flex flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
           <Loader />
-          {subiendoMsg && (
-            <p className="text-white text-sm font-semibold animate-pulse">{subiendoMsg}</p>
-          )}
         </div>
       )}
 

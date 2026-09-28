@@ -541,7 +541,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
               <span className="grid place-items-center size-6 rounded-full bg-brand-deep/10 text-brand-deep">
                 {subiendo ? <MdCloudUpload className="text-base animate-pulse" /> : <MdCheckCircle className="text-base" />}
               </span>
-              {subiendo ? 'Subiendo a OneDrive…' : 'Guardar'}
+              {subiendo ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
         </div>
