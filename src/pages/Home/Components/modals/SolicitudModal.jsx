@@ -230,6 +230,12 @@ useEffect(() => {
     if (errores.length > 0) setErrores([])
   }
 
+  const handleOrdenCompraChange = (e) => {
+    const numeric = e.target.value.replace(/[^0-9]/g, '')
+    setFormData(prev => ({ ...prev, ordenCompra: numeric }))
+    if (errores.length > 0) setErrores([])
+  }
+
   const handleFileChange = (e) => {
     const nuevos = Array.from(e.target.files || [])
     const total = formData.adjuntos.length + nuevos.length
@@ -312,8 +318,8 @@ useEffect(() => {
       return
     }
 
-    const esAdministrativa = formData.tipoSolicitud === 'ADMINISTRATIVA'
-    const esVentaDirecta = formData.tipoSolicitud === 'VENTA DIRECTA'
+    const esAdministrativa = (formData.tipoSolicitud || '').trim().toUpperCase() === 'ADMINISTRATIVA'
+    const esVentaDirecta = (formData.tipoSolicitud || '').trim().toUpperCase() === 'VENTA DIRECTA'
 
     const obligatorios = [
       { campo: 'nombreCompleto', etiqueta: 'Nombre completo' },
@@ -384,7 +390,7 @@ useEffect(() => {
         if (editarObs) datosEdicion.observaciones = formData.observaciones
         if (editarAdjuntos) datosEdicion.adjuntos = [...existentes, ...urlsNuevas]
         if (editarCliente) {
-          if (formData.tipoSolicitud === 'ADMINISTRATIVA') {
+          if ((formData.tipoSolicitud || '').trim().toUpperCase() === 'ADMINISTRATIVA') {
             datosEdicion.cliente = formData.cliente
             datosEdicion.cedula = formData.cedula
             datosEdicion.bodega = ''
@@ -396,7 +402,7 @@ useEffect(() => {
             datosEdicion.nit = formData.nit
             datosEdicion.zona = formData.zona
           }
-          if (formData.tipoSolicitud === 'VENTA DIRECTA') {
+          if ((formData.tipoSolicitud || '').trim().toUpperCase() === 'VENTA DIRECTA') {
             datosEdicion.ordenCompra = formData.ordenCompra
           }
         }
@@ -459,8 +465,8 @@ useEffect(() => {
   if (!open) return null
 
   const siguienteId = modoEdicion ? solicitud.id : siguiente
-  const esAdministrativa = formData.tipoSolicitud === 'ADMINISTRATIVA'
-  const esVentaDirecta = formData.tipoSolicitud === 'VENTA DIRECTA'
+  const esAdministrativa = (formData.tipoSolicitud || '').trim().toUpperCase() === 'ADMINISTRATIVA'
+  const esVentaDirecta = (formData.tipoSolicitud || '').trim().toUpperCase() === 'VENTA DIRECTA'
 
   return (
     <>
@@ -499,7 +505,7 @@ useEffect(() => {
         </div>
 
         {/* Cuerpo del formulario */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
+        <form onSubmit={handleSubmit} noValidate className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
           {modoEdicion && vencida ? (
             <div className="rounded-xl border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-800">
               <p className="inline-flex items-center gap-1.5 font-extrabold uppercase tracking-wide text-[11px] text-red-700">
@@ -705,10 +711,12 @@ useEffect(() => {
               <FormField
                 label="N° orden de compra"
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 name="ordenCompra"
                 value={formData.ordenCompra}
-                onChange={handleInputChange}
-                placeholder="Número de la orden de compra"
+                onChange={handleOrdenCompraChange}
+                placeholder="Solo números (ej. 123456)"
                 required
                 readOnly={modoEdicion && !editarCliente}
                 icon={<MdTag className="text-sm" />}
