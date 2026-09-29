@@ -16,11 +16,57 @@ const { createRemoteJWKSet, jwtVerify, decodeJwt, decodeProtectedHeader } = requ
 
 const config = require('./config')
 
-const TENANT_ID = config.azure.tenantId
+const TENANT = config.azure.tenantId
 const CLIENT_ID = config.azure.clientId
 
-const ISSUER = `https://login.microsoftonline.com/${TENANT_ID}/v2.0`
-const JWKS_URI = `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
+// Microsoft emite dos generaciones de token, con claves y emisores distintos:
+//
+//   v1.0  aud = 00000003-0000-0000-c000-000000000000   iss = https://sts.windows.net/<tenant>/
+//   v2.0  aud = https://graph.microsoft.com/00000003-… iss = https://login.microsoftonline.com/<tenant>/v2.0
+//
+// MSAL no siempre usa v2.0: cuando pide permisos de Graph puede devolver un
+// token v1.0, con `aud` = GUID desnudo y firmado por las claves que publica
+// /discovery/keys. Verificar ese token contra las claves de /discovery/v2.0/keys
+// falla con ERR_JWS_SIGNATURE_VERIFICATION_FAILED aunque el `kid` coincida: el
+// identificador de la clave es el mismo en las dos generaciones, pero el módulo
+// RSA es otro. Por eso se verifican las dos, no solo la que se supone.
+const ISSUER_V2 = `https://login.microsoftonline.com/${TENANT}/v2.0`
+const ISSUER_V1 = `https://sts.windows.net/${TENANT}/`
+const JWKS_V2 = `https://login.microsoftonline.com/${TENANT}/discovery/v2.0/keys`
+const JWKS_V1 = `https://login.microsoftonline.com/${TENANT}/discovery/keys`
+
+// jose cachea las claves y las refresca solo cuando expira la Cache-Control, así
+// que cada petición no vuelve a Microsoft. Se necesitan los dos conjuntos porque
+// no se sabe de antemano cuál generación firmará el token.
+const jwksV2 = createRemoteJWKSet(new URL(JWKS_V2))
+const jwksV1 = createRemoteJWKSet(new URL(JWKS_V1))
+
+// Generaciones a probar, en orden. Para cada una se usa su clave y su emisor:
+// mezclar una clave de v1.0 con un emisor de v2.0 (o al revés) nunca valida.
+const GENERACIONES = [
+  { nombre: 'v2.0', jwks: jwksV2, issuer: ISSUER_V2 },
+  { nombre: 'v1.0', jwks: jwksV1, issuer: ISSUER_V1 },
+]
+
+// Verifica el token contra cada generación y devuelve el payload de la primera
+// que cuadre. El error que se propaga es el de la última, que es el relevante
+// cuando ninguna sirve: los dos casos reales son "audiencia no aceptada" y
+// "el token no está firmado por este tenant".
+async function verificarToken(token) {
+  let ultimoError
+  for (const gen of GENERACIONES) {
+    try {
+      const { payload } = await jwtVerify(token, gen.jwks, {
+        issuer: gen.issuer,
+        audience: AUDIENCIAS,
+      })
+      return { payload, generacion: gen.nombre }
+    } catch (error) {
+      ultimoError = error
+    }
+  }
+  throw ultimoError
+}
 
 // Audiencias aceptadas.
 //
@@ -45,10 +91,6 @@ const JWKS_URI = `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/
 const GRAPH_AUDIENCE = '00000003-0000-0000-c000-000000000000'
 const GRAPH_AUDIENCE_V2 = `https://graph.microsoft.com/${GRAPH_AUDIENCE}`
 const AUDIENCIAS = [CLIENT_ID, GRAPH_AUDIENCE, GRAPH_AUDIENCE_V2]
-
-// jose cachea las claves y las refresca solo cuando expira la Cache-Control, así
-// que cada petición no vuelve a Microsoft.
-const jwks = createRemoteJWKSet(new URL(JWKS_URI))
 
 // Extrae el correo del token. En Entra ID el claim puede venir como
 // preferred_username, upn o email según el flujo; se prueban en ese orden.
@@ -84,18 +126,6 @@ function resumirToken(token) {
   }
 }
 
-// Lista de claves que el servidor tiene cargadas del tenant, para poder
-// comparar con el kid del token que llega.
-async function kidsDisponibles() {
-  try {
-    const r = await fetch(JWKS_URI)
-    const j = await r.json()
-    return { http: r.status, kids: (j.keys || []).map((k) => k.kid) }
-  } catch (error) {
-    return { error: error.message }
-  }
-}
-
 // Exige un token válido. Deja en req.ctx lo que las rutas necesitan para
 // autorizar. Responde 401 solo; las decisiones de rol son de permisos.js.
 async function autenticar(req, res, next) {
@@ -107,10 +137,7 @@ async function autenticar(req, res, next) {
   }
 
   try {
-    const { payload } = await jwtVerify(token, jwks, {
-      issuer: ISSUER,
-      audience: AUDIENCIAS,
-    })
+    const { payload, generacion } = await verificarToken(token)
     const correo = correoDelToken(payload)
     if (!correo) {
       return res.status(401).json({ error: 'El token no trae un correo utilizable' })
@@ -118,6 +145,7 @@ async function autenticar(req, res, next) {
     req.token = payload
     req.correo = correo
     req.nombreToken = String(payload.name || '').trim()
+    req.generacionToken = generacion
     return next()
   } catch (error) {
     const expired = error?.code === 'ERR_JWT_EXPIRED'
@@ -125,7 +153,6 @@ async function autenticar(req, res, next) {
     // el `aud` basta para distinguir "token de otra app" de "audiencia mal
     // listada", que es justo lo que rompía con Graph v2.0.
     const info = resumirToken(token)
-    const kids = await kidsDisponibles()
     const codigo = error?.code || error?.message
     console.warn(`[Auth] token rechazado: ${codigo} | ${JSON.stringify(info)}`)
 
@@ -136,8 +163,8 @@ async function autenticar(req, res, next) {
       `alg=${info.alg}`,
       `kid=${info.kid}`,
       `aud=${info.aud}`,
+      `iss=${info.iss}`,
       `exp=${info.exp || 'sin exp'}`,
-      `kids=${(kids.kids || []).join('|') || kids.error || 'sin claves'}`,
     ].join(' ')
 
     return res.status(401).json({
