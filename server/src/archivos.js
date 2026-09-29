@@ -19,27 +19,16 @@ const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
 
+const config = require('./config')
+
 const BASE = path.join(__dirname, '..', 'storage')
 const RAIZ_EVIDENCIAS = path.join(BASE, 'evidencias')
 
-// Secreto para firmar las URLs de evidencia. En producción es obligatorio: con un
-// valor temporal cada reinicio invalidaría todas las URLs firmadas que el
-// navegador ya tenía en caché. En desarrollo se genera uno para poder levantar
-// la API sin configurar nada.
-const FIRMA_ACTIVA = Boolean(process.env.FIRMA_SECRET)
-if (!FIRMA_ACTIVA && process.env.NODE_ENV === 'production') {
-  throw new Error('FIRMA_SECRET es obligatorio en producción (lo define el panel del hosting)')
-}
-const SECRETO = FIRMA_ACTIVA ? process.env.FIRMA_SECRET : crypto.randomBytes(32).toString('hex')
-const CADUCIDAD_SEG = Number(process.env.FIRMA_TTL || 24 * 60 * 60)
-
-const LIMITE_BYTES = Number(process.env.MAX_ARCHIVO_BYTES || 10 * 1024 * 1024)
-
-if (!FIRMA_ACTIVA) {
-  console.warn(
-    '[Archivos] FIRMA_SECRET no está definido: se generó uno temporal. Las URLs firmadas expiran al reiniciar la app.'
-  )
-}
+// El secreto llega validado desde config.js: en producción es obligatorio y ahí
+// ya se lance si falta. En desarrollo, si no se definió, se genera uno temporal.
+const SECRETO = config.firma.secreto || crypto.randomBytes(32).toString('hex')
+const CADUCIDAD_SEG = config.firma.ttl
+const LIMITE_BYTES = config.firma.maxBytes
 
 function asegurarCarpeta() {
   fs.mkdirSync(RAIZ_EVIDENCIAS, { recursive: true })

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Paquetes de despliegue generados a mano
+server-deploy.zip
+
 # Secretos del backend: nunca subirlos. El .env del servidor vive en el hosting.
 server/.env
 # Evidencias de respaldo: archivos de producción, no código.

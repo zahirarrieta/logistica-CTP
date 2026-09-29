@@ -10,6 +10,9 @@
 const express = require('express')
 const cors = require('cors')
 
+// Se carga primero: valida el entorno y se detiene aquí, con el listado
+// completo, si falta algo. Si fallara más tarde, el error sería confuso.
+const config = require('./config')
 const { autenticar } = require('./auth')
 const rutas = require('./routes')
 
@@ -20,16 +23,9 @@ const app = express()
 app.set('trust proxy', true)
 app.disable('x-powered-by')
 
-// El frontend vive en el mismo dominio (subdominio api.*), pero en desarrollo
-// corre en el puerto 5173 de Vite.
-const origenes = (process.env.CORS_ORIGENES || '')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean)
-
 app.use(
   cors({
-    origin: origenes.length > 0 ? origenes : true,
+    origin: config.cors.origenes.length > 0 ? config.cors.origenes : true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     maxAge: 86400,
@@ -57,7 +53,7 @@ app.use((req, res) => res.status(404).json({ error: 'Endpoint no encontrado' }))
 app.use((error, req, res, next) => {
   console.error('[API] error:', error)
   const esMulter = error?.code === 'LIMIT_FILE_SIZE'
-  const maximoMB = Math.round((Number(process.env.MAX_ARCHIVO_BYTES) || 10 * 1024 * 1024) / 1024 / 1024)
+  const maximoMB = Math.round(config.firma.maxBytes / 1024 / 1024)
   res.status(esMulter ? 413 : 500).json({
     error: esMulter
       ? `El archivo supera el máximo de ${maximoMB} MB`
@@ -70,7 +66,7 @@ app.use((error, req, res, next) => {
 // las peticiones y expone la app en el dominio, y siempre corre con
 // NODE_ENV=production, así que esta rama nunca se ejecuta allí. Para desarrollo
 // local, `node src/index.js` sí levanta un servidor en PORT (3000 por defecto).
-if (process.env.NODE_ENV !== 'production') {
+if (!config.esProduccion) {
   const PUERTO = Number(process.env.PORT) || 3000
   app.listen(PUERTO, () => {
     console.log(`[API] servidor local en http://localhost:${PUERTO}`)

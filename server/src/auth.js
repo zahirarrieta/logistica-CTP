@@ -14,14 +14,10 @@
 
 const { createRemoteJWKSet, jwtVerify } = require('jose')
 
-const TENANT_ID = process.env.AZURE_TENANT_ID || ''
-const CLIENT_ID = process.env.AZURE_CLIENT_ID || ''
+const config = require('./config')
 
-if (!TENANT_ID || !CLIENT_ID) {
-  console.error(
-    '[Auth] faltan AZURE_TENANT_ID y/o AZURE_CLIENT_ID en las variables de entorno. La API no aceptará peticiones.'
-  )
-}
+const TENANT_ID = config.azure.tenantId
+const CLIENT_ID = config.azure.clientId
 
 const ISSUER = `https://login.microsoftonline.com/${TENANT_ID}/v2.0`
 const JWKS_URI = `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
@@ -40,7 +36,7 @@ const JWKS_URI = `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/
 // Cuando el scope de la API esté publicado en Entra ID, se puede quitar
 // GRAPH_AUDIENCE de esta lista.
 const GRAPH_AUDIENCE = '00000003-0000-0000-c000-000000000000'
-const AUDIENCIAS = [CLIENT_ID, GRAPH_AUDIENCE].filter(Boolean)
+const AUDIENCIAS = [CLIENT_ID, GRAPH_AUDIENCE]
 
 // jose cachea las claves y las refresca solo cuando expira la Cache-Control, así
 // que cada petición no vuelve a Microsoft.
