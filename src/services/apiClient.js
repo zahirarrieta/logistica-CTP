@@ -9,16 +9,14 @@ import { shortName } from '../auth/user.js'
 // Authorization y el backend valida la firma, el emisor y la caducidad.
 // ============================================================================
 
-const FALLBACK_API = 'https://api.logistica.ctpmedica.com'
+// Dominio de la API en el hosting (subdominio de la app Node.js Selector).
+// Se puede sobrescribir con VITE_API_URL en .env.local si cambia.
+const FALLBACK_API = 'https://api.pedro-ctpmedica.com'
 
 const base = (import.meta.env.VITE_API_URL || FALLBACK_API).trim().replace(/\/+$/, '')
 
 export const API_URL = base
-export const backendActivo = Boolean(base)
-
-if (!backendActivo) {
-  console.warn('[API] sin VITE_API_URL: la app guarda solo en el navegador')
-}
+export const backendActivo = true
 
 // Identidad del usuario de Microsoft. La fuente es la misma que antes: la
 // cuenta de MSAL. El backend extrae el correo del propio token, así que el

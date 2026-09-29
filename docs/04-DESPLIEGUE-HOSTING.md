@@ -27,14 +27,20 @@ Dos avisos:
 cPanel > **Bases de datos MySQL** > Crear nueva base de datos y luego Crear
 nuevo usuario de MySQL, asignándole TODOS los privilegios sobre esa base.
 
-El nombre final lleva el prefijo de la cuenta:
+El nombre final lleva el prefijo de la cuenta. En este proyecto la cuenta de
+cPanel es `pedroct1` y la base se creó como `logistica`, así que:
 
 ```
-base:  ctp_logistica
-usuario: ctp_logistica
+base:    pedroct1_logistica
+usuario: pedroct1_logistica
 ```
 
 Anota la contraseña: va en `DB_PASSWORD` del backend.
+
+| | |
+|---|---|
+| Frontend | https://pedro-ctpmedica.com |
+| API | https://api.pedro-ctpmedica.com |
 
 ## 2. Importar el schema y los datos iniciales
 
@@ -72,9 +78,9 @@ opción B.
 Sube los tres `.sql` a `/home/TU_USUARIO/` por FTP y:
 
 ```bash
-mysql -u TU_USUARIO_ctp_logistica -p TU_USUARIO_ctp_logistica < schema.mysql.sql
-mysql -u TU_USUARIO_ctp_logistica -p TU_USUARIO_ctp_logistica < seed_clientes.mysql.sql
-mysql -u TU_USUARIO_ctp_logistica -p TU_USUARIO_ctp_logistica < seed_usuarios.mysql.sql
+mysql -u pedroct1_logistica -p pedroct1_logistica < schema.mysql.sql
+mysql -u pedroct1_logistica -p pedroct1_logistica < seed_clientes.mysql.sql
+mysql -u pedroct1_logistica -p pedroct1_logistica < seed_usuarios.mysql.sql
 ```
 
 ### Comprobar que quedó bien
@@ -112,7 +118,7 @@ funciones que no existen en MySQL 5.7.
 | Error en phpMyAdmin | Causa | Qué hacer |
 |---|---|---|
 | `#1064 ... error in your SQL syntax` | Formato del archivo mal interpretado | En *Detalle del formato* elige **MySQL** |
-| `Table 'x_ctp_logistica.solicitudes' doesn't exist` | Corriste un seed antes del schema | Sube primero `schema.mysql.sql` |
+| `Table 'x_pedroct1_logistica.solicitudes' doesn't exist` | Corriste un seed antes del schema | Sube primero `schema.mysql.sql` |
 | `Unknown character set: 'utf8mb4'` | MySQL 5.5 o anterior | Dímelo: el schema hay que bajarlo a `utf8` |
 | `Column count doesn't match value count` | Seed de usuarios de una versión vieja | Descarga el repo otra vez: se corrigió para declarar `id` |
 | `FIRMA_SECRET es obligatorio en producción` | Falta esa variable | Sección 3, variables de entorno |
@@ -123,7 +129,7 @@ Los tres archivos son idempotentes, así que corregir y volver a subir es seguro
 
 ## 3. Subir el backend
 
-Crea un **subdominio** desde cPanel (p. ej. `api.tudominio.com`) para que la
+Crea un **subdominio** desde cPanel (p. ej. `api.pedro-ctpmedica.com`) para que la
 API no compita con el frontend por el mismo dominio.
 
 Luego cPanel > **Setup Node.js App** (Node.js Selector):
@@ -133,7 +139,7 @@ Luego cPanel > **Setup Node.js App** (Node.js Selector):
 | Node.js version | 18.x o superior (LTS) |
 | Application mode | Production |
 | Application root | `server` |
-| Application URL | `api.tudominio.com` |
+| Application URL | `api.pedro-ctpmedica.com` |
 | Application startup file | `app.js` |
 
 Presiona **Create Application**. Después sube el contenido de `server/` (sin
@@ -150,18 +156,18 @@ En el mismo formulario, en **Environment variables**, agrega:
 NODE_ENV=production
 DB_HOST=localhost
 DB_PORT=3306
-DB_USER=TU_USUARIO_ctp_logistica
+DB_USER=pedroct1_logistica
 DB_PASSWORD=<la contraseña del paso 1>
-DB_NAME=TU_USUARIO_ctp_logistica
+DB_NAME=pedroct1_logistica
 AZURE_TENANT_ID=0294e0dd-589f-4476-b787-4e6f5f291e6f
 AZURE_CLIENT_ID=6924d555-d956-4f27-90f8-4d5486a1adb8
 FIRMA_SECRET=<genera uno: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
-CORS_ORIGENES=https://tudominio.com
+CORS_ORIGENES=https://pedro-ctpmedica.com
 ```
 
 **Ojo con `DB_USER` y `DB_NAME`:** el hosting les antepone tu usuario de cPanel.
-Si creaste la base como `ctp_logistica` y tu usuario de cPanel es `ctpadmin`,
-el nombre real es `ctpadmin_ctp_logistica`. cPanel te lo muestra en la lista de
+Si creaste la base como `logistica` y tu usuario de cPanel es `pedroct1`,
+el nombre real es `pedroct1_logistica`. cPanel te lo muestra en la lista de
 bases de datos; cópialo tal cual.
 
 Guarda y dale a **Restart**.
@@ -172,7 +178,7 @@ Guarda y dale a **Restart**.
 ## 4. Probar la API
 
 ```bash
-curl https://api.tudominio.com/api/salud
+curl https://api.pedro-ctpmedica.com/api/salud
 # {"ok":true}
 ```
 
@@ -186,7 +192,7 @@ En tu máquina:
 ```bash
 npm install
 # .env.local:
-#   VITE_API_URL=https://api.tudominio.com
+#   VITE_API_URL=https://api.pedro-ctpmedica.com
 npm run build
 ```
 
@@ -200,13 +206,16 @@ Sube el contenido de `dist/` a `public_html` del dominio principal. El archivo
 ### 6.1 Redirect URIs
 
 En **App registrations** > tu app > **Authentication** > **Single-page
-application** > Redirect URIs, agrega el dominio nuevo:
+application** > Redirect URIs, agrega los orígenes por los que se entra:
 
 ```
-https://tudominio.com
+https://pedro-ctpmedica.com
+http://localhost:5173          (desarrollo)
 ```
 
-Quita el de Vercel cuando el corte esté hecho.
+Quita el de Vercel cuando el corte esté hecho. Si usas `www`, agrégalo también:
+`https://www.pedro-ctpmedica.com`. Ojo: el origen tiene que coincidir **exacto**
+con el del navegador (esquema y `www` incluidos), o Microsoft rechazará el login.
 
 ### 6.2 Publicar el scope de la API (recomendado)
 
