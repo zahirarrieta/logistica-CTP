@@ -42,7 +42,24 @@ app.use((req, res, next) => {
   next()
 })
 
-app.get('/api/salud', (req, res) => res.json({ ok: true }))
+// Sonda de vida. El `deploy` se incrementa con cada cambio de código y sirve
+// para confirmar desde fuera qué build está corriendo en el hosting: durante una
+// migración es normal dudar de si el ZIP nuevo llegó a pisar el anterior, y
+// hasta ahora la respuesta era idéntica en todas las versiones.
+const DEPLOY = '2026-09-29-auth-v2-graph'
+
+app.get('/api/salud', (req, res) => res.json({ ok: true, deploy: DEPLOY }))
+
+// Raíz del subdominio. Antes caía en el 404 "Endpoint no encontrado", que en
+// una pantalla de mantenimiento parece un fallo de la app.
+app.get('/', (req, res) =>
+  res.json({
+    servicio: 'API de Logística CTP',
+    deploy: DEPLOY,
+    estado: 'activo',
+    documentacion: '/docs/04-DESPLIEGUE-HOSTING.md',
+  })
+)
 
 // Todo lo demás exige un token válido de Microsoft.
 app.use('/api', autenticar, rutas)
