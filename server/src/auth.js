@@ -12,7 +12,7 @@
 // cambiar permisos no requiera tocar el frontend.
 // ============================================================================
 
-const { createRemoteJWKSet, jwtVerify } = require('jose')
+const { createRemoteJWKSet, jwtVerify, decodeJwt, decodeProtectedHeader } = require('jose')
 
 const config = require('./config')
 
@@ -57,6 +57,45 @@ function correoDelToken(payload) {
   return String(candidato).trim().toLowerCase()
 }
 
+// Resumen del token recibido, DECODIFICADO pero NO verificado.
+//
+// Existe por un motivo concreto: jose no rellena error.payload cuando la firma
+// falla, así que el log decía "aud=(sin leer)" y no había forma de saber por qué
+// se rechazaba. Con este resumen, el propio 401 dice quéalgoritmo y qué clave
+// trae el token, y se compara con la lista de claves que el servidor tiene.
+//
+// Decodificar no es verificar: no da acceso a nada y solo refleja lo que el
+// cliente ya mandó. No se registra el token completo en ningún log.
+function resumirToken(token) {
+  try {
+    const header = decodeProtectedHeader(token)
+    const payload = decodeJwt(token)
+    return {
+      alg: header.alg || '(sin alg)',
+      kid: header.kid || '(sin kid)',
+      aud: payload.aud || '(sin aud)',
+      iss: payload.iss || '(sin iss)',
+      exp: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
+      scp: payload.scp || '',
+      largo: token.length,
+    }
+  } catch (error) {
+    return { error: `no decodificable: ${error.message}`, largo: token.length }
+  }
+}
+
+// Lista de claves que el servidor tiene cargadas del tenant, para poder
+// comparar con el kid del token que llega.
+async function kidsDisponibles() {
+  try {
+    const r = await fetch(JWKS_URI)
+    const j = await r.json()
+    return { http: r.status, kids: (j.keys || []).map((k) => k.kid) }
+  } catch (error) {
+    return { error: error.message }
+  }
+}
+
 // Exige un token válido. Deja en req.ctx lo que las rutas necesitan para
 // autorizar. Responde 401 solo; las decisiones de rol son de permisos.js.
 async function autenticar(req, res, next) {
@@ -85,13 +124,24 @@ async function autenticar(req, res, next) {
     // Se registra el motivo y los claims relevantes. NUNCA el token entero. Con
     // el `aud` basta para distinguir "token de otra app" de "audiencia mal
     // listada", que es justo lo que rompía con Graph v2.0.
-    const aud = error?.payload?.aud || '(sin leer)'
-    const iss = error?.payload?.iss || '(sin leer)'
-    console.warn(
-      `[Auth] token rechazado: ${error?.code || error?.message} | aud=${aud} | iss=${iss}`
-    )
+    const info = resumirToken(token)
+    const kids = await kidsDisponibles()
+    const codigo = error?.code || error?.message
+    console.warn(`[Auth] token rechazado: ${codigo} | ${JSON.stringify(info)}`)
+
+    // El frontend muestra este texto tal cual, así que el diagnóstico viaja en
+    // el mensaje: no hace falta que nadie abra los logs para ver qué pasa.
+    const detalle = [
+      `codigo=${codigo}`,
+      `alg=${info.alg}`,
+      `kid=${info.kid}`,
+      `aud=${info.aud}`,
+      `exp=${info.exp || 'sin exp'}`,
+      `kids=${(kids.kids || []).join('|') || kids.error || 'sin claves'}`,
+    ].join(' ')
+
     return res.status(401).json({
-      error: expired ? 'La sesión expiró, vuelve a iniciar sesión' : 'Token inválido',
+      error: expired ? 'La sesión expiró, vuelve a iniciar sesión' : `Token inválido ${detalle}`,
     })
   }
 }
