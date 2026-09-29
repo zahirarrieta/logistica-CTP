@@ -19,7 +19,7 @@ const ASSETS = {
 const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional', 'Logística inversa']
 
 function Login() {
-  const { login } = useAuth()
+  const { login, errorLogin, loginEnCurso } = useAuth()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const touchStartXRef = useRef(null)
@@ -96,18 +96,27 @@ function Login() {
                     <button
                       type="button"
                       onClick={login}
-                      className="group relative inline-flex items-center justify-center rounded-2xl px-10 py-4 max-lg:px-8 max-lg:py-3.5 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40"
+                      disabled={loginEnCurso}
+                      className="group relative inline-flex items-center justify-center rounded-2xl px-10 py-4 max-lg:px-8 max-lg:py-3.5 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40 disabled:opacity-60 disabled:cursor-wait disabled:hover:translate-y-0"
                     >
                       <span className="login-cta-ring" aria-hidden="true" />
                       <span className="relative z-10 flex w-full items-center justify-center gap-3 tracking-wide text-brand-ink">
                         <MdLogin className="login-lock text-2xl" />
                         <span className="flex flex-col items-center tracking-wide text-brand-ink">
-                          INICIAR SESIÓN
+                          {loginEnCurso ? 'ABRIENDO MICROSOFT…' : 'INICIAR SESIÓN'}
                           <span className="mt-1 h-[3px] w-0 rounded-full bg-brand-ink/50 transition-all duration-300 group-hover:w-full group-hover:bg-brand-ink" />
                         </span>
                       </span>
                     </button>
                   </div>
+                  {errorLogin ? (
+                    <p
+                      role="alert"
+                      className="mt-4 max-w-xl text-sm leading-relaxed rounded-xl border border-red-400/40 bg-red-950/40 px-4 py-3 text-red-100"
+                    >
+                      {errorLogin}
+                    </p>
+                  ) : null}
                 </section>
 
                 <section className="relative flex justify-center w-full z-[1]">

@@ -1,5 +1,5 @@
 import { msalInstance } from '../auth/msal.js'
-import { apiScope } from '../auth/authConfig.js'
+import { scopeDeApi } from '../auth/authConfig.js'
 import { shortName } from '../auth/user.js'
 
 // ============================================================================
@@ -35,13 +35,17 @@ export function datosUsuario() {
 export async function iniciarSesion() {
   const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0]
   if (!account) return null
+  // Respeta el modo de respaldo: si el scope de la API no está publicado en
+  // Entra ID, pedirlo aquí fallaría en cada petición y la app quedaría
+  // inutilizable. Con Graph el token también lo acepta el backend.
+  const scope = scopeDeApi()
   try {
-    const resp = await msalInstance.acquireTokenSilent({ scopes: [apiScope], account })
+    const resp = await msalInstance.acquireTokenSilent({ scopes: [scope], account })
     return resp.accessToken
   } catch (error) {
     console.warn('[API] no se pudo renovar el token, redirigiendo:', error?.message)
     msalInstance
-      .acquireTokenRedirect({ scopes: [apiScope], account })
+      .acquireTokenRedirect({ scopes: [scope], account })
       .catch((e) => console.error('[API] falló la renovación:', e?.message))
     throw new Error('Autorizando con Microsoft… la página se recargará.')
   }

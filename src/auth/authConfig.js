@@ -23,6 +23,40 @@ export const loginRequest = {
   scopes: ['openid', 'profile', 'email', 'User.Read', 'Files.ReadWrite', apiScope],
 }
 
+// Respaldo: los mismos permisos pero SIN el scope de la API propia.
+//
+// Hace falta porque ese scope solo existe si en Entra ID se hizo "Expose an API"
+// > access_as_user. Si no se publicó, Microsoft rechaza la petición con
+// AADSTS65001 y el botón de login se queda sin hacer nada visible. Como el
+// backend también acepta la audiencia de Microsoft Graph (ver server/src/auth.js),
+// entrar por Graph da un token que la API sí valida, y la app funciona igual.
+//
+// La bandera se guarda en sessionStorage para que, tras un primer login fallido,
+// los intentos siguientes tampoco usen el scope inexistente.
+const CLAVE_RESPALDO = 'ctp:login-respaldo'
+
+export function usarRespaldo() {
+  return sessionStorage.getItem(CLAVE_RESPALDO) === '1'
+}
+
+export function activarRespaldo() {
+  sessionStorage.setItem(CLAVE_RESPALDO, '1')
+}
+
+export function desactivarRespaldo() {
+  sessionStorage.removeItem(CLAVE_RESPALDO)
+}
+
+export const loginRequestRespaldo = {
+  scopes: ['openid', 'profile', 'email', 'User.Read', 'Files.ReadWrite'],
+}
+
+// Devuelve el scope con el que hay que pedir token para la API, respetando el
+// modo de respaldo. Lo usan tanto el login como la renovación silenciosa.
+export function scopeDeApi() {
+  return usarRespaldo() ? 'User.Read' : apiScope
+}
+
 // OneDrive y el correo siguen siendo recursos de Graph, con su propio token.
 export const graphTokenRequest = {
   scopes: ['Files.ReadWrite', 'Mail.Send'],
