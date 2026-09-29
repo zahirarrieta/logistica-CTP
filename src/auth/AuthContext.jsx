@@ -1,12 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { getActiveAccount, msalInstance, msalReady } from './msal.js'
 import {
-  activarRespaldo,
-  desactivarRespaldo,
   esErrorDeScope,
   loginRequest,
   loginRequestRespaldo,
-  usarRespaldo,
 } from './authConfig.js'
 import { cargarUsuarioActual } from '../services/solicitudesApi.js'
 import { cerrarSesion } from '../services/apiClient.js'
@@ -52,6 +49,9 @@ export function AuthProvider({ children }) {
   // promesa, no una sesión válida. Se marca el respaldo para reintentar con
   // permisos de Graph, que el backend sí acepta. La lista de códigos está
   // centralizada en esErrorDeScope.
+  // Red de seguridad. Solo se activa si VITE_USAR_SCOPE_API=1 y aun así el
+  // scope no estuviera publicado en Entra ID: el fallo llega aquí, en
+  // handleRedirectPromise, no en el clic, así que el catch de login() no lo ve.
   useEffect(() => {
     let cancelled = false
 
@@ -61,14 +61,9 @@ export function AuthProvider({ children }) {
         if (respuesta && respuesta.error) {
           const crudo = String(respuesta.errorMessage || respuesta.error || '')
           if (esErrorDeScope(crudo)) {
-            activarRespaldo()
             console.warn('[Auth] el scope de la API no existe en Entra ID; se reintenta con Graph.')
             setAccount(null)
             setLoading(false)
-            // Sin este reintento el usuario tenía que pulsar INICIAR SESIÓN por
-            // segunda vez: el fallo de Microsoft llega en handleRedirectPromise
-            // (al volver de la redirección), nunca en el clic, así que el
-            // catch de login() no lo veía nunca. Reintentamos solos con Graph.
             msalInstance
               .loginRedirect(loginRequestRespaldo)
               .catch((e) => console.error('[Auth] falló el reintento con Graph:', e?.message))
@@ -120,17 +115,16 @@ export function AuthProvider({ children }) {
   // Antes devolvía la promesa de loginRedirect sin tocarla: cualquier rechazo
   // (redirect URI no registrado, scope inexistente, popup bloqueado) se
   // consumía como unhandled rejection y el botón no hacía nada visible. Ahora se
-  // espera msalReady, se capturan los errores y se reintenta con Graph.
+  // espera msalReady y se capturan los errores.
   const login = async () => {
     setErrorLogin('')
     setLoginEnCurso(true)
     try {
       await msalReady
-      await msalInstance.loginRedirect(usarRespaldo() ? loginRequestRespaldo : loginRequest)
+      await msalInstance.loginRedirect(loginRequest)
     } catch (error) {
       const crudo = String(error?.errorMessage || error?.message || error || '')
       if (esErrorDeScope(crudo)) {
-        activarRespaldo()
         try {
           await msalInstance.loginRedirect(loginRequestRespaldo)
         } catch (segundo) {
@@ -145,7 +139,6 @@ export function AuthProvider({ children }) {
   }
   const logout = () => {
     try { msalInstance.setActiveAccount(null) } catch { /* noop */ }
-    desactivarRespaldo()
     setAccount(null)
     setUsuario(null)
     setRolListo(false)

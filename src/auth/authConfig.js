@@ -4,60 +4,38 @@ const TENANT_ID =
   import.meta.env.VITE_AZURE_TENANT_ID || '0294e0dd-589f-4476-b787-4e6f5f291e6f'
 
 // ============================================================================
-// Scope de la API propia.
-// El backend valida el token contra el JWKS del tenant y exige que la audiencia
-// sea esta aplicación. Un token de Microsoft Graph (aud 00000003-0000-...) NO
-// sirve para eso, así que hay que pedir explícitamente el scope de la API.
+// Alcance de la API
 //
-// Requisito en Entra ID > App registrations > esta app > Expose an API:
-//   Application ID URI: api://<CLIENT_ID>
-//   scope: access_as_user  ( consented by admins)
-// Si el scope aún no existe, el backend acepta también la audiencia de Graph
-// (ver server/src/auth.js), de modo que la app funciona igual mientras tanto.
+// El backend valida el token contra el JWKS del tenant. Exige que la audiencia
+// sea esta aplicación, y además acepta la de Microsoft Graph (ver
+// server/src/auth.js), porque Graph está firmado por las claves del MISMO
+// tenant: prueba la misma identidad de usuario.
+//
+// Pedir el scope propio `api://<CLIENT_ID>/access_as_user` solo funciona si en
+// Entra ID se hizo "Expose an API" > access_as_user. Mientras no exista,
+// Microsoft rechaza la petición con AADSTS500011 y el login obliga a hacer dos
+// viajes: uno que falla y otro con Graph.
+//
+// Por eso el scope propio está APAGADO por defecto y se enciende poniendo
+// VITE_USAR_SCOPE_API=1, después de publicar el scope en Entra ID. Mientras
+// tanto se pide Graph, que da un token que la API valida igual.
 // ============================================================================
 export const apiScope = import.meta.env.VITE_API_SCOPE || `api://${CLIENT_ID}/access_as_user`
 
-// El login pide el scope de la API para que MSAL lo guarde en caché y
-// posteriormente se pueda obtener en silencio.
+const USAR_SCOPE_API = import.meta.env.VITE_USAR_SCOPE_API === '1'
+
+// Graph aporta lo que la app usa de verdad: leer el perfil para el nombre,
+// Files.ReadWrite para OneDrive y Mail.Send para el correo.
+const SCOPES_GRAPH = ['openid', 'profile', 'email', 'User.Read', 'Files.ReadWrite']
+
 export const loginRequest = {
-  scopes: ['openid', 'profile', 'email', 'User.Read', 'Files.ReadWrite', apiScope],
+  scopes: USAR_SCOPE_API ? [...SCOPES_GRAPH, apiScope] : SCOPES_GRAPH,
 }
 
-// Respaldo: los mismos permisos pero SIN el scope de la API propia.
-//
-// Hace falta porque ese scope solo existe si en Entra ID se hizo "Expose an API"
-// > access_as_user. Si no se publicó, Microsoft rechaza la petición con
-// AADSTS65001 y el botón de login se queda sin hacer nada visible. Como el
-// backend también acepta la audiencia de Microsoft Graph (ver server/src/auth.js),
-// entrar por Graph da un token que la API sí valida, y la app funciona igual.
-//
-// La bandera va en localStorage, no en sessionStorage: descubrir que el scope
-// propio no existe cuesta un viaje de ida y vuelta a Microsoft con error, así
-// que no tiene sentido pagarlo en cada sesión. Con localStorage se paga una vez
-// por navegador. Si más adelante publicas access_as_user en Entra ID, basta con
-// limpiar el almacenamiento del sitio: al hacer logout ya se borra sola.
-const CLAVE_RESPALDO = 'ctp:login-respaldo'
-
-export function usarRespaldo() {
-  return localStorage.getItem(CLAVE_RESPALDO) === '1'
-}
-
-export function activarRespaldo() {
-  localStorage.setItem(CLAVE_RESPALDO, '1')
-}
-
-export function desactivarRespaldo() {
-  localStorage.removeItem(CLAVE_RESPALDO)
-}
-
+// Red de seguridad para cuando VITE_USAR_SCOPE_API=1 y el scope aún no está
+// publicado. Solo se usa en ese caso; en el flujo normal no interviene.
 export const loginRequestRespaldo = {
-  scopes: ['openid', 'profile', 'email', 'User.Read', 'Files.ReadWrite'],
-}
-
-// Devuelve el scope con el que hay que pedir token para la API, respetando el
-// modo de respaldo. Lo usan tanto el login como la renovación silenciosa.
-export function scopeDeApi() {
-  return usarRespaldo() ? 'User.Read' : apiScope
+  scopes: SCOPES_GRAPH,
 }
 
 // Microsoft usa varios códigos distintos para decir "ese scope no existe en el
@@ -67,7 +45,7 @@ export function scopeDeApi() {
 //   AADSTS65001  - la app pidió un scope que no tiene
 //   AADSTS500011 - el recurso api://<id> no está registrado en el tenant
 //   AADSTS7000213/7000215 - recurso o cliente inválido
-//   invalid_scope / unauthorized_client - variantes de OAuth
+//   invalid_scope / unauthorized_client / invalid_resource - variantes de OAuth
 //
 // Que la lista viviera en un solo sitio es lo que evita que un código nuevo
 // vuelva a dejar el login colgado: antes AADSTS500011 no coincidía con el
@@ -80,6 +58,13 @@ export function esErrorDeScope(texto) {
     /AADSTS700021[35]/i.test(crudo) ||
     /invalid_scope|unauthorized_client|invalid_resource/i.test(crudo)
   )
+}
+
+// El scope con el que hay que pedir token para la API. Lo usan tanto el login
+// como la renovación silenciosa, y ambos tienen que coincidir: pedir uno en el
+// login y otro al renovar hace que MSAL no encuentre nada en caché.
+export function scopeDeApi() {
+  return USAR_SCOPE_API ? apiScope : 'User.Read'
 }
 
 // OneDrive y el correo siguen siendo recursos de Graph, con su propio token.

@@ -231,10 +231,21 @@ que existir:
    `access_as_user` > *Grant admin consent*.
 
 Mientras no lo hagas, **no pasa nada**: el backend también acepta la audiencia
-de Microsoft Graph, así que los tokens que ya devuelve MSAL funcionan igual. Pero
-el token de Graph lleva permisos de Graph, no de la API, así que conviene
-publicar el scope y, más adelante, quitar `GRAPH_AUDIENCE` de la lista en
-`server/src/auth.js`.
+de Microsoft Graph, así que los tokens que ya devuelve MSAL funcionan igual.
+
+Ojo, mientras el scope no exista hay que dejar `VITE_USAR_SCOPE_API=0`, que es el
+valor por defecto. Con `1` el frontend pide `access_as_user` y Microsoft rechaza
+el login con AADSTS500011, obligando a entrar dos veces.
+
+Cuando termines los tres pasos, **reconstruye** con la variable en `1`:
+
+```
+VITE_USAR_SCOPE_API=1
+```
+
+y vuelve a subir el build. A partir de ahí el login pide el scope propio desde el
+primer intento. Más adelante, cuando te acostumbres, puedes quitar
+`GRAPH_AUDIENCE` y `GRAPH_AUDIENCE_V2` de la lista en `server/src/auth.js`.
 
 ### 6.3 Allowed origin types
 
