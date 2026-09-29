@@ -33,10 +33,18 @@ const JWKS_URI = `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/
 // identidad de usuario. No se abre nada al exterior porque el emisor sigue
 // atado a un solo tenant y la firma se sigue comprobando contra su JWKS.
 //
-// Cuando el scope de la API esté publicado en Entra ID, se puede quitar
-// GRAPH_AUDIENCE de esta lista.
+// OJO con las dos formas de Graph: NO es lo mismo el GUID que la URL. Un token
+// emitido por el endpoint v1.0 lleva `aud` = "00000003-0000-0000-c000-000000000000",
+// pero uno emitido por v2.0 lleva el identificador de recurso completo
+// `https://graph.microsoft.com/00000003-0000-0000-c000-000000000000`. MSAL v3 usa
+// v2.0 por defecto, así que accepting solo el GUID hacía que toda petición
+// respondiera 401 "Token inválido" aunque el login funcionara. Se aceptan ambas.
+//
+// Cuando el scope de la API esté publicado en Entra ID, se pueden quitar las dos
+// formas de Graph de esta lista.
 const GRAPH_AUDIENCE = '00000003-0000-0000-c000-000000000000'
-const AUDIENCIAS = [CLIENT_ID, GRAPH_AUDIENCE]
+const GRAPH_AUDIENCE_V2 = `https://graph.microsoft.com/${GRAPH_AUDIENCE}`
+const AUDIENCIAS = [CLIENT_ID, GRAPH_AUDIENCE, GRAPH_AUDIENCE_V2]
 
 // jose cachea las claves y las refresca solo cuando expira la Cache-Control, así
 // que cada petición no vuelve a Microsoft.
@@ -74,7 +82,14 @@ async function autenticar(req, res, next) {
     return next()
   } catch (error) {
     const expired = error?.code === 'ERR_JWT_EXPIRED'
-    console.warn(`[Auth] token rechazado: ${error?.code || error?.message}`)
+    // Se registra el motivo y los claims relevantes. NUNCA el token entero. Con
+    // el `aud` basta para distinguir "token de otra app" de "audiencia mal
+    // listada", que es justo lo que rompía con Graph v2.0.
+    const aud = error?.payload?.aud || '(sin leer)'
+    const iss = error?.payload?.iss || '(sin leer)'
+    console.warn(
+      `[Auth] token rechazado: ${error?.code || error?.message} | aud=${aud} | iss=${iss}`
+    )
     return res.status(401).json({
       error: expired ? 'La sesión expiró, vuelve a iniciar sesión' : 'Token inválido',
     })

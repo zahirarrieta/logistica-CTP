@@ -31,20 +31,23 @@ export const loginRequest = {
 // backend también acepta la audiencia de Microsoft Graph (ver server/src/auth.js),
 // entrar por Graph da un token que la API sí valida, y la app funciona igual.
 //
-// La bandera se guarda en sessionStorage para que, tras un primer login fallido,
-// los intentos siguientes tampoco usen el scope inexistente.
+// La bandera va en localStorage, no en sessionStorage: descubrir que el scope
+// propio no existe cuesta un viaje de ida y vuelta a Microsoft con error, así
+// que no tiene sentido pagarlo en cada sesión. Con localStorage se paga una vez
+// por navegador. Si más adelante publicas access_as_user en Entra ID, basta con
+// limpiar el almacenamiento del sitio: al hacer logout ya se borra sola.
 const CLAVE_RESPALDO = 'ctp:login-respaldo'
 
 export function usarRespaldo() {
-  return sessionStorage.getItem(CLAVE_RESPALDO) === '1'
+  return localStorage.getItem(CLAVE_RESPALDO) === '1'
 }
 
 export function activarRespaldo() {
-  sessionStorage.setItem(CLAVE_RESPALDO, '1')
+  localStorage.setItem(CLAVE_RESPALDO, '1')
 }
 
 export function desactivarRespaldo() {
-  sessionStorage.removeItem(CLAVE_RESPALDO)
+  localStorage.removeItem(CLAVE_RESPALDO)
 }
 
 export const loginRequestRespaldo = {

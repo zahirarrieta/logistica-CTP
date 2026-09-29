@@ -62,9 +62,16 @@ export function AuthProvider({ children }) {
           const crudo = String(respuesta.errorMessage || respuesta.error || '')
           if (esErrorDeScope(crudo)) {
             activarRespaldo()
-            console.warn('[Auth] el scope de la API no existe en Entra ID; se usará Graph.')
+            console.warn('[Auth] el scope de la API no existe en Entra ID; se reintenta con Graph.')
             setAccount(null)
             setLoading(false)
+            // Sin este reintento el usuario tenía que pulsar INICIAR SESIÓN por
+            // segunda vez: el fallo de Microsoft llega en handleRedirectPromise
+            // (al volver de la redirección), nunca en el clic, así que el
+            // catch de login() no lo veía nunca. Reintentamos solos con Graph.
+            msalInstance
+              .loginRedirect(loginRequestRespaldo)
+              .catch((e) => console.error('[Auth] falló el reintento con Graph:', e?.message))
             return
           }
           console.warn('[Auth] error al volver de Microsoft:', crudo)
