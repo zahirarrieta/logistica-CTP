@@ -13,26 +13,32 @@ const AuthContext = createContext(null)
 
 // Traduce los errores de MSAL a algo accionable. Sin esto el usuario solo ve
 // que el botón no responde.
+//
+// El código de Microsoft va SIEMPRE al principio del mensaje. Ya se confundió
+// AADSTS65001 con AADSTS500011 por deducir el error en vez de leerlo, y se
+// diagnóstico que adivina el motivo es peor que ninguno.
 function describirError(error) {
-  const crudo = String(error?.errorCode || error?.code || '') + ' ' + String(
-    error?.errorMessage || error?.message || error || ''
-  )
+  const codigo = String(error?.errorCode || error?.code || '').trim()
+  const mensaje = String(error?.errorMessage || error?.message || error || '').trim()
+  const crudo = `${codigo} ${mensaje}`
+  const prefijo = codigo ? `[${codigo}] ` : ''
+
   if (/AADSTS500011/i.test(crudo)) {
-    return 'Microsoft no encuentra la API registrada en el tenant. Se reintentó con permisos de Graph; si sigue fallando, publica el scope en Entra ID (sección 6.2 de la guía).'
+    return `${prefijo}Microsoft no encuentra la API registrada en el tenant. Se reintentó con permisos de Graph; si sigue fallando, publica el scope en Entra ID (sección 6.2 de la guía).`
   }
-  if (/AADSTS50011|redirect_uri|mismatch/i.test(crudo)) {
-    return 'Ese dominio no está autorizado en Microsoft Entra ID. Hay que registrarlo como Redirect URI (sección 6.1 de la guía).'
+  if (/AADSTS50011\b|redirect_uri|mismatch/i.test(crudo)) {
+    return `${prefijo}Ese dominio no está autorizado en Microsoft Entra ID. La app envía window.location.origin como Redirect URI; debe coincidir carácter a carácter con lo registrado. Revisa también si estás entrando por www.`
   }
   if (/AADSTS7000215|invalid_client/i.test(crudo)) {
-    return 'Microsoft rechazó la aplicación. Revisa que el Redirect URI coincida exactamente con la dirección del navegador.'
+    return `${prefijo}Microsoft rechazó la aplicación. Revisa que el Redirect URI coincida exactamente con la dirección del navegador.`
   }
   if (/interaction_in_progress|popup_window_error/i.test(crudo)) {
-    return 'Ya hay una autenticación en curso. Espera unos segundos y vuelve a intentar.'
+    return `${prefijo}Ya hay una autenticación en curso. Espera unos segundos y vuelve a intentar.`
   }
   if (/user_cancelled|cancelled/i.test(crudo)) {
     return ''
   }
-  return `No se pudo iniciar sesión: ${error?.errorMessage || error?.message || 'error desconocido'}`
+  return `${prefijo}No se pudo iniciar sesión: ${mensaje || 'error desconocido'}`
 }
 
 export function AuthProvider({ children }) {
