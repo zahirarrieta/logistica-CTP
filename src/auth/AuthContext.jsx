@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { getActiveAccount, msalInstance, msalReady } from './msal.js'
 import { loginRequest } from './authConfig.js'
 import { cargarUsuarioActual } from '../services/solicitudesApi.js'
-import { cerrarSesion } from '../services/supabaseClient.js'
+import { cerrarSesion } from '../services/apiClient.js'
 import { setRolActual, setUsuarioActual } from '../store/solicitudesStore.js'
 
 const AuthContext = createContext(null)

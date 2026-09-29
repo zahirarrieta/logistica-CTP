@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+# Archivos subidos por los usuarios: nunca van al repositorio. Se conserva el
+# .gitkeep para que la carpeta exista en un clon nuevo (archivos.js también la
+# crea al arrancar).
+storage/evidencias/*
+!storage/evidencias/.gitkeep
+storage/adjuntos/
+*.log

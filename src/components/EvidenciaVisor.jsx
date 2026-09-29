@@ -31,7 +31,7 @@ export default function EvidenciaVisor({ urls }) {
     setIndice(0)
     setEstados([])
     // Solo `clave` (estable): así el carrusel no se reinicia con cada re-render
-    // del padre (Realtime en el dashboard reinicia el componente de todas formas).
+    // del padre (el polling del dashboard reinicia el componente de todas formas).
   }, [clave])
 
   // Resuelve todas las imágenes (OneDrive → blob) de una vez; al ser máximo 3

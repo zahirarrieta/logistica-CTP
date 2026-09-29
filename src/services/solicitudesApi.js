@@ -1,8 +1,6 @@
-import { supabase, iniciarSesion, datosUsuario, backendActivo } from './supabaseClient.js'
+import { apiFetch, apiPost, apiDelete, backendActivo, iniciarSesion, datosUsuario } from './apiClient.js'
 import { soloAdjuntosSolicitud } from '../utils/pdfUtils.js'
 import { subirDocEntregaOneDrive } from './oneDriveApi.js'
-
-const EXPIRA_EVIDENCIA = 60 * 60 * 24 // 24 h
 
 // Separador de las varias imágenes de evidencia de una entrega. Se usa '|' porque
 // no aparece ni en dataUrls (base64) ni en las URLs de OneDrive/SharePoint.
@@ -10,6 +8,9 @@ const SEP_EVIDENCIA = '|'
 
 let usuarioRegistrado = false
 
+// El alta del usuario se hace una vez por sesión de navegador. El rol llega
+// vacío: lo asigna un administrador después (el backend no acepta que el propio
+// usuario se auto-asigne permisos).
 async function preparar() {
   await iniciarSesion()
   if (usuarioRegistrado) return
@@ -17,9 +18,9 @@ async function preparar() {
   if (!correo) return
   usuarioRegistrado = true
   try {
-    await supabase.from('usuarios').upsert({ correo, nombre }, { onConflict: 'correo', ignoreDuplicates: true })
+    await apiPost('/api/usuarios/registro', { nombre })
   } catch {
-    // Si no se pudo registrar el usuario, el resto de la sincronización sigue intentándolo.
+    // Si no se pudo registrar, el resto de la sincronización sigue intentándolo.
   }
 }
 
@@ -110,22 +111,26 @@ function dataUrlABlob(dataUrl) {
   return { blob: new Blob([bytes], { type: mime }), mime }
 }
 
+// Sube una imagen de evidencia al backend. El nombre lo genera el servidor a
+// partir del id del historial y el índice, igual que la ruta que se armaba para
+// el disco del servidor.
 async function subirEvidenciaParte(codigo, id, dataUrl, indice) {
   const { blob, mime } = dataUrlABlob(dataUrl)
   const extension = mime.includes('pdf') ? 'pdf' : 'jpg'
-  const ruta = `${codigo}/${id}_${indice}.${extension}`
-  const { error } = await supabase.storage
-    .from('evidencias')
-    .upload(ruta, blob, { contentType: mime, upsert: true })
-  if (error) throw error
-  console.info(`[Supabase] evidencia subida a evidencias/${ruta}`)
+  const nombre = `${id}_${indice}.${extension}`
+  const cuerpo = new FormData()
+  cuerpo.append('archivo', blob, nombre)
+  cuerpo.append('codigo', codigo)
+  cuerpo.append('nombre', nombre)
+  const { ruta } = await apiFetch('/api/archivos/evidencia', { method: 'POST', body: cuerpo })
+  console.info(`[API] evidencia subida a evidencias/${ruta}`)
   return ruta
 }
 
 // Una entrega puede tener varias imágenes de evidencia unidas por SEP_EVIDENCIA.
 // Al sincronizar se REEINTENTA primero la carpeta compartida de OneDrive/SharePoint
-// del usuario (misma ruta que el flujo en línea); solo si falla se usa Supabase
-// Storage como respaldo. Las URLs http/rutas ya subidas se conservan tal cual.
+// del usuario (misma ruta que el flujo en línea); solo si falla se sube al
+// backend como respaldo. Las URLs http/rutas ya subidas se conservan tal cual.
 // Devuelve el mismo formato unido.
 async function resolverEvidencia(codigo, entrada, solicitud) {
   const valor = typeof entrada.evidencia === 'string' ? entrada.evidencia.trim() : ''
@@ -153,15 +158,15 @@ async function resolverEvidencia(codigo, entrada, solicitud) {
       if (!subida?.url) throw new Error('OneDrive no devolvió un enlace')
       resueltas.push(subida.url)
     } catch (err) {
-      console.warn('[OneDrive] reintento de evidencia a SharePoint falló, se usa Supabase Storage:', err.message)
+      console.warn('[OneDrive] reintento de evidencia a SharePoint falló, se sube al backend:', err.message)
       resueltas.push(await subirEvidenciaParte(codigo, entrada.id, parte, i))
     }
   }
   return resueltas.join(SEP_EVIDENCIA)
 }
 
-// Firma cada ruta de Storage dentro de una evidencia (posiblemente múltiple) y
-// deja intactas las URLs http.
+// Sustituye cada ruta guardada por su URL firmada (24 h) y deja intactas las
+// URLs http de OneDrive.
 function firmarEvidencia(evidenciaUrl, firmadas) {
   return String(evidenciaUrl || '')
     .split(SEP_EVIDENCIA)
@@ -179,45 +184,16 @@ export async function descargarSolicitudes(desde = '') {
   if (!backendActivo) return null
   await preparar()
 
-  // Se pagina con .range() hasta agotar: un .limit() fijo dejaría fuera las
-  // solicitudes más antiguas cuando hay más de una página, rompiendo la marca de
-  // agua y la sincronización incremental.
-  const TAM_PAGINA = 1000
-  const filas = []
-  for (let inicio = 0; ; inicio += TAM_PAGINA) {
-    const { data, error } = await supabase
-      .from('solicitudes')
-      .select('*')
-      .order('actualizado_en', { ascending: false })
-      .range(inicio, inicio + TAM_PAGINA - 1)
-    if (error) throw error
-    const lote = data || []
-    filas.push(...lote)
-    if (lote.length < TAM_PAGINA) break
-  }
-  const watermark = filas.reduce(
-    (acc, f) => (f.actualizado_en && f.actualizado_en > acc ? f.actualizado_en : acc),
-    desde || ''
-  )
+  const params = new URLSearchParams()
+  if (desde) params.set('desde', desde)
+  const consulta = params.toString() ? `?${params.toString()}` : ''
 
-  const codigos = desde
-    ? filas.filter((f) => f.actualizado_en && f.actualizado_en > desde).map((f) => f.codigo)
-    : filas.map((f) => f.codigo)
-
-  let registros = []
-  // Se consulta el historial por lotes: un .in() con miles de códigos alargaría
-  // demasiado la URL de la petición y podría fallar en algunos proxies.
-  const LOTE_IN = 200
-  for (let i = 0; i < codigos.length; i += LOTE_IN) {
-    const lote = codigos.slice(i, i + LOTE_IN)
-    const { data: dataHist, error: errorHist } = await supabase
-      .from('historial')
-      .select('*')
-      .in('solicitud', lote)
-      .order('creado_en', { ascending: false })
-    if (errorHist) throw errorHist
-    registros.push(...(dataHist || []))
-  }
+  // El backend ya devuelve las solicitudes paginadas por completo y el historial
+  // solo de las que cambiaron, aplicando los mismos permisos que las políticas
+  // RLS de Postgres.
+  const datos = await apiFetch(`/api/solicitudes${consulta}`)
+  const filas = datos.solicitudes || []
+  const registros = datos.historial || []
 
   const rutas = [
     ...new Set(
@@ -229,13 +205,11 @@ export async function descargarSolicitudes(desde = '') {
   ]
   const firmadas = {}
   if (rutas.length > 0) {
-    const { data, error: errorUrl } = await supabase.storage
-      .from('evidencias')
-      .createSignedUrls(rutas, EXPIRA_EVIDENCIA)
-    if (!errorUrl && Array.isArray(data)) {
-      data.forEach((d, i) => {
-        if (d?.signedUrl) firmadas[rutas[i]] = d.signedUrl
-      })
+    try {
+      const mapa = await apiPost('/api/archivos/firmar', { rutas })
+      Object.assign(firmadas, mapa || {})
+    } catch (error) {
+      console.warn('[API] no se pudieron firmar las evidencias:', error?.message)
     }
   }
 
@@ -247,22 +221,14 @@ export async function descargarSolicitudes(desde = '') {
   }
 
   console.info(
-    `[Supabase] descargadas ${filas.length} solicitud(es) y ${registros.length} registro(s) de historial`
+    `[API] descargadas ${filas.length} solicitud(es) y ${registros.length} registro(s) de historial`
     + (desde ? ' (incremental)' : ' (completo)')
   )
   return {
     solicitudes: filas.map((f) => aLocal(f, porSolicitud.get(f.codigo) || [])),
-    conHistorial: new Set(codigos),
-    watermark,
+    conHistorial: new Set(datos.conHistorial || []),
+    watermark: datos.watermark || desde || '',
   }
-}
-
-// El camino de escritura de RLS rechaza la entrega del conductor con 42501 aun
-// cuando las políticas la permiten; en ese caso se reintenta por el RPC
-// SECURITY DEFINER `guardar_solicitud`, que autoriza en el servidor y escribe
-// saltándose RLS (mismo patrón que `proximo_codigo`).
-function esBloqueoRls(error) {
-  return error?.code === '42501' || /row-level security/i.test(error?.message || '')
 }
 
 export async function empujarSolicitud(s) {
@@ -294,35 +260,17 @@ export async function empujarSolicitud(s) {
   }
 
   const fila = filaDe(s)
-  const conId = filasHistorial.filter((f) => f.id)
+  // El backend valida los permisos (los que antes imponía RLS) y escribe la
+  // solicitud y su historial en una sola transacción, así que ya no hace falta
+  // el reintento por RPC cuando RLS rechazaba el INSERT.
+  await apiPost('/api/solicitudes', {
+    fila,
+    historial: filasHistorial.filter((f) => f.id),
+  })
 
-  const { error } = await supabase
-    .from('solicitudes')
-    .upsert(fila, { onConflict: 'codigo' })
-
-  if (error && esBloqueoRls(error)) {
-    const { error: rpcError } = await supabase.rpc('guardar_solicitud', {
-      p_fila: fila,
-      p_historial: conId,
-    })
-    if (rpcError) throw rpcError
-    console.info(
-      `[Supabase] guardada ${s.id} vía RPC (RLS) · estado "${fila.estado}"`
-      + ` · ${conId.length} registro(s) de historial`
-    )
-    return true
-  }
-  if (error) throw error
-
-  if (conId.length > 0) {
-    const { error: errorHist } = await supabase
-      .from('historial')
-      .upsert(conId, { onConflict: 'id' })
-    if (errorHist) throw errorHist
-  }
   console.info(
-    `[Supabase] guardada ${s.codigo || s.id} · estado "${s.estado || 'Abierto'}"`
-    + ` · ${conId.length} registro(s) de historial`
+    `[API] guardada ${s.id} · estado "${fila.estado}"`
+    + ` · ${filasHistorial.filter((f) => f.id).length} registro(s) de historial`
   )
   return true
 }
@@ -330,67 +278,49 @@ export async function empujarSolicitud(s) {
 export async function borrarSolicitud(codigo) {
   if (!backendActivo || !codigo) return false
   await preparar()
-  const { error } = await supabase.from('solicitudes').delete().eq('codigo', codigo)
-  if (error) throw error
-  console.info(`[Supabase] borrada ${codigo}`)
+  await apiDelete(`/api/solicitudes/${encodeURIComponent(codigo)}`)
+  console.info(`[API] borrada ${codigo}`)
   return true
 }
 
 export async function borrarTodasSolicitudes() {
   if (!backendActivo) return false
   await preparar()
-  const { error } = await supabase.from('solicitudes').delete().neq('codigo', '')
-  if (error) throw error
-  console.info('[Supabase] borradas todas las solicitudes')
+  await apiDelete('/api/solicitudes')
+  console.info('[API] borradas todas las solicitudes visibles')
   return true
 }
 
 export async function cargarClientes() {
   if (!backendActivo) return null
   await iniciarSesion()
-  const { data, error } = await supabase
-    .from('clientes')
-    .select('nit, nombre, bodega, zona')
-    .order('nombre')
-  if (error) {
-    console.error('[Supabase] error cargando clientes:', error.message, error.details || '')
-    throw error
-  }
-  console.info(`[Supabase] cargados ${data.length} cliente(s)`)
-  return data.map((c) => ({ ...c, cliente: c.nombre }))
+  const data = await apiFetch('/api/clientes')
+  console.info(`[API] cargados ${(data || []).length} cliente(s)`)
+  return (data || []).map((c) => ({ ...c, cliente: c.nombre }))
 }
 
 export async function cargarUsuarios() {
   if (!backendActivo) return null
   await iniciarSesion()
-  const { data, error } = await supabase
-    .from('usuarios')
-    .select('correo, nombre, rol, vehiculo, placa, es_conductor')
-    .eq('activo', true)
-    .order('nombre')
-  if (error) {
-    console.error('[Supabase] error cargando usuarios:', error.message, error.details || '')
-    throw error
-  }
-  console.info(`[Supabase] cargados ${data.length} usuario(s)`)
-  return data
+  const data = await apiFetch('/api/usuarios')
+  console.info(`[API] cargados ${(data || []).length} usuario(s)`)
+  return data || []
 }
 
 // Devuelve { correo, nombre, rol } del usuario autenticado actual, o null si no
-// está registrado en la tabla usuarios. RLS limita la lectura a su propia fila.
+// está registrado en la tabla usuarios. El backend limita la lectura a su propia
+// fila salvo que sea administrador.
 export async function cargarUsuarioActual() {
   if (!backendActivo) return null
   await preparar()
   const { correo } = datosUsuario()
   if (!correo) return null
-  const { data, error } = await supabase
-    .from('usuarios')
-    .select('correo, nombre, rol')
-    .eq('correo', correo)
-    .maybeSingle()
-  if (error) {
-    console.warn('[Supabase] no se pudo leer el rol del usuario actual:', error.message)
+  try {
+    const propio = await apiFetch('/api/usuarios/yo')
+    if (!propio) return null
+    return { correo: propio.correo, nombre: propio.nombre, rol: propio.rol }
+  } catch (error) {
+    console.warn('[API] no se pudo leer el rol del usuario actual:', error?.message)
     return null
   }
-  return data || null
 }

@@ -1,0 +1,22 @@
+{
+  "name": "logistica-ctp-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API REST de Logística CTP (Node.js + MySQL) para Node.js Selector de cPanel",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node test/archivos.test.js",
+    "verificar:sql": "node sql/verificar-columnas.mjs"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jose": "^5.9.6",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.11.5"
+  }
+}

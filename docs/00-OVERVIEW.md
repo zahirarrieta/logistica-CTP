@@ -12,11 +12,11 @@ hasta 3 fotos de evidencia y una encuesta de satisfacción. Todo el ciclo se ref
 **en vivo** para los demás roles mediante notificaciones en tiempo real.
 
 La app es **local-first**: cada cambio se guarda primero en el navegador
-(`localStorage`) y luego se sincroniza con Supabase (Postgres + RLS + Realtime).
+(`localStorage`) y luego se sincroniza con la API propia (Node.js + MySQL).
 Funciona sin conexión (los cambios quedan en cola y se suben al volver la red) y es
 instalable como PWA. Los archivos (adjuntos, facturas y evidencias) viajan a la
 carpeta compartida de OneDrive/SharePoint de la organización vía Microsoft Graph, con
-Supabase Storage como respaldo para las evidencias.
+el disco del servidor como respaldo para las evidencias.
 
 ## Stack y por qué
 
@@ -26,8 +26,8 @@ Supabase Storage como respaldo para las evidencias.
 | Estilos | **Tailwind CSS 3.4** | Utilidades + tema de marca (`brand-*`) en `tailwind.config.js` |
 | Rutas | **react-router-dom 7.9** (lazy + Suspense) | Un bundle por módulo: Login, Home, Solicitudes, Administrador, Conductor |
 | Auth | **@azure/msal-browser 5** (Azure AD) | La empresa opera con cuentas Microsoft 365 |
-| Backend | **Supabase** (Postgres + RLS + Realtime + Storage) | Backend sin servidor propio; permisos por rol en la base; cambios en vivo |
-| Archivos | **Microsoft Graph (OneDrive/SharePoint)** | La carpeta compartida `solicitudes` ya es el archivo oficial del equipo |
+| Backend | **Node.js + Express + MySQL** (`server/`) | Un solo proveedor; el hosting solo ofrece MySQL, así que los permisos por rol se aplican en el código (`server/src/permisos.js`) |
+| Archivos | **Microsoft Graph (OneDrive/SharePoint)** + disco | La carpeta compartida `solicitudes` ya es el archivo oficial del equipo; el disco es el respaldo |
 | Toasts | **sileo** | Notificaciones ligeras con sonido |
 | PDF | **jspdf + html2canvas-pro** (importación dinámica) | Exportar informes/planillas sin pesar en el arranque |
 | Iconos | **react-icons** (subset `md`/`fi`) | Un solo chunk `icons` |
@@ -35,7 +35,7 @@ Supabase Storage como respaldo para las evidencias.
 
 ## Roles de usuario
 
-Definidos en `src/auth/roles.js` y en la tabla `public.usuarios` (la base es la fuente
+Definidos en `src/auth/roles.js` y en la tabla `usuarios` (la base es la fuente
 de verdad; un admin puede cambiar permisos sin tocar el frontend):
 
 - **solicitante** — Inicio + Mis Solicitudes (solo las suyas).
@@ -46,8 +46,8 @@ de verdad; un admin puede cambiar permisos sin tocar el frontend):
 ## Casos de uso principales
 
 1. **Crear solicitud**: botón «Nueva solicitud» → se reserva un código atómico
-   `CTPLOG-XXXXX` (RPC `proximo_codigo`) → adjuntos a OneDrive → guardado local + push
-   a Supabase → notificación en vivo a admin/super.
+   `CTPLOG-XXXXX` (`POST /api/codigos/reservar`) → adjuntos a OneDrive → guardado
+   local + push a la API → notificación a admin/super.
 2. **Corregir devolución**: el admin devuelve la solicitud marcando campos por corregir;
    el solicitante tiene **5 minutos** para editar solo esos campos y reenviar.
 3. **Asignar y despachar**: el admin cambia el estado (EstadosModal), asigna responsable
@@ -62,3 +62,5 @@ de verdad; un admin puede cambiar permisos sin tocar el frontend):
 
 - [01-ARQUITECTURA.md](./01-ARQUITECTURA.md) — capas, flujo de datos, sincronización, seguridad.
 - [02-ESTRUCTURA-CARPETAS.md](./02-ESTRUCTURA-CARPETAS.md) — árbol comentado del proyecto.
+- [04-DESPLIEGUE-HOSTING.md](./04-DESPLIEGUE-HOSTING.md) — despliegue en Latinoamérica Hosting.
+- [../migrar/README.md](../migrar/README.md) — passage de datos de Supabase a MySQL.

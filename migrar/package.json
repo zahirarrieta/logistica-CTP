@@ -1,0 +1,15 @@
+{
+  "name": "logistica-ctp-migrar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mueve los datos de Supabase (Postgres) a MySQL. Herramienta de una sola vez.",
+  "scripts": {
+    "exportar": "node exportar-postgres.mjs",
+    "importar": "node importar-mysql.mjs"
+  },
+  "dependencies": {
+    "mysql2": "^3.11.5",
+    "pg": "^8.13.1"
+  }
+}

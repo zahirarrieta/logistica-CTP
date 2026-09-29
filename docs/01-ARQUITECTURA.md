@@ -24,18 +24,18 @@
  │                              │                                 │  │
  │                              ▼                                 │  │
  │        solicitudesStore.js  (STORE LOCAL-FIRST + pub/sub)      │  │
- │         localStorage ◄──────┼──────► Realtime (canal)          │  │
+ │         localStorage ◄──────┼──────► polling cada 8 s          │  │
  │                              ▼                                 │  │
- │        services/  solicitudesApi · supabaseClient ·            │  │
+  │        services/  solicitudesApi · apiClient ·              │  │
  │                   oneDriveApi · notificaciones · enviarCorreo  │  │
  └──────────────┬───────────────────────────────┬─────────────────┘
                 ▼                               ▼
       ┌──────────────────┐            ┌─────────────────────────┐
-      │     Supabase     │            │  Microsoft Graph        │
-      │ Postgres + RLS   │            │  OneDrive/SharePoint    │
-      │ Realtime+Storage │            │  carpeta «solicitudes»  │
-      │ RPC (SECURITY    │            │  + Mail.Send (alertas)  │
-      │  DEFINER)        │            └─────────────────────────┘
+      │ API propia        │            │  Microsoft Graph        │
+      │ Express+MySQL    │            │  OneDrive/SharePoint    │
+      │ disco+polling    │            │  carpeta «solicitudes»  │
+      │ permisos en      │            │  + Mail.Send (alertas)  │
+      │ cada query        │            └─────────────────────────┘
       └──────────────────┘
 ```
 
@@ -48,8 +48,8 @@
   suscriptores (`suscribir(cb)`) y las pantallas se re-renderizan con `useState` +
   `useEffect(suscribir)`.
 - **Unidireccional**: UI → acciones del store (`saveSolicitud`, `updateSolicitud`,
-  `corregirSolicitud`) → `escribir` (localStorage) → `empujar` (Supabase) →
-  `notificar` (suscriptores). Los cambios remotos entran por Realtime →
+  `corregirSolicitud`) → `escribir` (localStorage) → `empujar` (API REST) →
+  `notificar` (suscriptores). Los cambios remotos entran por el polling →
   `sincronizarInicial` → fusión → `notificar`.
 
 ## Capas y responsabilidades
@@ -60,19 +60,22 @@
 | Auth | `auth/msal.js`, `authConfig.js`, `AuthContext.jsx`, `roles.js`, `user.js` | Login Microsoft, carga del rol desde tabla `usuarios`, permisos por ruta |
 | UI | `pages/**`, `components/**`, `loader/` | Pantallas, tablas, modales, filtros, loaders |
 | Store | `store/solicitudesStore.js`, `store/planillaStore.js` | Estado local, cola offline, avisos en vivo, borradores, ventana de corrección (5 min) |
-| Servicios | `services/*.js` | Supabase (sesión anónima + API), OneDrive/Graph, notificaciones (sileo), PDF, correo de calidad |
-| Backend | `supabase/schema.sql` + seeds | Tablas `solicitudes`, `historial`, `usuarios`, `clientes`, RLS, RPC, publication Realtime |
+| Servicios | `services/*.js` | API propia (token de Microsoft + fetch), OneDrive/Graph, notificaciones (sileo), PDF, correo de calidad |
+| Backend | `server/src/**` + `server/sql/*.sql` | API Express, permisos por rol en cada consulta, MySQL (`solicitudes`, `historial`, `usuarios`, `clientes`, `contadores`), archivos en disco |
 
 ## Flujo de datos y sincronización
 
 1. **Escritura**: toda mutación local marca la solicitud, escribe en `localStorage`
    y llama `empujarSolicitud` (upsert de fila + historial). Si no hay red, queda
    `pendienteSync: true` y se reintenta en `sincronizarPendientes` al volver.
-2. **Marca de agua**: `sincronizarInicial(desde)` descarga solicitudes **paginadas**
-   (`.range()` de 1000) y solo el historial de las filas con `actualizado_en > watermark`
-   (lotes de 200 códigos). Los pendientes locales ganan sobre lo remoto.
-3. **Realtime**: canal `solicitudes-tiempo-real` (`postgres_changes`, event `*`). Cada
-   evento programa un re-sync con debounce de 600 ms; al re-suscribirse también.
+2. **Marca de agua**: `sincronizarInicial(desde)` pide a la API las solicitudes
+   visibles para el rol y solo el historial de las filas con `actualizado_en > watermark`
+   (el backend lo pagina en lotes de 200 códigos). Los pendientes locales ganan
+   sobre lo remoto.
+3. **Polling**: `iniciarTiempoReal` programa un `sincronizarInicial` incremental
+   cada 8 s, más uno al volver a la pestaña (`focus`). Reemplaza al canal Realtime
+   de Supabase porque el hosting compartido no tiene WebSockets. Un flag impide
+   que dos sincronizaciones se solapen.
 4. **Supresión de ecos**: `marcarEchoLocal` guarda un fingerprint por solicitud para
    que los cambios hechos por ESTA sesión no disparen toasts duplicados.
 5. **Avisos por rol** (`avisarCambiosRemotes`): solicitud nueva → admin/super;
@@ -80,9 +83,9 @@
    Entregado/Entregado Parcial → `entregaRealizada` a privilegiados y al dueño;
    devolución → `solicitudDevuelta` con motivo. Invariante del producto: **todo cambio
    de estado/asignación/entrega debe notificar en vivo a todos los roles afectados**.
-6. **Códigos de solicitud**: RPC `siguiente_codigo` (ver sin consumir) y
-   `proximo_codigo` (reserva atómica al crear). Sin backend, derivación local
-   `CTPLOG-#####` por contador + máximo de la lista.
+6. **Códigos de solicitud**: `GET /api/codigos/siguiente` (ver sin consumir) y
+   `POST /api/codigos/reservar` (reserva atómica al crear, con bloqueo de fila).
+   Sin backend, derivación local `CTPLOG-#####` por contador + máximo de la lista.
 
 ## Archivos y evidencia
 
@@ -90,38 +93,56 @@
   `solicitudes/{usuario}/{CTPLOG-XXXXX}[/FacturasoRemisiones|/DocEntregas]` en la
   carpeta compartida (resuelta por sharedWithMe → enlace oficial → drive propio).
 - Evidencia de entrega: hasta **3 imágenes** unidas por `SEP_EVIDENCIA = '|'`
-  (carácter ausente en dataUrls y URLs). Se intenta OneDrive primero; respaldo
-  Supabase Storage bucket `evidencias` con URLs firmadas (24 h) al descargar.
+  (carácter ausente en dataUrls y URLs). Se intenta OneDrive primero; respaldo en
+  el disco del hosting (`server/storage/evidencias/`) servido con URLs firmadas
+  HMAC de 24 h, igual que las `createSignedUrls` que daba Supabase.
 - Las facturas «En Trámite» viven **solo** en la entrada de historial
   (`campo='estado'`, `nuevo='En Trámite'`, campo `adjunto`, unidas por coma).
 
 ## Seguridad
 
-- **RLS por rol** con helpers SQL (`correo_actual()`, `rol_actual()`,
-  `es_privilegiado()`); la app usa **sesión anónima** de Supabase con metadata
-  `{correo, nombre}` — la identidad real viene del JWT de Microsoft.
-- **RPC SECURITY DEFINER**: `guardar_solicitud` (respaldo del conductor ante 42501),
-  `proximo_codigo`, `reiniciar_contador`. ⚠️ Toda modificación de estas funciones debe
-  validar el rol **en el servidor**; son el único camino que salta RLS.
-- Claves: solo publishable/anon en el cliente. La **secret key nunca** va al frontend
-  ni a `.env*` del cliente.
-- **DB-first**: cualquier cambio de schema/RLS/RPC se ejecuta en Supabase **antes** de
-  desplegar el código que lo usa.
+- **Permisos por rol en el backend** (`server/src/permisos.js`): traducción
+  literal de las 15 políticas RLS de Supabase a fragmentos `WHERE` parametrizados.
+  MySQL no tiene RLS, así que **toda** consulta debe pasar por un filtro de ese
+  módulo; una consulta sin filtro vería todo.
+- **Identidad**: el backend valida el token de Microsoft contra el JWKS del tenant
+  (firma, emisor, audiencia, expiración) y saca el correo de ahí. No hay sesiones
+  anónimas ni JWT propios. El rol se lee de la tabla `usuarios`, nunca del token,
+  para que un admin cambie permisos sin desplegar.
+- **Autorización de escritura**: `permiteGuardarSolicitud` reproduce la
+  comprobación de la antigua RPC `guardar_solicitud` (que corría como SECURITY
+  DEFINER saltándose RLS). Solicitud e historial se escriben en una transacción.
+- **Archivos**: los nombres se generan en el servidor y se sanean; la descarga
+  exige una firma HMAC válida y vigente. No hay rutas de archivo controladas por
+  el cliente.
+- **Secretos**: la contraseña de MySQL, `FIRMA_SECRET` y los IDs de Entra ID viven
+  solo en las variables de entorno del servidor. `FIRMA_SECRET` sin definir
+  genera uno temporal en cada arranque, y el backend lo advierte por log.
+- **DB-first**: cualquier cambio de `server/sql/*.sql` se importa en MySQL
+  **antes** de desplegar el código que lo usa.
 
 ## PWA y despliegue
 
-- `sw.js`: precarga del shell (v3) + network-first para assets (nunca sirve bundle
-  viejo); `ErrorBoundary` detecta chunks huérfanos post-deploy y recarga una vez.
-- Build Vite con `manualChunks`: `msal`, `supabase`, `icons`, `pdf` (lazy), `router`,
+- `sw.js`: precarga del shell (v5) + network-first para assets (nunca sirve bundle
+  viejo); excluye `/api/` para que el service worker no cachee respuestas de la
+  API. `ErrorBoundary` detecta chunks huérfanos post-deploy y recarga una vez.
+- Build Vite con `manualChunks`: `msal`, `icons`, `pdf` (lazy), `router`,
   `react`, `vendor`. jspdf/html2canvas solo se cargan al exportar.
+- Frontend: `dist/` estático en `public_html` + `public/.htaccess` (reemplaza al
+  `vercel.json`: fuerza `index.html` en las rutas de la SPA).
+- Backend: Node.js Selector de cPanel sobre Phusion Passenger; `server/app.js`
+  es el startup file. Ver `docs/04-DESPLIEGUE-HOSTING.md`.
 
 ## Riesgos conocidos / deuda
 
 - **Sin tests**: los flujos críticos (crear/corregir/entregar/sync) no tienen red de
   seguridad. Candidatos a primeros tests (Vitest): `siguienteNumero`,
   `parsearMotivoDevolucion`, fusión de `sincronizarInicial`, `resolverEvidencia`.
-- `solicitudesStore.js` (~1000 líneas) concentra storage+sync+realtime+avisos;
-  candidato a dividirse en `storage/sync/realtime/avisos` cuando crezca.
-- Realtime re-descarga por marca de agua en vez de parchear con el payload (simple y
-  confiable; optimizable si el volumen de eventos crece).
+  En el backend, lo más crítico de cubrir son los filtros de
+  `server/src/permisos.js` (un `?` desalineado abriría datos).
+- `solicitudesStore.js` (~1000 líneas) concentra storage+sync+polling+avisos;
+  candidato a dividirse en `storage/sync/polling/avisos` cuando crezca.
+- El polling cada 8 s re-descarga por marca de agua en vez de recibir un push
+  (simple y confiable; el hosting no tiene WebSockets, así que no hay alternativa
+  sin montar un VPS).
 - `sileo` está en versión temprana (0.1.x): fijar versión y probar al actualizar.

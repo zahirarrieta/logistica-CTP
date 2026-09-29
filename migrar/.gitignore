@@ -1,0 +1,5 @@
+# Salida del exportador: contiene datos personales de producción.
+# No debe subirse al repositorio.
+datos.json
+node_modules/
+.env

@@ -7,26 +7,29 @@ Convención: ✅ en uso · ⚙️ configuración · 📄 documentación.
 logistica-CTP/
 ├── index.html                  ⚙️ Entrada HTML: meta PWA, manifest, theme-color,
 │                                  fuentes Google no bloqueantes, mount #root
-├── vite.config.js              ⚙️ Build: fallbacks de env, base '/', manualChunks
-│                                  (msal · supabase · icons · pdf · router · react · vendor)
+├── vite.config.js              ⚙️ Build: base '/', manualChunks
+│                                  (msal · icons · pdf · router · react · vendor)
 ├── tailwind.config.js          ⚙️ Tema de marca: colores brand-*, screens xs475→3xl,
 │                                  sombras cyanGlow/brandGlow, animaciones, fuentes
 ├── postcss.config.js           ⚙️ PostCSS (tailwindcss + autoprefixer)
 ├── eslint.config.js            ⚙️ Lint flat-config: js.recommended + react-hooks +
 │                                  react-refresh; no-unused-vars (ignora ^[A-Z_])
 ├── package.json                ⚙️ Scripts: dev · build · lint · preview
-├── vercel.json                 ⚙️ Deploy Vercel: rewrite SPA → /index.html
-├── .env.example                ⚙️ Plantilla de variables (Azure AD + Supabase publishable)
+├── .env.example                ⚙️ Plantilla de variables (Azure AD + URL de la API)
 ├── .env.local                  🔒 Valores reales locales (gitignored vía *.local)
 │
 ├── docs/                       📄 Documentación interna
 │   ├── 00-OVERVIEW.md             Qué hace, stack, roles, casos de uso
 │   ├── 01-ARQUITECTURA.md         Capas, flujo de datos, sync, seguridad, riesgos
-│   └── 02-ESTRUCTURA-CARPETAS.md  (este archivo)
+│   ├── 02-ESTRUCTURA-CARPETAS.md  (este archivo)
+│   └── 04-DESPLIEGUE-HOSTING.md   Guía de despliegue en Latinoamérica Hosting
 │
 ├── public/                     ✅ Estáticos sin procesar (se sirven tal cual)
+│   ├── .htaccess                 ⚙️ Rewrite SPA → /index.html + compresión + caché
+│   │                              (sube a public_html; reemplaza al vercel.json)
 │   ├── manifest.webmanifest       PWA: nombre, start_url /inicio, icono, theme_color
-│   ├── sw.js                      Service Worker: precarga shell v3 + network-first
+│   ├── sw.js                      Service Worker: precarga shell v5 + network-first,
+│   │                              excluye /api/ para no cachear la API
 │   ├── CTP.png                    Favicon / logo no cuadrado (500×383)
 │   ├── CTPM.png                   Logo cuadrado 346×346 (icono PWA + botón flotante)
 │   ├── Principal/                 Imágenes del hero (carrusel Home) y camiones de botones
@@ -34,20 +37,37 @@ logistica-CTP/
 │   └── ITitulos/                  Iconos de título por módulo
 │       ├── SolicitudI.png · ConductorI.png · AdministradorI.png · SuperAdminI.png
 │
-├── supabase/                   ✅ Backend como código (ejecutar ANTES de desplegar)
-│   ├── schema.sql                 Tablas solicitudes/historial/usuarios/clientes,
-│   │                              RLS por rol, RPC (proximo_codigo, siguiente_codigo,
-│   │                              guardar_solicitud, reiniciar_contador), publication realtime
-│   ├── seed_clientes.sql          Carga inicial de clientes
-│   ├── seed_usuarios.sql          Carga inicial de usuarios/roles
-│   └── functions/                 (vacía — reservada para Edge Functions)
+├── server/                     ✅ Backend Node.js + MySQL (Node.js Selector de cPanel)
+│   ├── app.js                      Startup file para Passenger (delega en src/index.js)
+│   ├── package.json                ⚙️ express · mysql2 · jose · multer · cors
+│   ├── .env.example                ⚙️ Plantilla de variables del servidor
+│   ├── src/
+│   │   ├── index.js                Exporta la app (Passenger) y sirve /api
+│   │   ├── routes.js               Endpoints: codigos · clientes · usuarios ·
+│   │   │                           solicitudes · archivos
+│   │   ├── permisos.js             ⚠️ Permisos por rol = traducción de las RLS.
+│   │   │                           Toda consulta DEBE pasar por un filtro de aquí.
+│   │   ├── auth.js                 Valida el token de Microsoft contra el JWKS
+│   │   ├── db.js                   Pool MySQL (sesión en UTC)
+│   │   └── archivos.js             Guardado en disco + URLs firmadas HMAC
+│   ├── sql/
+│   │   ├── schema.mysql.sql        Tablas, índices, contadores, FK (importar 1º)
+│   │   ├── seed_clientes.mysql.sql 223 clientes (2º)
+│   │   ├── seed_usuarios.mysql.sql 10 usuarios y roles (3º)
+│   │   └── convertir-seeds.mjs     Genera los .sql de arriba desde supabase/
+│   └── storage/evidencias/         🔒 Evidencias de respaldo (fuera de Git)
+│
+├── migrar/                     ⚠️ Herramienta de una sola vez: Supabase → MySQL
+│   ├── exportar-postgres.mjs        Postgres → datos.json
+│   ├── importar-mysql.mjs          datos.json → MySQL (+ sincroniza el contador)
+│   └── README.md                   Orden, comandos y qué NO se migra
 │
 └── src/
     ├── main.jsx                ✅ Raíz React: StrictMode › ErrorBoundary ›
     │                              BrowserRouter › App + registro del SW en PROD
     ├── App.jsx                 ✅ Rutas lazy (/inicio /solicitudes /administrador
     │                              /conductor), guard «Protegida» por rol, marca de
-    │                              sesión (sessionStorage), arranque de sync + Realtime
+    │                              sesión (sessionStorage), arranque de sync + polling
     ├── index.css               ✅ Tailwind base + utilidades globales
     │
     ├── assets/                 ✅ Recursos estáticos procesados por Vite
@@ -83,7 +103,7 @@ logistica-CTP/
     │
     ├── store/                  ✅ Estado global local-first (no pertenece a una página)
     │   ├── solicitudesStore.js ★ STORE central: localStorage + cola offline +
-    │   │                          sync por marca de agua + Realtime + avisos por
+    │   │                          sync por marca de agua + polling 8 s + avisos por
     │   │                          rol + borradores de entrega + ventana 5 min +
     │   │                          códigos CTPLOG y contactos de encuesta
     │   └── planillaStore.js     Store de planillas (mismo patrón local-first)
@@ -146,13 +166,13 @@ logistica-CTP/
     │           └── modals/
     │               └── EntregaConductor.jsx  Registrar entrega: 1–3 fotos (resized,
     │                                         '|'-unidas), encuesta 3 estrellas,
-    │                                         borrador local, subida OneDrive/Storage
+    │                                         borrador local, subida OneDrive/disco
     │
     └── services/               ✅ Integraciones externas
-        ├── supabaseClient.js      Cliente Supabase + sesión anónima por usuario
-        │                          (metadata correo/nombre), cierre al cambiar de cuenta
+        ├── apiClient.js          Base URL de la API + fetch con el token de Microsoft
+        │                          (401 → login; 5xx → reintento con espera)
         ├── solicitudesApi.js      API de datos: descargar (paginada + watermark),
-        │                          empujar (upsert + RPC fallback 42501), borrar,
+        │                          empujar (upsert de fila + historial), borrar,
         │                          clientes/usuarios, evidencias (subida/firmado '|')
         ├── oneDriveApi.js         Microsoft Graph: resolver carpeta compartida,
         │                          subir adjuntos/facturas/evidencias por pedido
@@ -166,16 +186,18 @@ logistica-CTP/
 ## Reglas de ubicación (para código nuevo)
 
 - Una pantalla nueva → `src/pages/<Modulo>/` + ruta lazy en `App.jsx` + permiso en
-  `auth/roles.js` (+ RLS en `supabase/schema.sql` si toca datos).
+  `auth/roles.js` (+ un filtro en `server/src/permisos.js` si toca datos).
 - Un modal de un módulo → `pages/<Modulo>/Components/modals/` (usar `components/Modal.jsx`
   como shell; `overlayClassName` solo si el modal necesita un overlay distinto).
 - UI usada por ≥2 módulos → `src/components/`.
 - Estado global / stores local-first → `src/store/`.
 - Utilidades y constantes puras usadas por ≥2 capas → `src/utils/`.
 - Imágenes importadas desde código → `src/assets/` (las de `public/` se sirven tal cual).
-- Llamadas a Supabase/Graph/correo → `src/services/` (nunca dentro de componentes).
+- Llamadas a la API/Graph/correo → `src/services/` (nunca dentro de componentes).
 - Reglas de negocio del flujo de solicitudes → `store/solicitudesStore.js` (no en la UI).
-- Todo cambio de esquema/RLS/RPC → `supabase/schema.sql` **y ejecutarlo en la base
-  antes de desplegar** (política DB-first del proyecto).
+- Todo cambio de esquema → `server/sql/schema.mysql.sql` **y ejecutarlo en la base
+  antes de desplegar** (política DB-first del proyecto). MySQL no tiene RLS: si el
+  endpoint nuevo lee o escribe `solicitudes`/`historial`, tiene que ir por un
+  filtro de `server/src/permisos.js` o verá datos de otros.
 - Textos de formularios y observaciones en **MAYÚSCULAS** (transformar el valor
   guardado, no solo CSS).

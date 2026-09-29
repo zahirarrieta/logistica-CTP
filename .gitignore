@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Secretos del backend: nunca subirlos. El .env del servidor vive en el hosting.
+server/.env
+# Evidencias de respaldo: archivos de producción, no código.
+server/storage/evidencias/*
+!server/storage/evidencias/.gitkeep
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

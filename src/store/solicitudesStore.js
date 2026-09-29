@@ -1,6 +1,6 @@
 import { msalInstance } from '../auth/msal.js'
 import { shortName } from '../auth/user.js'
-import { supabase, backendActivo, iniciarSesion, datosUsuario } from '../services/supabaseClient.js'
+import { backendActivo, iniciarSesion, datosUsuario, apiGet, apiPost } from '../services/apiClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud } from '../utils/pdfUtils.js'
 import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada, asignacionRecibida, entregaRealizada, almacenamientoLleno } from '../services/notificaciones.jsx'
@@ -62,7 +62,7 @@ let avisoCuotaDado = false
 
 // Suscriptores en vivo: las pantallas (Solicitudes, Administrador, Conductor)
 // se registran para recibir la lista actualizada cada vez que cambian los datos,
-// ya sea por una acción local o por un cambio remoto (Supabase Realtime).
+  // ya sea por una acción local o por un cambio remoto (polling de la API).
 const suscriptores = new Set()
 
 export function suscribir(callback) {
@@ -73,7 +73,7 @@ export function suscribir(callback) {
 
 // ---------------------------------------------------------------------------
 // AVISOS DE CAMBIOS EN SOLICITUDES
-// · Admin/super: aviso "Solicitud nueva" cuando llega por Realtime una solicitud
+// · Admin/super: aviso "Solicitud nueva" cuando llega por la API una solicitud
 //   que NO es del usuario actual.
 // · Solicitante: aviso cuando el admin/super cambia SU solicitud (estado,
 //   asignación, conductor). Los ecos de acciones hechas en ESTA sesión se
@@ -262,7 +262,7 @@ function pendiente(id) {
 function empujar(solicitud) {
   if (!backendActivo || !solicitud?.id) return
   if (!navigator.onLine) {
-    console.info(`[Supabase] sin conexión: ${solicitud.id} queda en la cola, se sube al volver la red`)
+    console.info(`[API] sin conexión: ${solicitud.id} queda en la cola, se sube al volver la red`)
     pendiente(solicitud.id)
     return
   }
@@ -276,12 +276,12 @@ function empujar(solicitud) {
         // Permiso denegado (RLS): reintentar no lo resolverá y dejaría una
         // copia huérfana en la cola. Se avisa y NO se encola.
         console.warn(
-          `[Supabase] no se pudo subir ${actual.id} (permiso denegado):`,
+          `[API] no se pudo subir ${actual.id} (permiso denegado):`,
           error?.message
         )
         return
       }
-      console.warn('[Supabase] no se pudo subir:', error)
+      console.warn('[API] no se pudo subir:', error)
       pendiente(actual.id)
     })
 }
@@ -419,42 +419,40 @@ function codigoValido(v) {
   return typeof v === 'string' && /^CTPLOG-\d{5}$/.test(v)
 }
 
-// Ver el próximo código en el servidor SIN consumirlo (el peeksolo lee la
-// secuencia). Se usa para el aviso preventivo y el botón de actualizar.
+// Ver el próximo código en el servidor SIN consumirlo. Se usa para el aviso
+// preventivo y el botón de actualizar. Antes era la RPC `siguiente_codigo`
+// (leía la secuencia); ahora es un GET que solo lee el contador.
 export async function refrescarProximoCodigo() {
   if (!backendActivo || !navigator.onLine) return null
   try {
     await iniciarSesion()
-    const { data, error } = await supabase.rpc('siguiente_codigo')
-    if (error) return null
-    if (!codigoValido(data)) return null
-    proximoVisible = data
-    return data
+    const { codigo } = await apiGet('/api/codigos/siguiente')
+    if (!codigoValido(codigo)) return null
+    proximoVisible = codigo
+    return codigo
   } catch {
     return null
   }
 }
 
-// Reserva el siguiente código de forma atómica (avanza la secuencia). SOLO se
+// Reserva el siguiente código de forma atómica (avanza el contador). SOLO se
 // llama al crear una solicitud: garantiza que el ID asignado sea único y que
-// después de crear el siguiente número sea el consecutivo. Devuelve null si no
-// hay backend o falla la RPC → la app usa la derivación local.
+// después de crear el siguiente número sea el consecutivo. El backend lo hace
+// con una transacción y un bloqueo de fila sobre el contador. Devuelve null si
+// no hay backend o falla → la app usa la derivación local.
 export async function reservarProximoCodigo() {
   if (!backendActivo || !navigator.onLine) return null
   try {
     await iniciarSesion()
-    const { data, error } = await supabase.rpc('proximo_codigo')
-    if (error) {
-      if (!avisoReservaDado) {
-        avisoReservaDado = true
-        console.warn('[Supabase] no se pudo reservar el código (¿falta la función proximo_codigo?):', error.message)
-      }
-      return null
-    }
-    if (!codigoValido(data)) return null
+    const { codigo } = await apiPost('/api/codigos/reservar')
+    if (!codigoValido(codigo)) return null
     proximoVisible = null
-    return data
-  } catch {
+    return codigo
+  } catch (error) {
+    if (!avisoReservaDado) {
+      avisoReservaDado = true
+      console.warn('[API] no se pudo reservar el código:', error?.message)
+    }
     return null
   }
 }
@@ -561,7 +559,7 @@ export function loadSolicitudes() {
       }
       return normal
     })
-    // Los id de historial se persisten para que la subida a Supabase no duplique filas.
+    // Los id de historial se persisten para que la subida a la API no duplique filas.
     if (faltanIds) return escribir(normalizada)
     cache = normalizada
     cacheRaw = raw
@@ -713,7 +711,7 @@ export function corregirSolicitud(id, datos) {
 
 export function removeSolicitud(id) {
   const next = escribir(loadSolicitudes().filter((s) => s.id !== id))
-  if (backendActivo) void borrarSolicitud(id).catch((error) => console.warn('[Supabase] no se pudo borrar en la base:', error))
+  if (backendActivo) void borrarSolicitud(id).catch((error) => console.warn('[API] no se pudo borrar en la base:', error))
   notificar()
   return next
 }
@@ -732,7 +730,7 @@ export function clearSolicitudes() {
   return cache
 }
 
-// Borra todo (local y, si hay backend, en Supabase) y reinicia el contador.
+// Borra todo (local y, si hay backend, en la base) y reinicia el contador.
 // Pensado para pruebas: el siguiente pedido vuelve a CTPLOG-00001.
 export async function resetSolicitudes() {
   if (backendActivo) {
@@ -740,11 +738,10 @@ export async function resetSolicitudes() {
       await borrarTodasSolicitudes()
       if (navigator.onLine) {
         await iniciarSesion()
-        const { error } = await supabase.rpc('reiniciar_contador')
-        if (error) console.warn('[Supabase] no se pudo reiniciar el contador:', error.message)
+        await apiPost('/api/codigos/reiniciar')
       }
     } catch (error) {
-      console.warn('[Supabase] no se pudo limpiar en la base, se limpiará solo local:', error)
+      console.warn('[API] no se pudo limpiar en la base, se limpiará solo local:', error)
     }
   }
   proximoVisible = null
@@ -820,12 +817,10 @@ export function marcarPendienteSync(id) {
   return pendiente(id)
 }
 
-// Un rechazo por permisos (RLS 42501 / 403) no se resuelve reintentando: o la
+// Un rechazo por permisos (403 del backend) no se resuelve reintentando: o la
 // fila ya no existe en remoto, o el estado no está permitido para este rol.
 function esBloqueoPermanente(error) {
-  const codigo = String(error?.code || '')
-  const mensaje = String(error?.message || '')
-  return codigo === '42501' || /row-level security/i.test(mensaje)
+  return error?.estado === 403
 }
 
 export async function sincronizarPendientes() {
@@ -848,13 +843,13 @@ export async function sincronizarPendientes() {
         // Corta el bucle infinito: suelta el pendiente para que la próxima
         // sincronización descarte la copia local huérfana (la BD manda).
         console.warn(
-          `[Supabase] pendiente ${s.id} descartado (permiso denegado, no se reintentará):`,
+          `[API] pendiente ${s.id} descartado (permiso denegado, no se reintentará):`,
           error?.message
         )
         liberar(s.id)
         continue
       }
-      console.warn('[Supabase] pendientes en pausa:', error)
+      console.warn('[API] pendientes en pausa:', error)
       break
     }
   }
@@ -892,7 +887,7 @@ function guardarWatermark(valor) {
   }
 }
 
-// Trae desde Supabase y lo fusiona con la caché local. Solo re-descarga el
+// Trae desde la API y lo fusiona con la caché local. Solo re-descarga el
 // historial de las solicitudes que cambiaron desde la última sincronización
 // (marca de agua); el resto conserva su historial local. Lo que esté marcado
 // como pendiente de sincronizar gana sobre lo remoto (se hizo sin conexión).
@@ -904,7 +899,7 @@ export async function sincronizarInicial() {
   try {
     resultado = await descargarSolicitudes(leerWatermark())
   } catch (error) {
-    console.warn('[Supabase] sin datos remotos:', error)
+    console.warn('[API] sin datos remotos:', error)
     return locales
   }
   if (!resultado || !Array.isArray(resultado.solicitudes)) return locales
@@ -938,16 +933,20 @@ export async function sincronizarInicial() {
 }
 
 // ---------------------------------------------------------------------------
-// TIEMPO REAL
-// Se suscribe a los cambios de la tabla `solicitudes` en Supabase. Cuando otro
-// usuario (solicitante, conductor, administrador o superadmin) crea o modifica
-// algo, recibimos el evento, re-sincronizamos de forma incremental y avisamos a
-// las pantallas abiertas para que tablas y modales se actualicen al instante.
-// Requiere que la tabla esté en la publication `supabase_realtime` (ver
-// supabase/schema.sql). RLS filtra qué eventos recibe cada usuario.
+// ACTUALIZACIÓN EN VIVO (polling)
+// El hosting compartido no tiene WebSockets, así que la suscripción de
+// postgres_changes de Supabase se reemplaza por una re-sincronización
+// incremental cada POLL_MS. Cuando otro usuario (solicitante, conductor,
+// administrador o superadmin) crea o modifica algo, el siguiente tick lo trae y
+// las pantallas abiertas se actualizan. Sigue siendo incremental: la marca de
+// agua evita volver a descargar lo que no cambió.
+// La sincronización al volver a la pestaña se dispara en el evento `focus`.
 // ---------------------------------------------------------------------------
-let canalRealtime = null
+const POLL_MS = 8000
+
+let temporizadorPoll = null
 let resyncTimer = null
+let bloqueado = false
 
 function programarResync() {
   if (resyncTimer) clearTimeout(resyncTimer)
@@ -955,39 +954,41 @@ function programarResync() {
     resyncTimer = null
     if (!navigator.onLine) return
     void sincronizarInicial().catch((error) =>
-      console.warn('[Realtime] no se pudo re-sincronizar:', error)
+      console.warn('[Polling] no se pudo re-sincronizar:', error)
     )
   }, 600)
 }
 
+function alEnfocarVentana() {
+  if (!backendActivo || document.hidden) return
+  programarResync()
+}
+
 export function iniciarTiempoReal() {
-  if (!backendActivo || canalRealtime) return
-  void iniciarSesion()
-    .then(() => {
-      if (canalRealtime) return
-      canalRealtime = supabase
-        .channel('solicitudes-tiempo-real')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'solicitudes' },
-          () => programarResync()
-        )
-        .subscribe((estado) => {
-          // Al (re)conectarse, sincroniza para no perder cambios ocurridos fuera de línea.
-          if (estado === 'SUBSCRIBED') programarResync()
-        })
-      console.info('[Realtime] suscrito a cambios de solicitudes')
-    })
-    .catch((error) => console.warn('[Realtime] no se pudo iniciar:', error))
+  if (!backendActivo || temporizadorPoll) return
+  // Marca de identidad del tick: evita que dos sincronizaciones se solapen si la
+  // red va lenta, para no gastar peticiones en downloads que se pisan.
+  temporizadorPoll = setInterval(() => {
+    if (bloqueado || document.hidden || !navigator.onLine) return
+    bloqueado = true
+    void sincronizarInicial()
+      .catch((error) => console.warn('[Polling] fallo el ciclo:', error))
+      .finally(() => {
+        bloqueado = false
+      })
+  }, POLL_MS)
+  window.addEventListener('focus', alEnfocarVentana)
+  console.info(`[Polling] actualizaciones cada ${POLL_MS / 1000}s`)
 }
 
 export function detenerTiempoReal() {
+  if (temporizadorPoll) {
+    clearInterval(temporizadorPoll)
+    temporizadorPoll = null
+  }
   if (resyncTimer) {
     clearTimeout(resyncTimer)
     resyncTimer = null
   }
-  if (canalRealtime && supabase) {
-    void supabase.removeChannel(canalRealtime)
-    canalRealtime = null
-  }
+  window.removeEventListener('focus', alEnfocarVentana)
 }

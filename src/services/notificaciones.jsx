@@ -239,7 +239,7 @@ export function solicitudCreada(solicitud = {}) {
 }
 
 // Aviso para administradores/superadmin cuando OTRA persona crea una solicitud:
-  // llega al instante por Realtime y no requiere refrescar la página.
+  // llega por el polling de la API, sin necesidad de refrescar la página.
   export function solicitudNueva(solicitud = {}) {
     sileo.info({
       ...BASE,
@@ -290,7 +290,7 @@ export function solicitudAsignada(id, asignadoA) {
 }
 
 // Aviso al administrador cuando el superadmin/admin le asigna una solicitud a su
-  // nombre o correo: llega al instante por Realtime y aparece en «Mis asignaciones».
+  // nombre o correo: llega por el polling de la API y aparece en «Mis asignaciones».
   export function asignacionRecibida(id, cliente) {
     sileo.info({
       ...BASE,
@@ -348,7 +348,7 @@ export function conductorAsignado(id, conductor) {
 }
 
 // Aviso para el CONDUCTOR cuando el administrador/superadmin pone en tránsito
-// una solicitud que le fue asignada: llega al instante por Realtime.
+// una solicitud que le fue asignada: llega por el polling de la API.
 export function entregaAsignada(id, cliente) {
   sileo.info({
     ...BASE,
@@ -367,7 +367,7 @@ export function entregaAsignada(id, cliente) {
 }
 
 // Aviso a solicitante, administrador y superadmin cuando el conductor marca una
-// solicitud como entregada: llega al instante por Realtime, sin refrescar.
+// solicitud como entregada: llega por el polling de la API, sin refrescar.
 export function entregaRealizada(id, { cliente, estado, conductor } = {}) {
   const parcial = estado === 'Entregado Parcial'
   sileo.success({
