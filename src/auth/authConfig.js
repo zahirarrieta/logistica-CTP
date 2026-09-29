@@ -57,6 +57,28 @@ export function scopeDeApi() {
   return usarRespaldo() ? 'User.Read' : apiScope
 }
 
+// Microsoft usa varios códigos distintos para decir "ese scope no existe en el
+// tenant", y cuál aparece depende de si el fallo se detecta en la redirección
+// o al volver de ella:
+//
+//   AADSTS65001  - la app pidió un scope que no tiene
+//   AADSTS500011 - el recurso api://<id> no está registrado en el tenant
+//   AADSTS7000213/7000215 - recurso o cliente inválido
+//   invalid_scope / unauthorized_client - variantes de OAuth
+//
+// Que la lista viviera en un solo sitio es lo que evita que un código nuevo
+// vuelva a dejar el login colgado: antes AADSTS500011 no coincidía con el
+// patrón y el respaldo nunca se activaba.
+export function esErrorDeScope(texto) {
+  const crudo = String(texto || '')
+  return (
+    /AADSTS65001/i.test(crudo) ||
+    /AADSTS500011/i.test(crudo) ||
+    /AADSTS700021[35]/i.test(crudo) ||
+    /invalid_scope|unauthorized_client|invalid_resource/i.test(crudo)
+  )
+}
+
 // OneDrive y el correo siguen siendo recursos de Graph, con su propio token.
 export const graphTokenRequest = {
   scopes: ['Files.ReadWrite', 'Mail.Send'],

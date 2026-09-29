@@ -3,6 +3,7 @@ import { getActiveAccount, msalInstance, msalReady } from './msal.js'
 import {
   activarRespaldo,
   desactivarRespaldo,
+  esErrorDeScope,
   loginRequest,
   loginRequestRespaldo,
   usarRespaldo,
@@ -19,6 +20,9 @@ function describirError(error) {
   const crudo = String(error?.errorCode || error?.code || '') + ' ' + String(
     error?.errorMessage || error?.message || error || ''
   )
+  if (/AADSTS500011/i.test(crudo)) {
+    return 'Microsoft no encuentra la API registrada en el tenant. Se reintentó con permisos de Graph; si sigue fallando, publica el scope en Entra ID (sección 6.2 de la guía).'
+  }
   if (/AADSTS50011|redirect_uri|mismatch/i.test(crudo)) {
     return 'Ese dominio no está autorizado en Microsoft Entra ID. Hay que registrarlo como Redirect URI (sección 6.1 de la guía).'
   }
@@ -43,10 +47,11 @@ export function AuthProvider({ children }) {
   const [loginEnCurso, setLoginEnCurso] = useState(false)
 
   // El scope api://<client-id>/access_as_user solo existe si en Entra ID se
-  // publicó con "Expose an API". Si no está, Microsoft devuelve AADSTS65001
-  // desde la página de login y handleRedirectPromise lo entrega como error:
-  // eso es un rechazo de la promesa, no una sesión válida. En ese caso se marca
-  // el respaldo para reintentar con permisos de Graph, que el backend sí acepta.
+  // publicó con "Expose an API". Si no está, Microsoft rechaza la autenticación
+  // y handleRedirectPromise lo entrega como error: eso es un rechazo de la
+  // promesa, no una sesión válida. Se marca el respaldo para reintentar con
+  // permisos de Graph, que el backend sí acepta. La lista de códigos está
+  // centralizada en esErrorDeScope.
   useEffect(() => {
     let cancelled = false
 
@@ -55,7 +60,7 @@ export function AuthProvider({ children }) {
         if (cancelled) return
         if (respuesta && respuesta.error) {
           const crudo = String(respuesta.errorMessage || respuesta.error || '')
-          if (/AADSTS65001|invalid_scope|unauthorized_client/i.test(crudo)) {
+          if (esErrorDeScope(crudo)) {
             activarRespaldo()
             console.warn('[Auth] el scope de la API no existe en Entra ID; se usará Graph.')
             setAccount(null)
@@ -117,7 +122,7 @@ export function AuthProvider({ children }) {
       await msalInstance.loginRedirect(usarRespaldo() ? loginRequestRespaldo : loginRequest)
     } catch (error) {
       const crudo = String(error?.errorMessage || error?.message || error || '')
-      if (/AADSTS65001|invalid_scope|unauthorized_client/i.test(crudo)) {
+      if (esErrorDeScope(crudo)) {
         activarRespaldo()
         try {
           await msalInstance.loginRedirect(loginRequestRespaldo)
