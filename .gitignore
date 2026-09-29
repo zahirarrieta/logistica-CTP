@@ -14,6 +14,7 @@ dist-ssr
 
 # Paquetes de despliegue generados a mano
 server-deploy.zip
+frontend-deploy.zip
 
 # Secretos del backend: nunca subirlos. El .env del servidor vive en el hosting.
 server/.env
