@@ -1,6 +1,18 @@
 export function esPdfUrl(url) {
   if (!url) return false
-  return /\.pdf([?#]|$)/i.test(url) || String(url).includes('FacturasoRemisiones')
+  // PDF directo
+  if (/\.pdf([?#]|$)/i.test(url)) return true
+  // Carpeta de facturas/remisiones
+  if (String(url).includes('FacturasoRemisiones')) return true
+  // URL firmada del backend: /api/archivos/ver?ruta=...pdf... -> extraer ruta y mirar extensión
+  try {
+    const u = new URL(url, 'http://x')
+    const ruta = u.searchParams.get('ruta') || ''
+    if (/\.pdf([?#]|$)/i.test(ruta)) return true
+  } catch {
+    // ignorar
+  }
+  return false
 }
 
 const CARPETA_FACTURAS = /\/FacturasoRemisiones\//i

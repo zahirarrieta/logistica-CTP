@@ -11,6 +11,18 @@ function esExcel(url) {
 
 function nombreArchivo(url) {
   try {
+    // URL firmada: /api/archivos/ver?ruta=... -> extraer nombre de ruta
+    const u = new URL(url, 'http://x')
+    const ruta = u.searchParams.get('ruta') || ''
+    if (ruta) {
+      const parts = ruta.split('/').filter(Boolean)
+      const ultimo = parts[parts.length - 1]
+      if (ultimo) return decodeURIComponent(ultimo)
+    }
+  } catch {
+    // ignorar
+  }
+  try {
     const path = new URL(url).pathname
     const parts = path.split('/')
     return decodeURIComponent(parts[parts.length - 1] || 'Archivo')

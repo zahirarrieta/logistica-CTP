@@ -24,6 +24,18 @@ export function esUrlOneDrive(url) {
 
 function nombreDesdeUrl(url) {
   try {
+    // URL firmada: extraer nombre de la ruta
+    const u = new URL(url, 'http://x')
+    const ruta = u.searchParams.get('ruta') || ''
+    if (ruta) {
+      const parts = ruta.split('/').filter(Boolean)
+      const ultimo = parts[parts.length - 1]
+      if (ultimo) return decodeURIComponent(ultimo)
+    }
+  } catch {
+    // ignorar
+  }
+  try {
     const path = new URL(url).pathname
     const ultimo = decodeURIComponent(path.split('/').pop() || '')
     return ultimo || 'Archivo'
