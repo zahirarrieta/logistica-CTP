@@ -32,7 +32,11 @@ export function datosUsuario() {
 // no el de Graph: un token de Graph lleva otra audiencia y el backend lo
 // rechazaría. Antes de Supabase se abría aquí una sesión anónima; ahora se pide
 // un token de Microsoft para nuestra propia API.
-export async function iniciarSesion() {
+//
+// `forzar` omite la caché de MSAL: si el token guardado en el navegador se
+// corrompió (escritura truncada con el almacenamiento lleno, p. ej.), el silent
+// devolvería esa copia mala una y otra vez y la firma nunca verificaría.
+export async function iniciarSesion(forzar = false) {
   const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0]
   if (!account) return null
   // Respeta el modo de respaldo: si el scope de la API no está publicado en
@@ -40,7 +44,7 @@ export async function iniciarSesion() {
   // inutilizable. Con Graph el token también lo acepta el backend.
   const scope = scopeDeApi()
   try {
-    const resp = await msalInstance.acquireTokenSilent({ scopes: [scope], account })
+    const resp = await msalInstance.acquireTokenSilent({ scopes: [scope], account, forceRefresh: forzar })
     return resp.accessToken
   } catch (error) {
     console.warn('[API] no se pudo renovar el token, redirigiendo:', error?.message)
@@ -73,42 +77,55 @@ export class ApiError extends Error {
 }
 
 // Llamada base: adjunta el token, serializa el cuerpo y normaliza los errores.
+//
+// Si el backend rechaza la firma del token (ERR_JWS_SIGNATURE_VERIFICATION_FAILED)
+// se reintenta UNA vez con un token pedido de cero a Microsoft: cubre el caso en
+// que la copia guardada por MSAL en el navegador esté corrupta, que otherwise
+// dejaría la app inutilizable hasta borrar el almacenamiento del sitio.
 export async function apiFetch(ruta, { method = 'GET', body, headers = {}, ...resto } = {}) {
-  const token = await iniciarSesion()
-  if (!token) throw new ApiError('No hay sesión de Microsoft activa', 401, null)
+  for (let intento = 0; ; intento++) {
+    const token = await iniciarSesion(intento > 0)
+    if (!token) throw new ApiError('No hay sesión de Microsoft activa', 401, null)
 
-  const init = {
-    method,
-    ...resto,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...headers,
-    },
-  }
+    const init = {
+      method,
+      ...resto,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...headers,
+      },
+    }
 
-  if (body !== undefined && !(body instanceof FormData)) {
-    init.headers['Content-Type'] = 'application/json'
-    init.body = JSON.stringify(body)
-  } else if (body !== undefined) {
-    init.body = body
-  }
+    if (body !== undefined && !(body instanceof FormData)) {
+      init.headers['Content-Type'] = 'application/json'
+      init.body = JSON.stringify(body)
+    } else if (body !== undefined) {
+      init.body = body
+    }
 
-  const resp = await fetch(`${base}${ruta}`, init)
-  if (resp.status === 204) return null
+    const resp = await fetch(`${base}${ruta}`, init)
+    if (resp.status === 204) return null
 
-  const texto = await resp.text()
-  let datos = null
-  try {
-    datos = texto ? JSON.parse(texto) : null
-  } catch {
-    datos = null
-  }
+    const texto = await resp.text()
+    let datos = null
+    try {
+      datos = texto ? JSON.parse(texto) : null
+    } catch {
+      datos = null
+    }
 
-  if (!resp.ok) {
+    if (resp.ok) return datos
+
+    const firmaRota =
+      resp.status === 401 && String(datos?.error || '').includes('ERR_JWS_SIGNATURE_VERIFICATION_FAILED')
+    if (firmaRota && intento === 0) {
+      console.warn('[API] el token guardado no verifica la firma: pidiendo uno nuevo a Microsoft y reintentando')
+      continue
+    }
+
     const mensaje = datos?.error || `Error ${resp.status} del servidor`
     throw new ApiError(mensaje, resp.status, datos)
   }
-  return datos
 }
 
 // Azúcar para los endpoints que se llaman desde un solo sitio.
