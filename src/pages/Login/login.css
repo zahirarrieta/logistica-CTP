@@ -42,7 +42,7 @@
   }
 }
 
-/* Autofill: fondo oscuro + texto blanco (evita el azul claro de Chrome) */
+/* Autofill: fondo oscuro + texto blanco (página de login) */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
@@ -53,8 +53,25 @@ input:-webkit-autofill:active {
   transition: background-color 5000s ease-in-out 0s;
 }
 
-/* Firefox */
+/* Autofill: fondo claro + texto oscuro (modales blancos: Registro, Cambiar clave, etc.) */
+.bg-white input:-webkit-autofill,
+.bg-white input:-webkit-autofill:hover,
+.bg-white input:-webkit-autofill:focus,
+.bg-white input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #071A3D !important;
+  caret-color: #071A3D;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Firefox oscuro */
 input:-moz-autofill {
   background-color: #071A3D !important;
   color: #ffffff !important;
+}
+
+/* Firefox claro */
+.bg-white input:-moz-autofill {
+  background-color: #ffffff !important;
+  color: #071A3D !important;
 }
