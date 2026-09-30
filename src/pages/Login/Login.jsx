@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MdLogin } from 'react-icons/md'
 import { FiTruck } from 'react-icons/fi'
 import Footer from '../../components/Footer.jsx'
+import CampoClave from '../../components/CampoClave.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import RegistroModal from './RegistroModal.jsx'
 import './login.css'
@@ -149,18 +150,14 @@ function Login() {
                         className={clasesCampo}
                       />
 
-                      <input
-                        type="password"
+                      <CampoClave
                         name="contrasena"
+                        label="la contraseña"
                         // `current-password` porque esta cuenta ya existe: el
                         // gestor puede ofrecer la clave sin sorprender a nadie.
                         autoComplete="current-password"
-                        required
-                        maxLength={200}
                         value={form.contrasena}
                         onChange={escribir('contrasena')}
-                        placeholder="Contraseña"
-                        aria-label="Contraseña"
                         className={clasesCampo}
                       />
                     </div>

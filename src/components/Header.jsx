@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { MdHome, MdFolderOpen, MdSettings, MdLogout } from 'react-icons/md'
+import { MdHome, MdFolderOpen, MdSettings, MdLogout, MdLockReset } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { shortName } from '../auth/user.js'
 import { puedeVer } from '../auth/roles.js'
+import CambiarClaveModal from './CambiarClaveModal.jsx'
 
 const MENU = [
   { to: '/inicio', label: 'Inicio', Icon: MdHome },
@@ -15,6 +17,7 @@ const MENU = [
 export default function Header() {
   const { pathname } = useLocation()
   const { logout, account, rol, usuario } = useAuth()
+  const [cambiarClave, setCambiarClave] = useState(false)
 
   const nombreUsuario = usuario?.nombre || account?.name || ''
   const greeting = nombreUsuario ? `Hola, ${shortName({ name: nombreUsuario })}` : 'Cerrar sesión'
@@ -42,17 +45,32 @@ export default function Header() {
           })}
         </div>
 
-        <button
-          type="button"
-          className="ctp-logout"
-          onClick={logout}
-          aria-label="Cerrar sesión"
-          title={greeting}
-        >
-          <MdLogout />
-          <span>{greeting}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="ctp-logout"
+            onClick={() => setCambiarClave(true)}
+            aria-label="Cambiar contraseña"
+            title="Cambiar contraseña"
+          >
+            <MdLockReset />
+            <span className="hidden sm:inline">Cambiar clave</span>
+          </button>
+
+          <button
+            type="button"
+            className="ctp-logout"
+            onClick={logout}
+            aria-label="Cerrar sesión"
+            title={greeting}
+          >
+            <MdLogout />
+            <span>{greeting}</span>
+          </button>
+        </div>
       </nav>
+
+      {cambiarClave ? <CambiarClaveModal onClose={() => setCambiarClave(false)} /> : null}
     </header>
   )
 }

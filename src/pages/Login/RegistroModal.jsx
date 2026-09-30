@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { MdClose, MdPersonAdd } from 'react-icons/md'
 import Modal from '../../components/Modal.jsx'
+import CampoClave from '../../components/CampoClave.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 
 // Mismos estilos de campo que el login: el modal vive encima de esa pantalla y
@@ -116,34 +117,28 @@ export default function RegistroModal({ onClose }) {
 
             {/* `new-password` en los dos: si el gestor autocompleta la misma clave
                 en ambos campos de una cuenta nueva, el usuario nunca la elige. */}
-            <input
-              type="password"
+            <CampoClave
               name="contrasena"
+              label="la contraseña"
+              placeholder="Contraseña (mínimo 8)"
               autoComplete="new-password"
-              required
               minLength={8}
-              maxLength={200}
               value={form.contrasena}
               onChange={escribir('contrasena')}
-              placeholder="Contraseña (mínimo 8)"
-              aria-label="Contraseña"
               className={CLASES_CAMPO}
             />
 
-            <input
-              type="password"
+            <CampoClave
               name="confirmacion"
+              label="la contraseña repetida"
+              placeholder="Repetir contraseña"
               autoComplete="new-password"
-              required
-              maxLength={200}
+              invalid={faltaConfirmar && !!confirmacion}
               value={confirmacion}
               onChange={(e) => {
                 if (errorLogin) limpiarAviso?.()
                 setConfirmacion(e.target.value)
               }}
-              placeholder="Repetir contraseña"
-              aria-label="Repetir contraseña"
-              aria-invalid={faltaConfirmar}
               className={`${CLASES_CAMPO} ${faltaConfirmar && confirmacion ? 'border-red-400/70' : ''}`}
             />
           </div>

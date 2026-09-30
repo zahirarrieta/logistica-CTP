@@ -279,4 +279,69 @@ router.get(
   })
 )
 
+// ---------------------------------------------------------------------------
+// POST /api/auth/cambiar-clave
+// Cambia la contraseña de quien ya tiene sesión.
+//
+// Exige la clave ACTUAL a propósito. Es lo que separa esto de un "restablecer
+// contraseña": si el endpoint aceptara solo correo y clave nueva, cualquiera que
+// supiera un correo se quedaría con esa cuenta. Como no hay servicio de correo en
+// este proyecto, esta es la única vía segura, y por eso vive dentro de la app y
+// no en la pantalla de login.
+//
+// La verificación de la clave actual es un scrypt de verdad, así que el endpoint
+// tampoco sirve de paseo para probar contraseñas de una sesión robada: cuesta lo
+// mismo que el login.
+// ---------------------------------------------------------------------------
+router.post(
+  '/cambiar-clave',
+  autenticar,
+  ruta(async (req, res) => {
+    const { contrasenaActual = '', contrasenaNueva = '' } = req.body || {}
+
+    if (!String(contrasenaActual || '')) {
+      return res.status(400).json({ error: 'Escribe tu contraseña actual' })
+    }
+
+    const problema = C.problema(contrasenaNueva)
+    if (problema) return res.status(400).json({ error: problema })
+
+    // Si la nueva es igual a la actual se dice explícitamente. Sin este aviso
+    // escribir la misma clave dos veces sería un "cambio" que no cambia nada y
+    // dejaría al usuario pensando que sí lo hizo.
+    const [filas] = await pool.execute(
+      'SELECT password_hash FROM usuarios WHERE correo = ? LIMIT 1',
+      [req.correo]
+    )
+    const hashGuardado = filas[0]?.password_hash
+    if (!hashGuardado) {
+      return res.status(404).json({ error: 'La cuenta ya no existe' })
+    }
+
+    const actualCorrecta = await C.verificar(contrasenaActual, hashGuardado)
+    if (!actualCorrecta) {
+      console.warn(`[Auth] cambio de clave con la actual incorrecta para ${req.correo}`)
+      // 400 y no 401 a propósito. La sesión SÍ es válida: lo que está mal es el
+      // dato que ha mandado. Y el 401 tiene un significado concreto en el cliente
+      // (apiFetch lo lee como "caducó tu sesión", limpia el token y manda al
+      // login), así que devolverlo aquí expulsaría de la app a quien simplemente
+      // tecle su contraseña vieja con una errata.
+      return res.status(400).json({ error: 'La contraseña actual no es correcta' })
+    }
+
+    const hash = await C.hashear(contrasenaNueva)
+    await pool.execute('UPDATE usuarios SET password_hash = ? WHERE correo = ?', [
+      hash,
+      req.correo,
+    ])
+
+    console.log(`[Auth] contraseña cambiada: ${req.correo}`)
+    // No se devuelve un token nuevo: el JWT no lleva la contraseña dentro, así que
+    // el de esta sesión sigue siendo válido. Lo que sí conviene es avisar, porque
+    // las sesiones que tuvieran abiertas en otros navegadores/cpp siguen vivas
+    // hasta que el token caduque (SESSION_TTL).
+    return res.json({ ok: true })
+  })
+)
+
 module.exports = router

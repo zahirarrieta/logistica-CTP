@@ -183,6 +183,17 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // A diferencia de login y registro, aquí NO se toca errorLogin: ese estado es
+  // de la pantalla de entrada y esta llamada solo puede salir de dentro de la app,
+  // con la sesión ya abierta. El error lo pinta el propio modal, así que se
+  // propaga con throw en vez de guardarse.
+  const cambiarClave = useCallback(async ({ contrasenaActual, contrasenaNueva }) => {
+    await apiFetch('/api/auth/cambiar-clave', {
+      method: 'POST',
+      body: { contrasenaActual, contrasenaNueva },
+    })
+  }, [])
+
   const logout = useCallback(() => {
     cerrarSesionLocal()
     setAccount(null)
@@ -212,6 +223,7 @@ export function AuthProvider({ children }) {
         loading,
         login,
         registro,
+        cambiarClave,
         logout,
         usuario,
         rol,
