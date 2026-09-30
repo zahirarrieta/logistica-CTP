@@ -148,6 +148,20 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = useCallback(async ({ correo, contrasena }) => {
+    // Validación client-side: campos obligatorios
+    if (!correo?.trim()) {
+      const msg = 'Escribe tu usuario'
+      setErrorLogin(msg)
+      sileo.warning({ duration: 4000, sound: 'default', fill: '#071A3D', title: 'Campo obligatorio', description: msg })
+      return
+    }
+    if (!contrasena) {
+      const msg = 'Escribe tu contraseña'
+      setErrorLogin(msg)
+      sileo.warning({ duration: 4000, sound: 'default', fill: '#071A3D', title: 'Campo obligatorio', description: msg })
+      return
+    }
+
     setErrorLogin('')
     setLoginEnCurso(true)
     try {
@@ -177,6 +191,26 @@ export function AuthProvider({ children }) {
   }, [])
 
   const registro = useCallback(async ({ nombre, correo, contrasena }) => {
+    // Validación client-side: campos obligatorios
+    if (!nombre?.trim()) {
+      const msg = 'Escribe tu nombre completo'
+      setErrorLogin(msg)
+      sileo.warning({ duration: 4000, sound: 'default', fill: '#071A3D', title: 'Campo obligatorio', description: msg })
+      return
+    }
+    if (!correo?.trim()) {
+      const msg = 'Escribe tu usuario'
+      setErrorLogin(msg)
+      sileo.warning({ duration: 4000, sound: 'default', fill: '#071A3D', title: 'Campo obligatorio', description: msg })
+      return
+    }
+    if (!contrasena) {
+      const msg = 'Escribe tu contraseña'
+      setErrorLogin(msg)
+      sileo.warning({ duration: 4000, sound: 'default', fill: '#071A3D', title: 'Campo obligatorio', description: msg })
+      return
+    }
+
     setErrorLogin('')
     setLoginEnCurso(true)
     try {
@@ -189,6 +223,15 @@ export function AuthProvider({ children }) {
       setSesionCaducada('')
     } catch (error) {
       setErrorLogin(error.message)
+      // Si es error de validación del backend (ej. correo duplicado), usamos warning
+      const esValidacion = error.message?.includes('ya está registrado') || error.message?.includes('mínimo 8')
+      sileo[esValidacion ? 'warning' : 'error']({
+        duration: 5000,
+        sound: 'default',
+        fill: '#071A3D',
+        title: esValidacion ? 'No se pudo registrar' : 'Error de registro',
+        description: error.message,
+      })
     } finally {
       setLoginEnCurso(false)
     }
