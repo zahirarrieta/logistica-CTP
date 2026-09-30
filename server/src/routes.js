@@ -584,9 +584,26 @@ router.post(
     // solicitud. Así facturas y evidencias se separan por carpeta sin abrir una
     // ruta nueva, y el frontend sigue distinguiéndolas por la ruta (ver
     // src/utils/pdfUtils.js).
-    const visibles = await codigosVisibles(ctx, [codigoDeRuta(codigo)])
-    if (!visibles.has(codigoDeRuta(codigo))) {
-      return res.status(403).json({ error: 'No autorizado' })
+    const codigoSolicitud = codigoDeRuta(codigo)
+    const visibles = await codigosVisibles(ctx, [codigoSolicitud])
+    if (!visibles.has(codigoSolicitud)) {
+      // Al CREAR un pedido los adjuntos se suben con el código recién reservado,
+      // antes de que exista la fila en `solicitudes`; por eso no puede estar en
+      // `visibles`. Se distingue ese caso del de un código ajeno: si la solicitud
+      // no existe todavía y el usuario puede crear solicitudes, es una reserva
+      // nueva y se acepta (el archivo queda huérfano hasta que se guarde la fila).
+      // Si la solicitud SÍ existe pero no es visible, es de otro usuario → 403.
+      const [[existente]] = await pool.execute(
+        'SELECT codigo FROM solicitudes WHERE codigo = ? LIMIT 1',
+        [codigoSolicitud]
+      )
+      const puedeCrear = P.permiteInsertarSolicitud(ctx, {
+        solicitante_correo: ctx.correo,
+        estado: 'Abierto',
+      })
+      if (existente || !puedeCrear) {
+        return res.status(403).json({ error: 'No autorizado' })
+      }
     }
     const rutaRel = archivos.guardar(codigo, nombre || req.file.originalname, req.file.buffer)
     res.json({ ruta: rutaRel })
