@@ -20,6 +20,8 @@ const ASSETS = {
 
 const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional', 'Logística inversa']
 
+const DOMINIO = '@ctpmedica.com'
+
 // Esta pantalla es solo para entrar. El alta de cuenta va en un modal aparte:
 // casi todo el mundo viene a iniciar sesión, y quien sí viene a registrarse no
 // debería tener que cambiar el formulario de sitio para hacerlo.
@@ -54,7 +56,8 @@ function Login() {
   const enviar = (e) => {
     e.preventDefault()
     if (loginEnCurso) return
-    login({ correo: form.correo, contrasena: form.contrasena })
+    const correoCompleto = form.correo.includes('@') ? form.correo : form.correo + DOMINIO
+    login({ correo: correoCompleto, contrasena: form.contrasena })
   }
 
   const abrirRegistro = () => {
@@ -137,18 +140,23 @@ function Login() {
                       de verdad. */}
                   <form onSubmit={enviar} className="mt-8 sm:mt-10 max-lg:mt-6 max-w-lg login-enter">
                     <div className="grid gap-3">
-                      <input
-                        type="email"
-                        name="correo"
-                        autoComplete="email"
-                        required
-                        maxLength={190}
-                        value={form.correo}
-                        onChange={escribir('correo')}
-                        placeholder="Correo electrónico"
-                        aria-label="Correo electrónico"
-                        className={clasesCampo}
-                      />
+                      <div className="relative flex items-center">
+                        <input
+                          type="text"
+                          name="correo"
+                          autoComplete="username"
+                          required
+                          maxLength={190 - DOMINIO.length}
+                          value={form.correo}
+                          onChange={escribir('correo')}
+                          placeholder="Usuario"
+                          aria-label="Usuario (se añade @ctpmedica.com automáticamente)"
+                          className={`${clasesCampo} pr-32`}
+                        />
+                        <span className="absolute right-3 text-brand-mist/50 text-sm select-none pointer-events-none" aria-hidden="true">
+                          {DOMINIO}
+                        </span>
+                      </div>
 
                       <CampoClave
                         name="contrasena"

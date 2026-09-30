@@ -11,6 +11,8 @@ const CLASES_CAMPO =
   'placeholder:text-brand-mist/40 outline-none transition focus:border-brand-cyan/70 ' +
   'focus:ring-2 focus:ring-brand-cyan/25'
 
+const DOMINIO = '@ctpmedica.com'
+
 export default function RegistroModal({ onClose }) {
   const { registro, errorLogin, loginEnCurso, limpiarAviso } = useAuth()
   const [form, setForm] = useState({ nombre: '', correo: '', contrasena: '' })
@@ -53,7 +55,8 @@ export default function RegistroModal({ onClose }) {
   const enviar = (e) => {
     e.preventDefault()
     if (loginEnCurso || faltaConfirmar) return
-    registro({ nombre: form.nombre, correo: form.correo, contrasena: form.contrasena })
+    const correoCompleto = form.correo.includes('@') ? form.correo : form.correo + DOMINIO
+    registro({ nombre: form.nombre, correo: correoCompleto, contrasena: form.contrasena })
   }
 
   return (
@@ -102,18 +105,23 @@ export default function RegistroModal({ onClose }) {
               className={CLASES_CAMPO}
             />
 
-            <input
-              type="email"
-              name="correo"
-              autoComplete="email"
-              required
-              maxLength={190}
-              value={form.correo}
-              onChange={escribir('correo')}
-              placeholder="Correo electrónico"
-              aria-label="Correo electrónico"
-              className={CLASES_CAMPO}
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                name="correo"
+                autoComplete="username"
+                required
+                maxLength={190 - DOMINIO.length}
+                value={form.correo}
+                onChange={escribir('correo')}
+                placeholder="Usuario"
+                aria-label="Usuario (se añade @ctpmedica.com automáticamente)"
+                className={`${CLASES_CAMPO} pr-32`}
+              />
+              <span className="absolute right-3 text-brand-mist/50 text-sm select-none pointer-events-none" aria-hidden="true">
+                {DOMINIO}
+              </span>
+            </div>
 
             {/* `new-password` en los dos: si el gestor autocompleta la misma clave
                 en ambos campos de una cuenta nueva, el usuario nunca la elige. */}

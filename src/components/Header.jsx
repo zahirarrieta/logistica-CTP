@@ -77,7 +77,7 @@ export default function Header() {
 
           {abrirMenu && (
             <div
-              className="absolute right-0 mt-2 w-40 origin-top-right rounded-xl bg-brand-ink ring-1 ring-brand-cyan/25 shadow-[0_24px_60px_rgba(0,0,0,0.6)] animate-scaleIn py-2 z-[200]"
+              className="absolute right-0 top-full mt-3 w-40 origin-top-right rounded-xl bg-brand-ink ring-1 ring-brand-cyan/25 shadow-[0_24px_60px_rgba(0,0,0,0.6)] animate-scaleIn py-2 z-[200]"
               role="menu"
             >
               <button
