@@ -142,10 +142,42 @@ async function verificarFirmaLocal(token) {
       ['verify']
     )
     const datos = new TextEncoder().encode(`${cabeceraB64}.${cuerpoB64}`)
-    const ok = await crypto.subtle.verify({ name: 'RSASSA-PKCS1-v1_5' }, importada, aBytes(firmaB64), datos)
+    const firmaBytes = aBytes(firmaB64)
+    const ok = await crypto.subtle.verify({ name: 'RSASSA-PKCS1-v1_5' }, importada, firmaBytes, datos)
+
+    // Datos para separar las dos únicas causas que quedan cuando la firma no
+    // pasa ni aquí ni en el servidor:
+    //
+    //   firmaLargo ≠ firmaEsperada → el token está mutilado. En RS256 la firma
+    //     mide exactamente el módulo RSA (256 bytes con claves de 2048), así que
+    //     cualquier otro largo significa que faltan o sobran bytes.
+    //   firmaLargo == firmaEsperada → el token tiene la forma correcta pero lo firmó
+    //     otra clave. La huella de `n` se compara con la que publica Microsoft
+    //     desde una red distinta: si difieren, esta red no está viendo el JWKS
+    //     real (un proxy con inspección TLS sirve el suyo).
+    //
+    // `vidaMin` es un comprobador de coherencia: un access token de Entra dura
+    // ~70 min. Si sale muy distinto, el token no lo emitió Microsoft.
+    const huella = await sha256Local(String(clave.n))
+    const vidaMin = cuerpo.iat && cuerpo.exp ? Math.round((cuerpo.exp - cuerpo.iat) / 60) : null
     return {
       ok,
       detalle: ok ? 'firma correcta en el navegador' : 'la firma NO verifica ni en el navegador',
+      datos: {
+        largoCabecera: cabeceraB64.length,
+        largoCuerpo: cuerpoB64.length,
+        firmaLargo: firmaBytes.length,
+        // En RSASSA-PKCS1-v1_5 la firma mide exactamente lo que el módulo RSA.
+        firmaEsperada: aBytes(clave.n).length,
+        huellaClaveN: huella.slice(0, 16),
+        clavesJwks: keys.length,
+        vidaMin,
+        iat: cuerpo.iat ? new Date(cuerpo.iat * 1000).toISOString() : null,
+        nbf: cuerpo.nbf ? new Date(cuerpo.nbf * 1000).toISOString() : null,
+        exp: cuerpo.exp ? new Date(cuerpo.exp * 1000).toISOString() : null,
+        scp: cuerpo.scp || '',
+        ahora: new Date().toISOString(),
+      },
     }
   } catch (error) {
     return { ok: false, detalle: `no se pudo comprobar aquí: ${error?.message || error}` }
@@ -236,6 +268,7 @@ export async function apiFetch(ruta, { method = 'GET', body, headers = {}, ...re
           `[API] el token llegó INTACTO al servidor (sha ${shaLocal.slice(0, 12)}…, largo ${token.length}) y aun así no verifica. ` +
             `Comprobación en el navegador: ${local.detalle}`
         )
+        if (local.datos) console.warn(`[API] medidas del token: ${JSON.stringify(local.datos)}`)
         if (local.ok) {
           console.warn('[API] la firma es buena: el problema lo tiene la verificación del servidor (sus claves o su JWKS).')
         } else if (!forzar) {
