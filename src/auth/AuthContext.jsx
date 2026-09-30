@@ -12,6 +12,29 @@ const AuthContext = createContext(null)
 
 const base = API_URL.replace(/\/+$/, '')
 
+// Traduce el fallo de red a un mensaje que diga qué mirar.
+//
+// Antes salía siempre "no hay conexión, revisa tu internet", y eso era falso:
+// cuando la API responde sin cabeceras CORS, el navegador bloquea la respuesta y
+// fetch lanza igual que si no hubiera red. El sondeo en `no-cors` sí llega al
+// servidor (por eso no puede leer la respuesta) pero falla de verdad cuando el
+// dominio no resuelve o no acepta conexiones, y esa diferencia es justo la que
+// separa "tu internet" de "el hosting está caído".
+async function falloDeRed(ruta) {
+  try {
+    await fetch(base, { method: 'GET', mode: 'no-cors' })
+    return (
+      `El navegador bloqueó la respuesta de ${base}${ruta}. Suele significar que la API está ` +
+      'caída o que su CORS_ORIGENES no incluye este sitio. No es problema de tu conexión.'
+    )
+  } catch {
+    return (
+      `No se pudo contactar con ${base}. El servidor no está disponible. ` +
+      'No es problema de tu conexión.'
+    )
+  }
+}
+
 // Llama a /api/auth/* SIN el token: son las rutas que crean la sesión, no hay
 // nada que mandar todavía. Por eso van por fetch directo y no por apiFetch, que
 // exige sesión y rechazaría la llamada con 401.
@@ -24,7 +47,7 @@ async function llamarAuth(ruta, cuerpo) {
       body: JSON.stringify(cuerpo),
     })
   } catch {
-    throw new Error('No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.')
+    throw new Error(await falloDeRed(ruta))
   }
 
   let datos = null
