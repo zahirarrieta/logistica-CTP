@@ -1,4 +1,4 @@
-import { msalInstance } from '../auth/msal.js'
+import { getActiveAccount } from '../auth/sesion.js'
 import { shortName } from '../auth/user.js'
 import { backendActivo, iniciarSesion, datosUsuario, apiGet, apiPost } from '../services/apiClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../services/solicitudesApi.js'
@@ -384,8 +384,7 @@ export function restanteDevolucion(solicitud, ahora = Date.now()) {
 }
 
 function currentPersona() {
-  const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0]
-  return shortName(account)
+  return shortName(getActiveAccount())
 }
 
 function numeroDe(id) {
@@ -585,7 +584,7 @@ export function peekNextId() {
 export async function saveSolicitud(data, idFijo = null) {
   // Con backend se reserva el código al momento de creAR (avanza la secuencia
   // una sola vez), para que el ID sea único y el siguiente sea el consecutivo.
-  // idFijo llega cuando el modal ya reservó (para que la carpeta de OneDrive
+  // idFijo llega cuando el modal ya reservó (para que la carpeta de archivos
   // coincida con el código final). Sin id y sin backend → derivación local.
   let id = null
   if (idFijo) {

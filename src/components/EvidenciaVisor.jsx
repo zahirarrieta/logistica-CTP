@@ -11,9 +11,7 @@ import {
   MdChevronLeft,
   MdChevronRight,
 } from 'react-icons/md'
-import { esUrlOneDrive, resolverArchivoOneDrive } from '../services/oneDriveVisor.js'
-
-const CARPETA = 'solicitudes/DocEntregas'
+import { esUrlOneDrive, resolverArchivo } from '../services/visorArchivos.js'
 
 const esPdf = (url) => /^data:application\/pdf/i.test(url) || /\.pdf(\?|#|$)/i.test(url)
 
@@ -34,8 +32,10 @@ export default function EvidenciaVisor({ urls }) {
     // del padre (el polling del dashboard reinicia el componente de todas formas).
   }, [clave])
 
-  // Resuelve todas las imágenes (OneDrive → blob) de una vez; al ser máximo 3
-  // no pesa y evita re-resolver al navegar por el carrusel.
+  // Resuelve todas las imágenes de una vez; al ser máximo 3 no pesa y evita
+  // re-resolver al navegar por el carrusel. Solo hace falta pasar por aquí lo que
+  // aún sea un enlace de OneDrive heredado: las rutas del backend llegan ya
+  // firmadas y el <img> las carga directamente.
   useEffect(() => {
     setEstados(lista.map((u) => ({ src: '', abrir: u, cargando: true, esPdf: esPdf(u), error: '' })))
     if (!lista.some((u) => esUrlOneDrive(u))) {
@@ -45,16 +45,8 @@ export default function EvidenciaVisor({ urls }) {
       return
     }
     let cancelado = false
-    const objetos = []
     Promise.allSettled(
-      lista.map((u) =>
-        esUrlOneDrive(u)
-          ? resolverArchivoOneDrive(u, { carpeta: CARPETA }).then((res) => {
-              if (res.src.startsWith('blob:')) objetos.push(res.src)
-              return res
-            })
-          : Promise.resolve({ src: u, abrir: u })
-      )
+      lista.map((u) => (esUrlOneDrive(u) ? resolverArchivo(u) : Promise.resolve({ src: u, abrir: u })))
     ).then((resultados) => {
       if (cancelado) return
       setEstados(
@@ -73,7 +65,6 @@ export default function EvidenciaVisor({ urls }) {
     })
     return () => {
       cancelado = true
-      objetos.forEach((o) => URL.revokeObjectURL(o))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave])

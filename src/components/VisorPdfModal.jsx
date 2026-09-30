@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { MdClose, MdPictureAsPdf, MdOpenInNew, MdDownload, MdCloudQueue } from 'react-icons/md'
-import { resolverArchivoOneDrive } from '../services/oneDriveVisor.js'
-
-const CARPETA = 'solicitudes/FacturasoRemisiones'
+import { resolverArchivo } from '../services/visorArchivos.js'
 
 function esUrlAbsoluta(url) {
   return /^https?:\/\//i.test(url)
@@ -26,10 +24,7 @@ export default function VisorPdfModal({ open, url, onClose, titulo }) {
     const tiempoLimite = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Tiempo de espera agotado al cargar el PDF')), 25000)
     })
-    Promise.race([
-      resolverArchivoOneDrive(url, { carpeta: CARPETA, mime: 'application/pdf' }),
-      tiempoLimite,
-    ])
+    Promise.race([resolverArchivo(url), tiempoLimite])
       .then((res) => {
         if (cancelado) return
         if (res.src.startsWith('blob:')) objectUrl = res.src

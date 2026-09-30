@@ -2,232 +2,58 @@
 
 // ============================================================================
 // AUTENTICACIÓN
-// Valida el token de Microsoft (Azure AD / Entra ID) que envía el frontend en
-// Authorization: Bearer. Reemplaza a Supabase Auth: ya no hay sesiones anónimas
-// ni JWT propios, el identificador es el correo de la cuenta de Microsoft.
+// Sesión propia: la API firma un JWT cuando alguien se registra o inicia sesión
+// y lo verifica en cada petición. Ya no depende de Microsoft ni de ningún
+// proveedor externo.
 //
-// El token se verifica contra las claves públicas del tenant (JWKS) que publica
-// Microsoft, comprobando firma, emisor, audiencia y expiración. El rol NO se
-// lee del token: vive en la tabla usuarios (ver permisos.contexto), para que
-// cambiar permisos no requiera tocar el frontend.
+// El token lleva el correo y el nombre, pero NO el rol: el rol se lee siempre de
+// la tabla usuarios (ver permisos.contexto). Así un administrador cambia permisos
+// sin que el token de nadie tenga que renovarse, que es justo lo que pasaba con
+// el token de Microsoft.
+//
+// La firma es HMAC-SHA256 con SESSION_SECRET. Con jose, que ya era dependencia del
+// proyecto para verificar el token de Microsoft.
 // ============================================================================
 
 const crypto = require('crypto')
-
-const { createRemoteJWKSet, jwtVerify, decodeJwt, decodeProtectedHeader, importJWK } = require('jose')
+const { SignJWT, jwtVerify } = require('jose')
 
 const config = require('./config')
 
-const TENANT = config.azure.tenantId
-const CLIENT_ID = config.azure.clientId
+// Clave de firma. En desarrollo, si no hay SESSION_SECRET, se genera una al
+// arrancar: permite levantar la API sin configurar nada, a costa de que cada
+// reinicio invalide las sesiones abiertas (config.js lo avisa). En producción
+// config.js IMPIDE arrancar sin secreto, así que aquí nunca se llega con uno vacío.
+const secreto = config.sesion.secreto
+const clave = new TextEncoder().encode(
+  secreto || 'secreto-temporal-de-desarrollo-no-usar-en-produccion'
+)
 
-// Microsoft emite dos generaciones de token, con claves y emisores distintos:
-//
-//   v1.0  aud = 00000003-0000-0000-c000-000000000000   iss = https://sts.windows.net/<tenant>/
-//   v2.0  aud = https://graph.microsoft.com/00000003-… iss = https://login.microsoftonline.com/<tenant>/v2.0
-//
-// MSAL no siempre usa v2.0: cuando pide permisos de Graph puede devolver un
-// token v1.0, con `aud` = GUID desnudo y firmado por las claves que publica
-// /discovery/keys. Verificar ese token contra las claves de /discovery/v2.0/keys
-// falla con ERR_JWS_SIGNATURE_VERIFICATION_FAILED aunque el `kid` coincida: el
-// identificador de la clave es el mismo en las dos generaciones, pero el módulo
-// RSA es otro. Por eso se verifican las dos, no solo la que se supone.
-const ISSUER_V2 = `https://login.microsoftonline.com/${TENANT}/v2.0`
-const ISSUER_V1 = `https://sts.windows.net/${TENANT}/`
-const JWKS_V2 = `https://login.microsoftonline.com/${TENANT}/discovery/v2.0/keys`
-const JWKS_V1 = `https://login.microsoftonline.com/${TENANT}/discovery/keys`
+// Tope de seguridad ante un token con un "iat" absurdo (el futuro). Sin esto un
+// token con iat en el año 3000 sería válido durante 8000 años.
+const MAX_EDAD = config.sesion.ttl
 
-// jose cachea las claves y las refresca solo cuando expira la Cache-Control, así
-// que cada petición no vuelve a Microsoft. Se necesitan los dos conjuntos porque
-// no se sabe de antemano cuál generación firmará el token.
-const jwksV2 = createRemoteJWKSet(new URL(JWKS_V2))
-const jwksV1 = createRemoteJWKSet(new URL(JWKS_V1))
+// Firma el token de sesión. Lo llaman las rutas /api/auth/*.
+async function firmarToken({ correo, nombre = '' }) {
+  const ahora = Math.floor(Date.now() / 1000)
+  return new SignJWT({ correo, nombre })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt(ahora)
+    .setIssuer(config.sesion.emisor)
+    .setSubject(correo)
+    .setExpirationTime(ahora + config.sesion.ttl)
+    .setJti(crypto.randomUUID())
+    .sign(clave)
+}
 
-// Generaciones a probar, en orden. Para cada una se usa su clave y su emisor:
-// mezclar una clave de v1.0 con un emisor de v2.0 (o al revés) nunca valida.
-const GENERACIONES = [
-  { nombre: 'v2.0', jwks: jwksV2, issuer: ISSUER_V2, url: JWKS_V2 },
-  { nombre: 'v1.0', jwks: jwksV1, issuer: ISSUER_V1, url: JWKS_V1 },
-]
-
-// Verifica el token contra cada generación y devuelve el payload de la primera
-// que cuadre. El error que se propaga es el de la última, que es el relevante
-// cuando ninguna sirve: los dos casos reales son "audiencia no aceptada" y
-// "el token no está firmado por este tenant".
+// Verifica firma, emisor y caducidad. Devuelve el payload, o lanza.
 async function verificarToken(token) {
-  let ultimoError
-  for (const gen of GENERACIONES) {
-    try {
-      const { payload } = await jwtVerify(token, gen.jwks, {
-        issuer: gen.issuer,
-        audience: AUDIENCIAS,
-      })
-      return { payload, generacion: gen.nombre }
-    } catch (error) {
-      ultimoError = error
-    }
-  }
-  throw ultimoError
-}
-
-// Audiencias aceptadas.
-//
-// La correcta es CLIENT_ID: el token que pide el scope `api://<client-id>/access_as_user`
-// viene con `aud` = el id de la app, y es lo que exige el diseño.
-//
-// Se acepta además la audiencia de Microsoft Graph porque muchos clientes de
-// MSAL piden un token de Graph (User.Read, Files.ReadWrite) por costumbre, y ese
-// token también está firmado por las claves del MISMO tenant: prueba la misma
-// identidad de usuario. No se abre nada al exterior porque el emisor sigue
-// atado a un solo tenant y la firma se sigue comprobando contra su JWKS.
-//
-// OJO con las dos formas de Graph: NO es lo mismo el GUID que la URL. Un token
-// emitido por el endpoint v1.0 lleva `aud` = "00000003-0000-0000-c000-000000000000",
-// pero uno emitido por v2.0 lleva el identificador de recurso completo
-// `https://graph.microsoft.com/00000003-0000-0000-c000-000000000000`. MSAL v3 usa
-// v2.0 por defecto, así que accepting solo el GUID hacía que toda petición
-// respondiera 401 "Token inválido" aunque el login funcionara. Se aceptan ambas.
-//
-// Cuando el scope de la API esté publicado en Entra ID, se pueden quitar las dos
-// formas de Graph de esta lista.
-const GRAPH_AUDIENCE = '00000003-0000-0000-c000-000000000000'
-const GRAPH_AUDIENCE_V2 = `https://graph.microsoft.com/${GRAPH_AUDIENCE}`
-const AUDIENCIAS = [CLIENT_ID, GRAPH_AUDIENCE, GRAPH_AUDIENCE_V2]
-
-// Extrae el correo del token. En Entra ID el claim puede venir como
-// preferred_username, upn o email según el flujo; se prueban en ese orden.
-function correoDelToken(payload) {
-  const candidato = payload.preferred_username || payload.upn || payload.email || ''
-  return String(candidato).trim().toLowerCase()
-}
-
-// Resumen del token recibido, DECODIFICADO pero NO verificado.
-//
-// Existe por un motivo concreto: jose no rellena error.payload cuando la firma
-// falla, así que el log decía "aud=(sin leer)" y no había forma de saber por qué
-// se rechazaba. Con este resumen, el propio 401 dice quéalgoritmo y qué clave
-// trae el token, y se compara con la lista de claves que el servidor tiene.
-//
-// Decodificar no es verificar: no da acceso a nada y solo refleja lo que el
-// cliente ya mandó. No se registra el token completo en ningún log.
-function resumirToken(token) {
-  try {
-    const header = decodeProtectedHeader(token)
-    const payload = decodeJwt(token)
-    return {
-      alg: header.alg || '(sin alg)',
-      kid: header.kid || '(sin kid)',
-      aud: payload.aud || '(sin aud)',
-      iss: payload.iss || '(sin iss)',
-      exp: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
-      scp: payload.scp || '',
-      largo: token.length,
-    }
-  } catch (error) {
-    return { error: `no decodificable: ${error.message}`, largo: token.length }
-  }
-}
-
-// Huella del token TAL COMO LLEGÓ, para compararla con la que calcula el
-// navegador antes de enviarlo.
-//
-// Es la única forma de separar dos fallos que producen el mismo error de firma:
-// "el token se alteró en tránsito" (un proxy o WAF del hosting reescribe la
-// cabecera Authorization) y "el servidor verifica mal". Si la huella del
-// navegador y la del servidor coinciden, los bytes llegaron intactos y el
-// problema es la verificación; si difieren, alguien tocó el token en el camino.
-//
-// El conteo de caracteres delata el caso concreto de normalización base64: un
-// JWT es base64url y NUNCA lleva '+' ni '/'. Si aparecen, un intermediario
-// convirtió la firma a base64 estándar: el payload sigue decodificando igual
-// (por eso el log muestra aud/iss/exp correctos) pero la firma ya no verifica.
-function integridad(token, crudoCabecera, via) {
-  const cuenta = { menos: 0, guionBajo: 0, mas: 0, barra: 0 }
-  for (const c of token) {
-    if (c === '-') cuenta.menos++
-    else if (c === '_') cuenta.guionBajo++
-    else if (c === '+') cuenta.mas++
-    else if (c === '/') cuenta.barra++
-  }
-  const sha = (texto) => crypto.createHash('sha256').update(texto, 'utf8').digest('hex')
-  return {
-    via,
-    largo: token.length,
-    shaToken: sha(token),
-    shaCabecera: sha(crudoCabecera),
-    primeros: token.slice(0, 12),
-    ultimos: token.slice(-12),
-    caracteres: cuenta,
-  }
-}
-
-// Qué claves ve Node en cada URL de descubrimiento.
-//
-// Importa distinguir Node de curl: un proxy o WAF del hosting puede responder
-// distinto según el User-Agent, así que que curl muestre la clave correcta no
-// garantiza que el proceso de Node reciba el mismo JWKS. Es la diferencia entre
-// "la clave no está" y "la clave llega corrupta", que producen el mismo error.
-async function clavesPorUrl() {
-  const salida = {}
-  for (const [nombre, url] of [['v2.0', JWKS_V2], ['v1.0', JWKS_V1]]) {
-    try {
-      const r = await fetch(url, { headers: { accept: 'application/json' } })
-      const texto = await r.text()
-      try {
-        const j = JSON.parse(texto)
-        // El kid solo no basta: dos claves pueden compartir kid y diferir en el
-        // módulo RSA. La huella de `n` es lo que distingue "la clave correcta"
-        // de "una clave con el mismo nombre pero inutil".
-        salida[nombre] = {
-          http: r.status,
-          claves: (j.keys || []).map((k) => `${k.kid}:${String(k.n || '').slice(0, 12)}`),
-        }
-      } catch {
-        // Si no es JSON, alguien intermedio devolvió otra cosa.
-        salida[nombre] = { http: r.status, error: 'no es JSON', muestra: texto.slice(0, 80) }
-      }
-    } catch (error) {
-      salida[nombre] = { error: error.message }
-    }
-  }
-  return salida
-}
-
-// Última instancia cuando la firma falla contra el JWKS cacheado por jose: se
-// descargan las claves SIN caché y se verifica con ellas directamente. Si así
-// pasa, el token era bueno y lo inútil era la caché del proceso (un arranque
-// detrás de un proxy que respondió mal, por ejemplo); se acepta y se avisa.
-// Si también falla, el diagnóstico dice por generación qué pasó con la clave
-// fresca: "kid no esta" (el JWKS del hosting no coincide con el de Microsoft)
-// o el código de error de jose (el token llegó mutilado del cliente).
-async function verificarConClaveFresca(token) {
-  let kid = ''
-  try {
-    kid = decodeProtectedHeader(token).kid || ''
-  } catch {
-    return { payload: null, resultados: { error: 'cabecera no decodificable' } }
-  }
-  const resultados = {}
-  for (const gen of GENERACIONES) {
-    try {
-      const r = await fetch(gen.url, { headers: { accept: 'application/json' } })
-      const j = await r.json()
-      const clave = (j.keys || []).find((k) => k.kid === kid)
-      if (!clave) {
-        resultados[gen.nombre] = 'kid no esta en el JWKS fresco'
-        continue
-      }
-      const claveImportada = await importJWK(clave, 'RS256')
-      const { payload } = await jwtVerify(token, claveImportada, {
-        issuer: gen.issuer,
-        audience: AUDIENCIAS,
-      })
-      return { payload, generacion: `${gen.nombre} (clave fresca)`, resultados }
-    } catch (error) {
-      resultados[gen.nombre] = error?.code || error?.message
-    }
-  }
-  return { payload: null, resultados }
+  const { payload } = await jwtVerify(token, clave, {
+    issuer: config.sesion.emisor,
+    maxTokenAge: MAX_EDAD,
+    algorithms: ['HS256'],
+  })
+  return payload
 }
 
 // Exige un token válido. Deja en req.ctx lo que las rutas necesitan para
@@ -235,7 +61,6 @@ async function verificarConClaveFresca(token) {
 async function autenticar(req, res, next) {
   const encabezado = req.get('authorization') || ''
   let token = encabezado.startsWith('Bearer ') ? encabezado.slice(7).trim() : ''
-  let via = 'cabecera'
 
   // Respaldo para cuando un intermediario del hosting altera la cabecera
   // Authorization: el navegador puede mandar el mismo token en el cuerpo, que
@@ -244,7 +69,6 @@ async function autenticar(req, res, next) {
     const delCuerpo = typeof req.body?.token === 'string' ? req.body.token.trim() : ''
     if (delCuerpo) {
       token = delCuerpo
-      via = 'cuerpo'
       // Se retira para que ninguna ruta lo vea ni lo persista: el token no es un
       // dato del dominio y no debe acabar en MySQL aunque una ruta futura
       // decida volcar el cuerpo entero.
@@ -256,75 +80,35 @@ async function autenticar(req, res, next) {
     return res.status(401).json({ error: 'Falta el token de autenticación' })
   }
 
-  // Deja en req lo que las rutas leen del token. Devuelve false si el payload
-  // no trae correo utilizable (ya respondió 401 en ese caso).
-  const aceptar = (payload, generacion) => {
+  try {
+    const payload = await verificarToken(token)
     const correo = correoDelToken(payload)
     if (!correo) {
-      res.status(401).json({ error: 'El token no trae un correo utilizable' })
-      return false
+      return res.status(401).json({ error: 'El token no trae un correo utilizable' })
     }
     req.token = payload
     req.correo = correo
-    req.nombreToken = String(payload.name || '').trim()
-    req.generacionToken = generacion
-    return true
-  }
-
-  try {
-    const { payload, generacion } = await verificarToken(token)
-    if (!aceptar(payload, generacion)) return undefined
+    req.nombreToken = String(payload.nombre || '').trim()
     return next()
   } catch (error) {
-    const expired = error?.code === 'ERR_JWT_EXPIRED'
-    // Se registra el motivo y los claims relevantes. NUNCA el token entero. Con
-    // el `aud` basta para distinguir "token de otra app" de "audiencia mal
-    // listada", que es justo lo que rompía con Graph v2.0.
-    const info = resumirToken(token)
-    const codigo = error?.code || error?.message
-    console.warn(`[Auth] token rechazado: ${codigo} | ${JSON.stringify(info)}`)
-
-    // El frontend muestra este texto tal cual, así que el diagnóstico viaja en
-    // el mensaje: no hace falta que nadie abra los logs para ver qué pasa.
-    const detalle = [
-      `codigo=${codigo}`,
-      `alg=${info.alg}`,
-      `kid=${info.kid}`,
-      `aud=${info.aud}`,
-      `iss=${info.iss}`,
-      `exp=${info.exp || 'sin exp'}`,
-      `largo=${info.largo}`,
-    ].join(' ')
-
-    // Solo cuando falla la firma. Si el `kid` del token está en la lista que
-    // recibió Node, la clave es correcta y el problema es el token; si no está,
-    // es que el JWKS no llegó bien. Es la pregunta que decide dónde mirar.
-    let claves
-    const llegada = integridad(token, encabezado, via)
-    if (codigo === 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') {
-      const [clavesUrl, fresca] = await Promise.all([clavesPorUrl(), verificarConClaveFresca(token)])
-      console.warn(
-        `[Auth] claves recibidas por Node: ${JSON.stringify(clavesUrl)} | clave fresca: ${JSON.stringify(fresca.resultados)}`
-      )
-      console.warn(`[Auth] integridad de la llegada: ${JSON.stringify(llegada)}`)
-      // Si con la clave descargada sin caché la firma pasa, el token era bueno:
-      // lo que estaba inútil era la caché de jose. Se acepta y se deja rastro.
-      if (fresca.payload) {
-        console.warn(`[Auth] token aceptado con clave fresca (${fresca.generacion})`)
-        if (!aceptar(fresca.payload, fresca.generacion)) return undefined
-        return next()
-      }
-      claves = { jwks: clavesUrl, claveFresca: fresca.resultados, llegada }
-    }
-
+    const expirado = error?.code === 'ERR_JWT_EXPIRED'
+    console.warn(`[Auth] token rechazado: ${error?.code || error?.message}`)
+    // El frontend muestra este texto tal cual, así que el diagnóstico viaja en el
+    // mensaje: no hace falta que nadie abra los logs del hosting.
     return res.status(401).json({
-      error: expired ? 'La sesión expiró, vuelve a iniciar sesión' : `Token inválido ${detalle}`,
-      ...(claves ? { diagnostico: claves } : {}),
-      // Siempre presente, incluso cuando el error no es de firma: el navegador
-      // lo compara con su propia huella para saber si el token llegó intacto.
-      recibido: llegada,
+      error: expirado
+        ? 'La sesión expiró, vuelve a iniciar sesión'
+        : 'Token inválido: la sesión no es de este servidor o se alteró',
     })
   }
 }
 
-module.exports = { autenticar, correoDelToken }
+// Extrae el correo del token. El claim se llama 'correo' (no 'email') porque es
+// el mismo nombre que usa la columna usuarios.correo y el que espera
+// permisos.contexto; se acepta 'email' solo por si algún token antiguo viniera así.
+function correoDelToken(payload) {
+  const candidato = payload.correo || payload.email || ''
+  return String(candidato).trim().toLowerCase()
+}
+
+module.exports = { autenticar, correoDelToken, firmarToken, verificarToken }

@@ -14,6 +14,7 @@ const cors = require('cors')
 // completo, si falta algo. Si fallara más tarde, el error sería confuso.
 const config = require('./config')
 const { autenticar } = require('./auth')
+const rutasAuth = require('./rutasAuth')
 const rutas = require('./routes')
 
 const app = express()
@@ -46,7 +47,7 @@ app.use((req, res, next) => {
 // para confirmar desde fuera qué build está corriendo en el hosting: durante una
 // migración es normal dudar de si el ZIP nuevo llegó a pisar el anterior, y
 // hasta ahora la respuesta era idéntica en todas las versiones.
-const DEPLOY = '2026-09-30-huella-transito'
+const DEPLOY = '2026-09-30-login-propio'
 
 app.get('/api/salud', (req, res) => res.json({ ok: true, deploy: DEPLOY }))
 
@@ -61,7 +62,11 @@ app.get('/', (req, res) =>
   })
 )
 
-// Todo lo demás exige un token válido de Microsoft.
+// Registro e inicio de sesión. Van ANTES del router protegido porque son
+// justamente las rutas que crean la sesión: no hay token que mandar todavía.
+app.use('/api/auth', rutasAuth)
+
+// Todo lo demás exige un token de sesión válido.
 app.use('/api', autenticar, rutas)
 
 app.use((req, res) => res.status(404).json({ error: 'Endpoint no encontrado' }))

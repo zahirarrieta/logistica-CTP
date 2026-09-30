@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers, MdCloudUpload, MdInfoOutline, MdPictureAsPdf, MdVisibility, MdDeleteOutline } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../../utils/estadoColors.js'
-import { subirFacturaRemisionOneDrive } from '../../../../services/oneDriveApi.js'
+import { subirFacturasRemisiones } from '../../../../services/archivosApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida, solicitudDevuelta } from '../../../../services/notificaciones.jsx'
 import { CAMPOS_DEVOLUCION, componerMotivoDevolucion } from '../../../../store/solicitudesStore.js'
 import Modal from '../../../../components/Modal.jsx'
@@ -162,18 +162,18 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
       if (!numeroRef.trim() || adjuntoTramite.length === 0) return
       setSubiendo(true)
       try {
-        const subidos = await subirFacturaRemisionOneDrive(adjuntoTramite, numeroRef.trim(), solicitud.nombreCompleto, solicitud.id)
+        const subidos = await subirFacturasRemisiones(adjuntoTramite, numeroRef.trim(), solicitud.id)
         updates.numeroReferencia = numeroRef.trim()
         updates.adjuntosTramite = adjuntoTramite.map((f) => f.name)
-        const urls = subidos.map((s) => s.url).filter(Boolean)
-        if (urls.length === 0) {
-          throw new Error('OneDrive no devolvió una URL del documento subido')
+        const rutas = subidos.map((s) => s.ruta).filter(Boolean)
+        if (rutas.length === 0) {
+          throw new Error('El servidor no devolvió la ruta del documento subido')
         }
-        updates.nuevaFacturaUrls = urls
+        updates.nuevaFacturaUrls = rutas
         documentosSubidos({ id: solicitud.id, nombres: adjuntoTramite.map((f) => f.name) })
       } catch (err) {
-        console.error('[EstadosModal] error subiendo factura a OneDrive:', err)
-        setErrorSubida(`No se pudo guardar el documento en OneDrive: ${err.message}`)
+        console.error('[EstadosModal] error subiendo factura:', err)
+        setErrorSubida(`No se pudo guardar el documento: ${err.message}`)
         notificarErrorSubida(err.message, solicitud.id)
         setSubiendo(false)
         return

@@ -6,7 +6,6 @@ import {
   MdCloudDone,
   MdCloudUpload,
   MdErrorOutline,
-  MdFolderShared,
   MdInbox,
   MdLocalShipping,
   MdRestartAlt,
@@ -404,7 +403,7 @@ export function datosReiniciados() {
   })
 }
 
-export function documentosSubidos({ id, nombres = [], destino = 'carpeta compartida' } = {}) {
+export function documentosSubidos({ id, nombres = [] } = {}) {
   const lista = nombres.filter(Boolean)
   sileo.success({
     ...BASE,
@@ -412,7 +411,7 @@ export function documentosSubidos({ id, nombres = [], destino = 'carpeta compart
     icon: <MdCloudUpload />,
     description: (
       <>
-        {linea(`Guardado(s) correctamente en la ${destino} de OneDrive/SharePoint.`)}
+        {linea('Guardado(s) correctamente en el expediente de la solicitud.')}
         {lista.length > 0 && detalle(lista.join(', '))}
       </>
     ),
@@ -426,7 +425,7 @@ export function evidenciaSubida({ id, archivo } = {}) {
     icon: <MdCloudUpload />,
     description: (
       <>
-        {linea('La evidencia de entrega se guardó en la carpeta compartida de OneDrive/SharePoint.')}
+        {linea('La evidencia de entrega se guardó con la solicitud.')}
         {archivo && detalle(archivo)}
       </>
     ),
@@ -440,7 +439,7 @@ export function subidaPendiente(mensaje, id) {
     title: titulo(id, 'Evidencia guardada localmente'),
     icon: <MdErrorOutline />,
     description: linea(
-      mensaje || 'No se pudo subir la evidencia a la carpeta compartida; se conservará en este dispositivo.'
+      mensaje || 'No se pudo subir la evidencia al servidor; se conservará en este dispositivo y se subirá sola cuando haya conexión.'
     ),
   })
 }
@@ -463,23 +462,6 @@ export function almacenamientoLleno() {
     icon: <MdErrorOutline />,
     description: linea(
       'No se pudieron guardar los cambios en este dispositivo. Libera espacio o sincroniza con la base y recarga la página.'
-    ),
-  })
-}
-
-export function carpetaNoCompartida() {
-  sileo.error({
-    ...BASE,
-    duration: 9000,
-    title: 'Carpeta OneDrive no compartida',
-    icon: <MdFolderShared />,
-    description: (
-      <>
-        {linea("No se encontró la carpeta 'solicitudes' compartida con tu cuenta de Microsoft.")}
-        {detalle(
-          "Pídele al administrador que, desde sistemas@ctpmedica.com, haga clic derecho sobre 'solicitudes' → Compartir → 'Mi organización', permiso 'Puede editar'. Prueba de nuevo después de aceptar la invitación."
-        )}
-      </>
     ),
   })
 }

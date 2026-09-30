@@ -8,7 +8,7 @@ import { nombrePdfFromUrl } from '../../../../utils/pdfUtils.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
 import AgregarUsuarioModal from './AgregarUsuarioModal.jsx'
-import { subirAdjuntosOneDrive } from '../../../../services/oneDriveApi.js'
+import { subirAdjuntos } from '../../../../services/archivosApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida } from '../../../../services/notificaciones.jsx'
 import Modal from '../../../../components/Modal.jsx'
 
@@ -360,18 +360,18 @@ useEffect(() => {
     setLoading(true)
 
     if (modoEdicion) {
-      // En edición los adjuntos pueden ser URLs ya subidas (string) y/o archivos
-      // nuevos (File). Solo se suben a OneDrive los archivos nuevos.
+      // En edición los adjuntos pueden ser rutas ya subidas (string) y/o archivos
+      // nuevos (File). Solo se suben al backend los archivos nuevos.
       const existentes = formData.adjuntos.filter((a) => esUrlAdjunto(a))
       const nuevos = formData.adjuntos.filter((a) => !esUrlAdjunto(a))
-      let urlsNuevas = []
+      let rutasNuevas = []
       if (nuevos.length > 0) {
         try {
-          const subidos = await subirAdjuntosOneDrive(nuevos, formData.nombreCompleto, solicitud.id, () => {})
-          urlsNuevas = subidos.map((s) => s.url).filter(Boolean)
+          const subidos = await subirAdjuntos(nuevos, solicitud.id, () => {})
+          rutasNuevas = subidos.map((s) => s.ruta).filter(Boolean)
           documentosSubidos({ id: solicitud.id, nombres: nuevos.map((f) => f.name) })
         } catch (err) {
-          console.error('[SolicitudModal] error subiendo a OneDrive (edición):', err)
+          console.error('[SolicitudModal] error subiendo adjuntos (edición):', err)
           setLoading(false)
           setErrores([`Error subiendo archivos: ${err.message}`])
           notificarErrorSubida(err.message, solicitud.id)
@@ -382,7 +382,7 @@ useEffect(() => {
         const datosEdicion = {}
         if (editarTipo) datosEdicion.tipoSolicitud = formData.tipoSolicitud
         if (editarObs) datosEdicion.observaciones = formData.observaciones
-        if (editarAdjuntos) datosEdicion.adjuntos = [...existentes, ...urlsNuevas]
+        if (editarAdjuntos) datosEdicion.adjuntos = [...existentes, ...rutasNuevas]
         if (editarCliente) {
           if ((formData.tipoSolicitud || '').trim().toUpperCase() === 'ADMINISTRATIVA') {
             datosEdicion.cliente = formData.cliente
@@ -408,28 +408,27 @@ useEffect(() => {
     }
 
     // Se reserva el código ahora (avanza la secuencia una sola vez): es el ID
-    // autoritativo que usan OneDrive y el guardado final. Sin backend/conexión
+    // autoritativo que usan los archivos y el guardado final. Sin backend/conexión
     // se usa el número visible (derivación local).
     try {
       const idSolicitud = (await reservarProximoCodigo()) || siguiente
-      // En creación también puede haber URLs ya subidas (plantilla de vencida).
-      // Separamos URLs existentes de archivos nuevos.
+      // En creación también puede haber rutas ya subidas (plantilla de vencida).
+      // Separamos las existentes de los archivos nuevos.
       const existentes = formData.adjuntos.filter((a) => esUrlAdjunto(a))
       const nuevos = formData.adjuntos.filter((a) => !esUrlAdjunto(a))
-      let adjuntosUrls = [...existentes]
+      let adjuntosRutas = [...existentes]
 
       if (nuevos.length > 0) {
         try {
-          const subidos = await subirAdjuntosOneDrive(
+          const subidos = await subirAdjuntos(
             nuevos,
-            formData.nombreCompleto,
             idSolicitud,
             () => {},
           )
-          adjuntosUrls = [...existentes, ...subidos.map((s) => s.url).filter(Boolean)]
+          adjuntosRutas = [...existentes, ...subidos.map((s) => s.ruta).filter(Boolean)]
           documentosSubidos({ id: idSolicitud, nombres: nuevos.map((f) => f.name) })
         } catch (err) {
-          console.error('[SolicitudModal] error subiendo a OneDrive:', err)
+          console.error('[SolicitudModal] error subiendo adjuntos:', err)
           setLoading(false)
           setErrores([`Error subiendo archivos: ${err.message}`])
           notificarErrorSubida(err.message, idSolicitud)
@@ -438,7 +437,7 @@ useEffect(() => {
       }
 
       if (onSubmit) {
-        await onSubmit({ ...formData, adjuntos: adjuntosUrls }, idSolicitud)
+        await onSubmit({ ...formData, adjuntos: adjuntosRutas }, idSolicitud)
       }
       resetForm()
       onClose()
@@ -758,7 +757,7 @@ useEffect(() => {
                           <span className="min-w-0">
                             <span className="block text-sm text-brand-ink truncate">{nombre}</span>
                             <span className="block text-[11px] text-brand-ink/50">
-                              {esUrl ? 'Ya subido a OneDrive' : formatearBytes(archivo.size)}
+                              {esUrl ? 'Ya subido' : formatearBytes(archivo.size)}
                             </span>
                           </span>
                         </div>

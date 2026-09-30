@@ -54,9 +54,14 @@ const config = {
     pool: Number(leer('DB_POOL', '10')),
   },
 
-  azure: {
-    tenantId: leer('AZURE_TENANT_ID'),
-    clientId: leer('AZURE_CLIENT_ID'),
+  // Sesión propia. La API firma un JWT con SESSION_SECRET cuando alguien se
+  // registra o inicia sesión, y lo verifica en cada petición. El secreto es
+  // OBLIGATORIO en producción: con uno fijo en el código, cualquiera que descargue
+  // el repositorio podría fabricar su propio token con el rol de superadmin.
+  sesion: {
+    secreto: leer('SESSION_SECRET'),
+    ttl: Number(leer('SESSION_TTL', 8 * 60 * 60)),
+    emisor: leer('SESSION_EMISOR', 'logistica-ctp'),
   },
 
   // Secreto de firma de las URLs de evidencia. Obligatorio en producción: con uno
@@ -92,12 +97,18 @@ const requiere = (faltante) => {
 
 if (!config.db.user) requiere('DB_USER')
 if (!config.db.name) requiere('DB_NAME')
-if (!config.azure.tenantId) requiere('AZURE_TENANT_ID')
-if (!config.azure.clientId) requiere('AZURE_CLIENT_ID')
 
 // La contraseña solo importa si hay base configurada: es absurdo reclamar
 // DB_PASSWORD cuando tampoco hay DB_USER.
 if (!config.db.password && config.db.user) requiere('DB_PASSWORD')
+
+if (!config.sesion.secreto) {
+  if (esProduccion) {
+    faltantes.push('SESSION_SECRET')
+  } else {
+    avisos.push('SESSION_SECRET no está definido: se usará uno temporal y toda sesión caerá en cada reinicio del servidor.')
+  }
+}
 
 if (!config.firma.secreto) {
   if (esProduccion) {
@@ -126,6 +137,8 @@ if (faltantes.length > 0) {
     '',
     '  Para generar el secreto de firma:',
     '    node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+    '  (el mismo comando sirve para FIRMA_SECRET y para SESSION_SECRET:',
+    '   cada uno con su propio valor, nunca el mismo)',
     '',
     '  Después de guardarlas, pulsa Restart en el panel.',
     '='.repeat(72),
@@ -145,7 +158,8 @@ const resumen = {
   node: process.version,
   entorno: process.env.NODE_ENV || '(sin definir, se trata como desarrollo)',
   base: `${config.db.user}@${config.db.host}:${config.db.port}/${config.db.name}`,
-  tenant: config.azure.tenantId || '(sin definir)',
+  sesion: config.sesion.secreto ? 'secreta definida' : 'secreto temporal (solo desarrollo)',
+  ttlSesion: `${Math.round(config.sesion.ttl / 60)} min`,
   firma: config.firma.secreto ? 'definida' : 'temporal (solo desarrollo)',
   cors: config.cors.origenes.length > 0 ? config.cors.origenes.join(', ') : 'cualquiera',
 }

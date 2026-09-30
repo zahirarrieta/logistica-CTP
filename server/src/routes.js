@@ -203,20 +203,9 @@ router.get(
   })
 )
 
-// Alta automática al entrar por primera vez (equivalente al
-// `from('usuarios').upsert({correo, nombre}, {ignoreDuplicates:true})`).
-router.post(
-  '/usuarios/registro',
-  ruta(async (req, res) => {
-    const { nombre = '' } = req.body || {}
-    await pool.execute(
-      `INSERT INTO usuarios (id, correo, nombre) VALUES (UUID(), ?, ?)
-         ON DUPLICATE KEY UPDATE nombre = IF(activo = 1, VALUES(nombre), nombre)`,
-      [req.correo, nombre]
-    )
-    res.json({ ok: true })
-  })
-)
+// El alta de usuario la hace POST /api/auth/registro (server/src/rutasAuth.js),
+// que es pública y es la que calcula el hash de la contraseña. Aquí ya solo hay
+// usuarios que pasaron por ahí.
 
 // Fila del propio usuario. Un endpoint dedicado en vez de GET /usuarios porque
 // el frontend solo necesita su rol en cada arranque, y así no depende de que el
@@ -589,8 +578,14 @@ router.post(
     if (!req.file) return res.status(400).json({ error: 'Falta el archivo' })
     const { codigo = '', nombre = '' } = req.body || {}
     if (!codigo) return res.status(400).json({ error: 'Falta el código de la solicitud' })
-    const visibles = await codigosVisibles(ctx, [codigo])
-    if (!visibles.has(String(codigo))) {
+    // `codigo` puede traer subcarpetas detrás: "CTPLOG-00001/FacturasoRemisiones".
+    // El permiso se comprueba contra el código de la solicitud, que es el primer
+    // segmento, y el resto es dónde acaba el archivo dentro de la carpeta de esa
+    // solicitud. Así facturas y evidencias se separan por carpeta sin abrir una
+    // ruta nueva, y el frontend sigue distinguiéndolas por la ruta (ver
+    // src/utils/pdfUtils.js).
+    const visibles = await codigosVisibles(ctx, [codigoDeRuta(codigo)])
+    if (!visibles.has(codigoDeRuta(codigo))) {
       return res.status(403).json({ error: 'No autorizado' })
     }
     const rutaRel = archivos.guardar(codigo, nombre || req.file.originalname, req.file.buffer)

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MdLogin } from 'react-icons/md'
+import { MdLogin, MdPersonAdd } from 'react-icons/md'
 import { FiTruck } from 'react-icons/fi'
 import Footer from '../../components/Footer.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
@@ -18,8 +18,13 @@ const ASSETS = {
 
 const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional', 'Logística inversa']
 
+// Una sola caja para los dos modos: iniciar sesión y registrarse. Se alterna con
+// el mismo botón que dispara la acción, para no obligar a elegir una pestaña
+// antes de saber si el usuario ya tiene cuenta.
 function Login() {
-  const { login, errorLogin, loginEnCurso } = useAuth()
+  const { login, registro, errorLogin, loginEnCurso, sesionCaducada, limpiarAviso } = useAuth()
+  const [modo, setModo] = useState('login')
+  const [form, setForm] = useState({ nombre: '', correo: '', contrasena: '' })
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const touchStartXRef = useRef(null)
@@ -36,6 +41,44 @@ function Login() {
     }, 5000)
     return () => clearInterval(id)
   }, [totalSlides, isPaused])
+
+  // El aviso de sesión caducada se limpia al cambiar de modo o al escribir, para
+  // que no se quede ahí mientras el usuario reintenta.
+  const cambiar = (siguiente) => {
+    if (siguiente !== modo) limpiarAviso?.()
+    setModo(siguiente)
+  }
+
+  const escribir = (campo) => (e) => {
+    if (errorLogin) limpiarAviso?.()
+    setForm((f) => ({ ...f, [campo]: e.target.value }))
+  }
+
+  const esLogin = modo === 'login'
+  // En registro la contraseña se pide dos veces. No es TANTA seguridad como un
+  // token de confirmación por correo, pero evita el error real de este tipo de
+  // pantalla: teclear mal y no enterarse hasta el día siguiente.
+  const [confirmacion, setConfirmacion] = useState('')
+  const faltaConfirmar = !esLogin && confirmacion !== form.contrasena
+
+  const enviar = (e) => {
+    e.preventDefault()
+    if (loginEnCurso) return
+    if (esLogin) {
+      login({ correo: form.correo, contrasena: form.contrasena })
+    } else {
+      registro({ nombre: form.nombre, correo: form.correo, contrasena: form.contrasena })
+    }
+  }
+
+  const rotulo = esLogin
+    ? (loginEnCurso ? 'ENTRANDO…' : 'INICIAR SESIÓN')
+    : (loginEnCurso ? 'CREANDO CUENTA…' : 'REGISTRARME')
+
+  const clasesCampo =
+    'w-full rounded-xl border border-brand-cyan/25 bg-black/25 px-4 py-3 text-brand-mist ' +
+    'placeholder:text-brand-mist/40 outline-none transition focus:border-brand-cyan/70 ' +
+    'focus:ring-2 focus:ring-brand-cyan/25'
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-brand-ink text-white">
@@ -92,29 +135,127 @@ function Login() {
                       </span>
                     ))}
                   </div>
-                  <div className="mt-8 sm:mt-10 max-lg:mt-6 flex flex-wrap justify-start gap-3 login-enter">
+
+                  {/* Formulario. El `onSubmit` en vez de `onClick` en el botón
+                      permite mandar con Enter, que es como se rellena un formulario
+                      de verdad. */}
+                  <form onSubmit={enviar} className="mt-8 sm:mt-10 max-lg:mt-6 max-w-lg login-enter">
+                    <div className="grid gap-3">
+                      {!esLogin ? (
+                        <input
+                          type="text"
+                          name="nombre"
+                          autoComplete="name"
+                          required
+                          maxLength={190}
+                          value={form.nombre}
+                          onChange={escribir('nombre')}
+                          placeholder="Nombre completo"
+                          aria-label="Nombre completo"
+                          className={clasesCampo}
+                        />
+                      ) : null}
+
+                      <input
+                        type="email"
+                        name="correo"
+                        autoComplete="email"
+                        required
+                        maxLength={190}
+                        value={form.correo}
+                        onChange={escribir('correo')}
+                        placeholder="Correo electrónico"
+                        aria-label="Correo electrónico"
+                        className={clasesCampo}
+                      />
+
+                      <input
+                        type="password"
+                        name="contrasena"
+                        // En registro el gestor de contraseñas debe preguntar de
+                        // nuevo: si autocompleta la misma clave en los dos campos
+                        // de una cuenta nueva, el usuario nunca la elige.
+                        autoComplete={esLogin ? 'current-password' : 'new-password'}
+                        required
+                        minLength={esLogin ? undefined : 8}
+                        maxLength={200}
+                        value={form.contrasena}
+                        onChange={escribir('contrasena')}
+                        placeholder="Contraseña"
+                        aria-label="Contraseña"
+                        className={clasesCampo}
+                      />
+
+                      {!esLogin ? (
+                        <input
+                          type="password"
+                          name="confirmacion"
+                          autoComplete="new-password"
+                          required
+                          maxLength={200}
+                          value={confirmacion}
+                          onChange={(e) => {
+                            if (errorLogin) limpiarAviso?.()
+                            setConfirmacion(e.target.value)
+                          }}
+                          placeholder="Repetir contraseña"
+                          aria-label="Repetir contraseña"
+                          aria-invalid={faltaConfirmar}
+                          className={`${clasesCampo} ${faltaConfirmar && confirmacion ? 'border-red-400/70' : ''}`}
+                        />
+                      ) : null}
+                    </div>
+
+                    {faltaConfirmar && confirmacion ? (
+                      <p role="alert" className="mt-2 text-sm text-red-300">
+                        Las contraseñas no coinciden.
+                      </p>
+                    ) : null}
+
                     <button
-                      type="button"
-                      onClick={login}
-                      disabled={loginEnCurso}
-                      className="group relative inline-flex items-center justify-center rounded-2xl px-10 py-4 max-lg:px-8 max-lg:py-3.5 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40 disabled:opacity-60 disabled:cursor-wait disabled:hover:translate-y-0"
+                      type="submit"
+                      disabled={loginEnCurso || faltaConfirmar}
+                      className="group relative mt-5 inline-flex w-full items-center justify-center rounded-2xl px-10 py-4 max-lg:px-8 max-lg:py-3.5 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40 disabled:opacity-60 disabled:cursor-wait disabled:hover:translate-y-0"
                     >
                       <span className="login-cta-ring" aria-hidden="true" />
                       <span className="relative z-10 flex w-full items-center justify-center gap-3 tracking-wide text-brand-ink">
-                        <MdLogin className="login-lock text-2xl" />
+                        {esLogin ? <MdLogin className="login-lock text-2xl" /> : <MdPersonAdd className="login-lock text-2xl" />}
                         <span className="flex flex-col items-center tracking-wide text-brand-ink">
-                          {loginEnCurso ? 'ABRIENDO MICROSOFT…' : 'INICIAR SESIÓN'}
+                          {rotulo}
                           <span className="mt-1 h-[3px] w-0 rounded-full bg-brand-ink/50 transition-all duration-300 group-hover:w-full group-hover:bg-brand-ink" />
                         </span>
                       </span>
                     </button>
-                  </div>
-                  {errorLogin ? (
+
+                    {/* El otro modo. Texto plano y no otro botón grande: la
+                        acción principal siempre es una sola, para que nadie pulse
+                        la que no es. */}
+                    <p className="mt-4 text-sm text-brand-mist/80">
+                      {esLogin ? '¿Todavía no tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
+                      <button
+                        type="button"
+                        onClick={() => cambiar(esLogin ? 'registro' : 'login')}
+                        className="font-bold text-brand-cyan underline underline-offset-4 hover:text-brand-cyanSoft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/40 rounded"
+                      >
+                        {esLogin ? 'Regístrate aquí' : 'Inicia sesión'}
+                      </button>
+                    </p>
+                  </form>
+
+                  {errorLogin || sesionCaducada ? (
                     <p
                       role="alert"
                       className="mt-4 max-w-xl text-sm leading-relaxed rounded-xl border border-red-400/40 bg-red-950/40 px-4 py-3 text-red-100"
                     >
-                      {errorLogin}
+                      {errorLogin || sesionCaducada}
+                    </p>
+                  ) : null}
+
+                  {!esLogin ? (
+                    <p className="mt-4 max-w-xl text-xs leading-relaxed text-brand-mist/60">
+                      Al registrarte entras con permisos de solicitante: solo verás tus propias
+                      solicitudes. Si necesitas entrar al panel de administrador o al módulo de
+                      conductor, pídele a un administrador que suba tu rol.
                     </p>
                   ) : null}
                 </section>

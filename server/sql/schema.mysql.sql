@@ -10,12 +10,16 @@
 SET NAMES utf8mb4;
 
 -- ----------------------------------------------------------------------------
--- 1. USUARIOS (uno por cada cuenta de Microsoft que entra a la app)
+-- 1. USUARIOS (uno por cada cuenta creada en la pantalla de registro)
 -- ----------------------------------------------------------------------------
+-- password_hash guarda el hash scrypt de la contraseña, NUNCA la contraseña. Es
+-- NULL en las cuentas que venían de Microsoft y que aún no se han registrado
+-- con contraseña: se pueden convertir después con el script crear-admin.js.
 CREATE TABLE IF NOT EXISTS usuarios (
   id            CHAR(36)      NOT NULL,
   correo        VARCHAR(190)  NOT NULL,
   nombre        VARCHAR(190)  NOT NULL DEFAULT '',
+  password_hash VARCHAR(255)  NULL,
   rol           VARCHAR(20)   NOT NULL DEFAULT 'solicitante',
   vehiculo      VARCHAR(120)  NOT NULL DEFAULT '',
   placa         VARCHAR(20)   NOT NULL DEFAULT '',
@@ -28,6 +32,19 @@ CREATE TABLE IF NOT EXISTS usuarios (
   CONSTRAINT usuarios_rol_ck
     CHECK (rol IN ('solicitante', 'administrador', 'conductor', 'superadmin'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Añade password_hash a una tabla usuarios que ya existía sin ella (la que se
+-- creó cuando el login era con Microsoft). Es seguro de re-ejecutar: MySQL no
+-- admite "ADD COLUMN IF NOT EXISTS", así que se consulta information_schema
+-- primero. Pégalo y ejecuta UNA VEZ si la tabla ya tiene filas.
+--
+-- SELECT COUNT(*) AS existe
+--   FROM information_schema.COLUMNS
+--  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios'
+--    AND COLUMN_NAME = 'password_hash';
+--
+-- ALTER TABLE usuarios
+--   ADD COLUMN password_hash VARCHAR(255) NULL AFTER nombre;
 
 -- ----------------------------------------------------------------------------
 -- 2. CLIENTES (catálogo de 223 registros; la PK es (nit, bodega) porque un
@@ -49,7 +66,8 @@ CREATE TABLE IF NOT EXISTS clientes (
 -- 3. SOLICITUDES
 --    codigo = el id local de la app (CTPLOG-00001). Si llega vacío lo genera.
 --    Las fechas van en texto porque la app ya las formatea en español.
---    adjuntos es un array de URLs de OneDrive (JSON) — antes era text[].
+--    adjuntos es un array de rutas de archivo en el servidor (JSON) — antes era
+--    text[] con URLs de OneDrive.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS solicitudes (
   codigo             VARCHAR(32)   NOT NULL,
@@ -147,17 +165,18 @@ CREATE TABLE IF NOT EXISTS historial (
 
 -- ----------------------------------------------------------------------------
 -- 5. ROLES INICIALES
---     Cambia los correos por los reales y ejecuta este bloque una sola vez.
+--     El alta ya no se hace por SQL: la pantalla de registro crea las cuentas y
+--     les asigna el rol 'solicitante'. Para la PRIMERA cuenta con permisos de
+--     administración usa el script que genera el hash, y pega el INSERT de abajo
+--     con ese hash:
+--
+--       cd server
+--       node sql/crear-admin.js "admin@ctpmedica.com" "Administrador" "TU CONTRASEÑA"
+--
 --     Roles: solicitante (Inicio + Solicitudes), conductor (Inicio + Conductor),
 --     administrador (todos los módulos; ve sin asignar + sus propias asignaciones),
 --     superadmin (todos los módulos y TODAS las solicitudes).
 -- ----------------------------------------------------------------------------
--- INSERT INTO usuarios (id, correo, nombre, rol) VALUES
---   (UUID(), 'superadmin@ctpmedica.com', 'Super Admin',   'superadmin'),
---   (UUID(), 'admin@ctpmedica.com',      'Administrador', 'administrador'),
---   (UUID(), 'conductor@ctpmedica.com',  'Reinel Peña',   'conductor')
--- ON DUPLICATE KEY UPDATE
---   rol = VALUES(rol), nombre = VALUES(nombre);
 
 -- ----------------------------------------------------------------------------
 -- 6. SINCRONIZAR EL CONTADOR

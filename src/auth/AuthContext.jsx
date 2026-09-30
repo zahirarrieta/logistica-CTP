@@ -1,156 +1,173 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { getActiveAccount, msalInstance, msalReady } from './msal.js'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import {
-  esErrorDeScope,
-  loginRequest,
-  loginRequestRespaldo,
-} from './authConfig.js'
-import { cargarUsuarioActual } from '../services/solicitudesApi.js'
-import { cerrarSesion } from '../services/apiClient.js'
+  cerrarSesionLocal,
+  guardarSesion,
+  getActiveAccount,
+  haySesion,
+} from './sesion.js'
+import { API_URL, apiFetch } from '../services/apiClient.js'
 import { setRolActual, setUsuarioActual } from '../store/solicitudesStore.js'
 
 const AuthContext = createContext(null)
 
-// Traduce los errores de MSAL a algo accionable. Sin esto el usuario solo ve
-// que el botón no responde.
-//
-// El código de Microsoft va SIEMPRE al principio del mensaje. Ya se confundió
-// AADSTS65001 con AADSTS500011 por deducir el error en vez de leerlo, y se
-// diagnóstico que adivina el motivo es peor que ninguno.
-function describirError(error) {
-  const codigo = String(error?.errorCode || error?.code || '').trim()
-  const mensaje = String(error?.errorMessage || error?.message || error || '').trim()
-  const crudo = `${codigo} ${mensaje}`
-  const prefijo = codigo ? `[${codigo}] ` : ''
+const base = API_URL.replace(/\/+$/, '')
 
-  if (/AADSTS500011/i.test(crudo)) {
-    return `${prefijo}Microsoft no encuentra la API registrada en el tenant. Se reintentó con permisos de Graph; si sigue fallando, publica el scope en Entra ID (sección 6.2 de la guía).`
+// Llama a /api/auth/* SIN el token: son las rutas que crean la sesión, no hay
+// nada que mandar todavía. Por eso van por fetch directo y no por apiFetch, que
+// exige sesión y rechazaría la llamada con 401.
+async function llamarAuth(ruta, cuerpo) {
+  let resp
+  try {
+    resp = await fetch(`${base}${ruta}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpo),
+    })
+  } catch {
+    throw new Error('No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.')
   }
-  if (/AADSTS50011\b|redirect_uri|mismatch/i.test(crudo)) {
-    return `${prefijo}Ese dominio no está autorizado en Microsoft Entra ID. La app envía window.location.origin como Redirect URI; debe coincidir carácter a carácter con lo registrado. Revisa también si estás entrando por www.`
+
+  let datos = null
+  try {
+    datos = await resp.json()
+  } catch {
+    datos = null
   }
-  if (/AADSTS7000215|invalid_client/i.test(crudo)) {
-    return `${prefijo}Microsoft rechazó la aplicación. Revisa que el Redirect URI coincida exactamente con la dirección del navegador.`
+
+  if (!resp.ok) {
+    throw new Error(datos?.error || `Error ${resp.status} del servidor`)
   }
-  if (/interaction_in_progress|popup_window_error/i.test(crudo)) {
-    return `${prefijo}Ya hay una autenticación en curso. Espera unos segundos y vuelve a intentar.`
-  }
-  if (/user_cancelled|cancelled/i.test(crudo)) {
-    return ''
-  }
-  return `${prefijo}No se pudo iniciar sesión: ${mensaje || 'error desconocido'}`
+  return datos
 }
 
 export function AuthProvider({ children }) {
-  const [account, setAccount] = useState(null)
+  const [account, setAccount] = useState(() => getActiveAccount())
   const [loading, setLoading] = useState(true)
   const [usuario, setUsuario] = useState(null)
   const [rolListo, setRolListo] = useState(false)
   const [errorLogin, setErrorLogin] = useState('')
   const [loginEnCurso, setLoginEnCurso] = useState(false)
+  const [sesionCaducada, setSesionCaducada] = useState('')
 
-  // El scope api://<client-id>/access_as_user solo existe si en Entra ID se
-  // publicó con "Expose an API". Si no está, Microsoft rechaza la autenticación
-  // y handleRedirectPromise lo entrega como error: eso es un rechazo de la
-  // promesa, no una sesión válida. Se marca el respaldo para reintentar con
-  // permisos de Graph, que el backend sí acepta. La lista de códigos está
-  // centralizada en esErrorDeScope.
-  // Red de seguridad. Solo se activa si VITE_USAR_SCOPE_API=1 y aun así el
-  // scope no estuviera publicado en Entra ID: el fallo llega aquí, en
-  // handleRedirectPromise, no en el clic, así que el catch de login() no lo ve.
+  // Al abrir la app se comprueba que el token guardado SIGA valiendo. Que exista
+  // en localStorage no dice nada: pudo pasar SESSION_TTL, o el servidor pudo
+  // reiniciarse con otro SESSION_SECRET.
+  //
+  // Esta única llamada hace de las dos cosas: validar el token Y traer la fila del
+  // usuario. Antes se hacía además un /api/usuarios/yo para sacar el rol, lo que
+  // duplicaba las peticiones en cada carga de página sin ganar nada: /api/auth/yo
+  // ya devuelve correo, nombre, rol y activo.
   useEffect(() => {
-    let cancelled = false
+    let cancelado = false
 
-    msalReady
-      .then((respuesta) => {
-        if (cancelled) return
-        if (respuesta && respuesta.error) {
-          const crudo = String(respuesta.errorMessage || respuesta.error || '')
-          if (esErrorDeScope(crudo)) {
-            console.warn('[Auth] el scope de la API no existe en Entra ID; se reintenta con Graph.')
-            setAccount(null)
-            setLoading(false)
-            msalInstance
-              .loginRedirect(loginRequestRespaldo)
-              .catch((e) => console.error('[Auth] falló el reintento con Graph:', e?.message))
-            return
-          }
-          console.warn('[Auth] error al volver de Microsoft:', crudo)
-        }
-        setAccount(getActiveAccount())
-        setLoading(false)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setAccount(getActiveAccount())
-        setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Carga el rol del usuario actual desde la tabla usuarios (tabla = fuente de
-  // verdad; así un admin cambia permisos sin tocar el frontend).
-  useEffect(() => {
-    if (!account) {
+    if (!haySesion()) {
+      setAccount(null)
       setUsuario(null)
-      setRolListo(false)
-      return
+      setLoading(false)
+      return undefined
     }
-    let cancelled = false
-    setRolListo(false)
-    cargarUsuarioActual()
-      .then((u) => {
-        if (cancelled) return
-        setUsuario(u)
+
+    apiFetch('/api/auth/yo')
+      .then((fila) => {
+        if (cancelado) return
+        if (!fila) {
+          // La cuenta ya no está en la tabla. apiFetch no limpia la sesión en un
+          // 404 (solo en 401), así que se limpia aquí: si no, el token se queda
+          // para siempre en localStorage y cada recarga repite el mismo intento.
+          cerrarSesionLocal()
+          setAccount(null)
+          setUsuario(null)
+          return
+        }
+        // El servidor es la fuente cierta del nombre y del rol: lo guardado en el
+        // navegador puede haber cambiado, y el rol es el que decide qué se ve.
+        setUsuario(fila)
+        setAccount({
+          ...getActiveAccount(),
+          name: fila.nombre || getActiveAccount()?.name || '',
+        })
+        setSesionCaducada('')
       })
       .catch(() => {
-        if (cancelled) return
+        if (cancelado) return
+        // 401: apiFetch ya limpió el token y avisó con el evento. Aquí solo se
+        // suelta el estado de React para que aparezca el login.
+        setAccount(null)
         setUsuario(null)
       })
       .finally(() => {
-        if (!cancelled) setRolListo(true)
+        if (!cancelado) {
+          setLoading(false)
+          setRolListo(true)
+        }
       })
-    return () => {
-      cancelled = true
-    }
-  }, [account])
 
-  // Antes devolvía la promesa de loginRedirect sin tocarla: cualquier rechazo
-  // (redirect URI no registrado, scope inexistente, popup bloqueado) se
-  // consumía como unhandled rejection y el botón no hacía nada visible. Ahora se
-  // espera msalReady y se capturan los errores.
-  const login = async () => {
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  // apiFetch avisa con este evento cuando el backend rechaza el token a
+  // mitad de una operación. Se corta la sesión ahí mismo para que la pantalla
+  // de login aparezca con el motivo, en vez de dejar al usuario en un módulo
+  // medio cargado.
+  useEffect(() => {
+    const alCaducar = () => {
+      setSesionCaducada('Tu sesión expiró. Vuelve a iniciar sesión para continuar.')
+      cerrarSesionLocal()
+      setAccount(null)
+      setUsuario(null)
+      setLoading(false)
+    }
+    window.addEventListener('ctp:sesion-caducada', alCaducar)
+    return () => window.removeEventListener('ctp:sesion-caducada', alCaducar)
+  }, [])
+
+  const login = useCallback(async ({ correo, contrasena }) => {
     setErrorLogin('')
     setLoginEnCurso(true)
     try {
-      await msalReady
-      await msalInstance.loginRedirect(loginRequest)
+      const datos = await llamarAuth('/api/auth/login', { correo, contrasena })
+      setAccount(guardarSesion(datos))
+      // El backend ya devuelve la fila del usuario en la respuesta del login, así
+      // que el rol está disponible de inmediato: sin este set, la pantalla de
+      // loading se quedaría esperando a una petición que ya se hizo.
+      setUsuario(datos.usuario || null)
+      setRolListo(true)
+      setSesionCaducada('')
     } catch (error) {
-      const crudo = String(error?.errorMessage || error?.message || error || '')
-      if (esErrorDeScope(crudo)) {
-        try {
-          await msalInstance.loginRedirect(loginRequestRespaldo)
-        } catch (segundo) {
-          setLoginEnCurso(false)
-          setErrorLogin(describirError(segundo))
-        }
-        return
-      }
+      setErrorLogin(error.message)
+    } finally {
       setLoginEnCurso(false)
-      setErrorLogin(describirError(error))
     }
-  }
-  const logout = () => {
-    try { msalInstance.setActiveAccount(null) } catch { /* noop */ }
+  }, [])
+
+  const registro = useCallback(async ({ nombre, correo, contrasena }) => {
+    setErrorLogin('')
+    setLoginEnCurso(true)
+    try {
+      // El registro devuelve la sesión ya abierta, así que tras registrarse el
+      // usuario entra directo: no tiene que volver a escribir su contraseña.
+      const datos = await llamarAuth('/api/auth/registro', { nombre, correo, contrasena })
+      setAccount(guardarSesion(datos))
+      setUsuario(datos.usuario || null)
+      setRolListo(true)
+      setSesionCaducada('')
+    } catch (error) {
+      setErrorLogin(error.message)
+    } finally {
+      setLoginEnCurso(false)
+    }
+  }, [])
+
+  const logout = useCallback(() => {
+    cerrarSesionLocal()
     setAccount(null)
     setUsuario(null)
-    setRolListo(false)
-    void cerrarSesion()
-    msalInstance.logoutPopup({ postLogoutRedirectUri: 'about:blank' }).catch(() => {})
-  }
+    setRolListo(true)
+    setErrorLogin('')
+    setSesionCaducada('')
+  }, [])
 
   const rol = usuario?.rol || 'solicitante'
 
@@ -166,7 +183,22 @@ export function AuthProvider({ children }) {
   }, [usuario, account])
 
   return (
-    <AuthContext.Provider value={{ account, loading, login, logout, usuario, rol, rolListo, errorLogin, loginEnCurso }}>
+    <AuthContext.Provider
+      value={{
+        account,
+        loading,
+        login,
+        registro,
+        logout,
+        usuario,
+        rol,
+        rolListo,
+        errorLogin,
+        loginEnCurso,
+        sesionCaducada,
+        limpiarAviso: () => setSesionCaducada(''),
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

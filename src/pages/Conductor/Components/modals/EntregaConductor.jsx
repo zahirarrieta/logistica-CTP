@@ -3,7 +3,7 @@ import { MdClose, MdCheckCircle, MdNotes, MdPhotoCamera, MdPictureAsPdf, MdPerso
 import { RiSteering2Line } from 'react-icons/ri'
 import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
-import { subirDocEntregaOneDrive } from '../../../../services/oneDriveApi.js'
+import { subirEvidenciaEntrega } from '../../../../services/archivosApi.js'
 import { enviarAlertaMalaCalificacion, UMBRAL_ALERTA_CALIDAD } from '../../../../services/enviarCorreo.js'
 import { evidenciaSubida, subidaPendiente } from '../../../../services/notificaciones.jsx'
 import {
@@ -197,18 +197,20 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
         continue
       }
       try {
-        const subida = await subirDocEntregaOneDrive(
-          dataUrlABlob(evidencia),
+        const subida = await subirEvidenciaEntrega(
+          dataUrlABlob(evidencia).blob,
           solicitud.numeroReferencia || solicitud.id,
-          solicitud.nombreCompleto,
           solicitud.id
         )
-        if (subida?.url) {
-          partes.push(subida.url)
+        if (subida?.ruta) {
+          partes.push(subida.ruta)
           subioAlguna = true
-        } else throw new Error('OneDrive no devolvió el enlace del archivo')
+        } else throw new Error('El servidor no devolvió la ruta del archivo')
       } catch (err) {
-        console.warn('[OneDrive] no se pudo subir la evidencia, se guardará localmente:', err)
+        // Si no hay red, la foto se queda como dataUrl en la entrega: se vuelve a
+        // subir sola la próxima vez que haya sincronización (ver resolverEvidencia
+        // en services/solicitudesApi.js). Perderla sería peor que esperar.
+        console.warn('[Archivos] no se pudo subir la evidencia, se guardará localmente:', err)
         partes.push(evidencia)
         falloAlguna = true
       }

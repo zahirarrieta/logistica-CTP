@@ -1,27 +1,40 @@
-import { apiFetch, apiPost, apiDelete, backendActivo, iniciarSesion, datosUsuario } from './apiClient.js'
+import { apiFetch, apiPost, apiDelete, backendActivo, iniciarSesion } from './apiClient.js'
 import { soloAdjuntosSolicitud } from '../utils/pdfUtils.js'
-import { subirDocEntregaOneDrive } from './oneDriveApi.js'
+import { subirEvidenciaEntrega } from './archivosApi.js'
 
 // Separador de las varias imágenes de evidencia de una entrega. Se usa '|' porque
-// no aparece ni en dataUrls (base64) ni en las URLs de OneDrive/SharePoint.
+// no aparece ni en dataUrls (base64) ni en las rutas del backend.
 const SEP_EVIDENCIA = '|'
 
-let usuarioRegistrado = false
+// Normaliza a array de cadenas.
+//
+// El backend ya devuelve `adjuntos` como array (aArrayJson en routes.js) y
+// `evidencia_url` como texto plano, así que en el camino normal esto es un
+// simple envoltura. Pero una fila antigua puede traer el array serializado como
+// texto, y ahí el fallo sería silencioso: la cadena '["a.pdf","b.pdf"]' se
+// mandaría a /api/archivos/firmar como si fuera una sola ruta, el backend la
+// descartaría por no pertenecer a ninguna solicitud, y el archivo aparecería sin
+// forma de abrirse. Por eso se parsea.
+function aTexto(valor) {
+  if (Array.isArray(valor)) return valor.filter((v) => typeof v === 'string' && v)
+  if (typeof valor !== 'string' || !valor.trim()) return []
+  const texto = valor.trim()
+  if (texto.startsWith('[')) {
+    try {
+      const parseado = JSON.parse(texto)
+      if (Array.isArray(parseado)) return parseado.filter((v) => typeof v === 'string' && v)
+    } catch {
+      // No era JSON válido: se devuelve tal cual, que para las rutas del
+      // servidor es justo lo correcto.
+    }
+  }
+  return [texto]
+}
 
-// El alta del usuario se hace una vez por sesión de navegador. El rol llega
-// vacío: lo asigna un administrador después (el backend no acepta que el propio
-// usuario se auto-asigne permisos).
+// El alta del usuario la hace la pantalla de registro (POST /api/auth/registro),
+// que es la que sabe la contraseña. Aquí ya solo hay sesiones abiertas.
 async function preparar() {
   await iniciarSesion()
-  if (usuarioRegistrado) return
-  const { correo, nombre } = datosUsuario()
-  if (!correo) return
-  usuarioRegistrado = true
-  try {
-    await apiPost('/api/usuarios/registro', { nombre })
-  } catch {
-    // Si no se pudo registrar, el resto de la sincronización sigue intentándolo.
-  }
 }
 
 function filaDe(s) {
@@ -111,62 +124,38 @@ function dataUrlABlob(dataUrl) {
   return { blob: new Blob([bytes], { type: mime }), mime }
 }
 
-// Sube una imagen de evidencia al backend. El nombre lo genera el servidor a
-// partir del id del historial y el índice, igual que la ruta que se armaba para
-// el disco del servidor.
-async function subirEvidenciaParte(codigo, id, dataUrl, indice) {
-  const { blob, mime } = dataUrlABlob(dataUrl)
-  const extension = mime.includes('pdf') ? 'pdf' : 'jpg'
-  const nombre = `${id}_${indice}.${extension}`
-  const cuerpo = new FormData()
-  cuerpo.append('archivo', blob, nombre)
-  cuerpo.append('codigo', codigo)
-  cuerpo.append('nombre', nombre)
-  const { ruta } = await apiFetch('/api/archivos/evidencia', { method: 'POST', body: cuerpo })
-  console.info(`[API] evidencia subida a evidencias/${ruta}`)
-  return ruta
+// Sube una imagen de evidencia al backend. El nombre lo genera el servicio de
+// archivos (un sufijo único por subida) y el servidor lo sanea antes de escribir,
+// de modo que dos evidencias del mismo pedido no se pisan.
+async function subirEvidenciaParte(codigo, entrada, dataUrl, indice) {
+  // El mime del Blob lo decide dataUrlABlob; el servicio de archivos lo lee de ahí
+  // para elegir la extensión.
+  const { blob } = dataUrlABlob(dataUrl)
+  const referencia = `${entrada.referencia || entrada.id}_${indice}`
+  const subida = await subirEvidenciaEntrega(blob, referencia, codigo)
+  console.info(`[API] evidencia subida a evidencias/${subida.ruta}`)
+  return subida.ruta
 }
 
 // Una entrega puede tener varias imágenes de evidencia unidas por SEP_EVIDENCIA.
-// Al sincronizar se REEINTENTA primero la carpeta compartida de OneDrive/SharePoint
-// del usuario (misma ruta que el flujo en línea); solo si falla se sube al
-// backend como respaldo. Las URLs http/rutas ya subidas se conservan tal cual.
-// Devuelve el mismo formato unido.
-async function resolverEvidencia(codigo, entrada, solicitud) {
+// Las que aún no se han subido llegan como dataUrl (el conductor las fotografía
+// sin conexión) y se suben aquí. Las rutas y direcciones ya guardadas se
+// conservan tal cual. Devuelve el mismo formato unido.
+async function resolverEvidencia(codigo, entrada) {
   const valor = typeof entrada.evidencia === 'string' ? entrada.evidencia.trim() : ''
   if (!valor) return ''
   const partes = valor.split(SEP_EVIDENCIA).map((p) => p.trim()).filter(Boolean)
-  const esEntrega = ['Entregado', 'Entregado Parcial'].includes(entrada.nuevo || '')
   const resueltas = []
   for (let i = 0; i < partes.length; i += 1) {
     const parte = partes[i]
-    if (!parte.startsWith('data:') || !esEntrega) {
-      resueltas.push(
-        parte.startsWith('data:')
-          ? await subirEvidenciaParte(codigo, entrada.id, parte, i)
-          : parte
-      )
-      continue
-    }
-    try {
-      const subida = await subirDocEntregaOneDrive(
-        dataUrlABlob(parte).blob,
-        solicitud.numeroReferencia || codigo,
-        solicitud.nombreCompleto,
-        codigo
-      )
-      if (!subida?.url) throw new Error('OneDrive no devolvió un enlace')
-      resueltas.push(subida.url)
-    } catch (err) {
-      console.warn('[OneDrive] reintento de evidencia a SharePoint falló, se sube al backend:', err.message)
-      resueltas.push(await subirEvidenciaParte(codigo, entrada.id, parte, i))
-    }
+    resueltas.push(parte.startsWith('data:') ? await subirEvidenciaParte(codigo, entrada, parte, i) : parte)
   }
   return resueltas.join(SEP_EVIDENCIA)
 }
 
 // Sustituye cada ruta guardada por su URL firmada (24 h) y deja intactas las
-// URLs http de OneDrive.
+// direcciones que ya son http (o los enlaces de OneDrive de los registros
+// antiguos, que se detectan aparte en el visor).
 function firmarEvidencia(evidenciaUrl, firmadas) {
   return String(evidenciaUrl || '')
     .split(SEP_EVIDENCIA)
@@ -195,12 +184,19 @@ export async function descargarSolicitudes(desde = '') {
   const filas = datos.solicitudes || []
   const registros = datos.historial || []
 
+  // Se piden firmas de TODO lo que es una ruta del backend y no un http: la
+  // evidencia del historial Y los adjuntos de la solicitud. Antes solo se firmaba
+  // la evidencia, porque los adjuntos vivían en OneDrive y venían como URL
+  // pública. Ahora que los dos están en el backend, sin firmar los adjuntos
+  // aparecerían como texto suelto y el visor no podría abrirlos.
   const rutas = [
     ...new Set(
-      registros
-        .flatMap((h) => String(h.evidencia_url || '').split(SEP_EVIDENCIA))
-        .map((u) => u.trim())
-        .filter((u) => u && !/^https?:\/\//i.test(u))
+      [
+        ...registros.flatMap((h) => aTexto(h.evidencia_url).flatMap((u) => u.split(SEP_EVIDENCIA))),
+        ...filas.flatMap((f) => aTexto(f.adjuntos)),
+      ]
+        .map((u) => String(u || '').trim())
+        .filter((u) => u && !/^https?:\/\//i.test(u) && !/^data:/i.test(u))
     ),
   ]
   const firmadas = {}
@@ -209,7 +205,7 @@ export async function descargarSolicitudes(desde = '') {
       const mapa = await apiPost('/api/archivos/firmar', { rutas })
       Object.assign(firmadas, mapa || {})
     } catch (error) {
-      console.warn('[API] no se pudieron firmar las evidencias:', error?.message)
+      console.warn('[API] no se pudieron firmar los archivos:', error?.message)
     }
   }
 
@@ -225,7 +221,12 @@ export async function descargarSolicitudes(desde = '') {
     + (desde ? ' (incremental)' : ' (completo)')
   )
   return {
-    solicitudes: filas.map((f) => aLocal(f, porSolicitud.get(f.codigo) || [])),
+    solicitudes: filas.map((f) => {
+      const local = aLocal(f, porSolicitud.get(f.codigo) || [])
+      // Los adjuntos llegan como rutas y salen firmados, igual que la evidencia.
+      local.adjuntos = local.adjuntos.map((u) => firmadas[u] || u)
+      return local
+    }),
     conHistorial: new Set(datos.conHistorial || []),
     watermark: datos.watermark || desde || '',
   }
@@ -238,7 +239,7 @@ export async function empujarSolicitud(s) {
   const entradas = Array.isArray(s.historial) ? s.historial : []
   const filasHistorial = []
   for (const h of entradas) {
-    const ruta = await resolverEvidencia(s.id, h, s)
+    const ruta = await resolverEvidencia(s.id, h)
     filasHistorial.push({
       id: h.id,
       solicitud: s.id,
@@ -305,22 +306,4 @@ export async function cargarUsuarios() {
   const data = await apiFetch('/api/usuarios')
   console.info(`[API] cargados ${(data || []).length} usuario(s)`)
   return data || []
-}
-
-// Devuelve { correo, nombre, rol } del usuario autenticado actual, o null si no
-// está registrado en la tabla usuarios. El backend limita la lectura a su propia
-// fila salvo que sea administrador.
-export async function cargarUsuarioActual() {
-  if (!backendActivo) return null
-  await preparar()
-  const { correo } = datosUsuario()
-  if (!correo) return null
-  try {
-    const propio = await apiFetch('/api/usuarios/yo')
-    if (!propio) return null
-    return { correo: propio.correo, nombre: propio.nombre, rol: propio.rol }
-  } catch (error) {
-    console.warn('[API] no se pudo leer el rol del usuario actual:', error?.message)
-    return null
-  }
 }

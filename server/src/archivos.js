@@ -2,17 +2,20 @@
 
 // ============================================================================
 // ALMACENAMIENTO DE ARCHIVOS
-// Reemplaza los buckets privados de Supabase Storage ('adjuntos' y
-// 'evidencias') por archivos en disco bajo server/storage/evidencias.
+// Todo archivo del sistema vive aquí, en disco, bajo server/storage/evidencias:
+// los adjuntos de la solicitud (facturas y remisiones) y la evidencia de la
+// entrega.
 //
-// La app solo escribe aquí en el flujo de RESPALDO: los adjuntos de la
-// solicitud y la evidencia de la entrega suben primero a OneDrive/SharePoint
-// (oneDriveApi.js) y solo caen aquí si Microsoft falla. Las evidencias que sí
-// se guardan son imágenes/PDF de la entrega.
+// Antes estos archivos iban a dos sitios: los buckets privados de Supabase Storage
+// ('adjuntos' y 'evidencias') y, como respaldo, OneDrive/SharePoint. Ya no hay
+// ninguno de los dos; el nombre del endpoint conserva la palabra "evidencia" por
+// compatibilidad con las URLs ya firmadas que el navegador tiene en caché.
 //
 // Rutas firmadas: /api/archivos/firmar devuelve URLs con HMAC y caducidad
 // (24 h, el mismo EXPIRA_EVIDENCIA del frontend), de modo que un <img src> los
-// pueda cargar sin cabeceras. Es el equivalente de createSignedUrls.
+// pueda cargar sin cabeceras. Es el equivalente de createSignedUrls, y con él una
+// ruta de la base no se puede usar como enlace permanente: se puede ver hoy y
+// mañana hay que pedirla de nuevo.
 // ============================================================================
 
 const crypto = require('crypto')

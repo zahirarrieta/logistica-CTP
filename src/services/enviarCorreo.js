@@ -1,4 +1,17 @@
-import { obtenerTokenGraph } from './oneDriveApi.js'
+// ============================================================================
+// ALERTA DE MALA CALIFICACIÓN
+//
+// Antes se enviaba con Microsoft Graph (`me/sendMail`) usando un token de la
+// sesión de Microsoft. Con la sesión propia ya no hay token de Graph, así que la
+// función NO envía nada: se limita a dejar constancia en la consola.
+//
+// Se mantiene la firma y el umbral para no tocar el flujo de entrega, que la
+// llama sin esperar respuesta. Reactivar el envío es una cosa del backend:
+// mandar el correo desde aquí significaría que cualquier usuario con una sesión
+// abierta podría hacer enviar mensajes en nombre de la empresa. Desde el servidor
+// hay una sola identidad (la que configure el hosting) y queda registrado quién
+// lo pidió.
+// ============================================================================
 
 // Destinatarios en copia (CC) cuando una entrega recibe una mala calificación.
 // El correo se envía AL solicitante (To) con estos 5 en copia:
@@ -195,9 +208,12 @@ export function asuntoAlertaMalaCalificacion(solicitud, encuesta) {
   return `ALERTA · Calificación baja (${promedio.toFixed(1)}) en entrega ${solicitud.id || ''}`
 }
 
-// Envía el correo de alerta al solicitante (To) con los 5 correos internos en
-// copia (CC). Se envía desde la cuenta Microsoft que cierra la entrega
-// («me/sendMail», requiere el permiso Mail.Send en el tenant).
+// Registra la alerta de mala calificación. NO envía ningún correo: ver la nota de
+// cabecera. Devuelve false siempre, para que quien la llame no espere nada.
+//
+// Se conservan la comprobación del umbral, la del correo del solicitante y el
+// registro de `avisados`: son las que decidiu el flujo de entrega, y mantenerlas
+// intacta permite reactivar el envío más adelante cambiando solo esta función.
 export async function enviarAlertaMalaCalificacion(solicitud, encuesta) {
   const promedio = typeof encuesta?.promedio === 'number' ? encuesta.promedio : 0
   if (promedio > UMBRAL_ALERTA_CALIDAD) return false
@@ -205,7 +221,7 @@ export async function enviarAlertaMalaCalificacion(solicitud, encuesta) {
 
   const correoSolicitante = String(solicitud?.correo || '').trim()
   if (!correoSolicitante) {
-    console.warn('[Correo alerta] el pedido no tiene correo del solicitante, no se envía la alerta:', solicitud?.id)
+    console.warn('[Correo alerta] el pedido no tiene correo del solicitante:', solicitud?.id)
     return false
   }
 
@@ -213,29 +229,10 @@ export async function enviarAlertaMalaCalificacion(solicitud, encuesta) {
   if (avisados.has(clave)) return false
   avisados.add(clave)
 
-  const token = await obtenerTokenGraph()
-  const cuerpo = {
-    message: {
-      subject: asuntoAlertaMalaCalificacion(solicitud, encuesta),
-      body: { contentType: 'HTML', content: htmlAlertaMalaCalificacion(solicitud, encuesta) },
-      toRecipients: [{ emailAddress: { address: correoSolicitante } }],
-      ccRecipients: CORREOS_ALERTA_CALIDAD.map((address) => ({ emailAddress: { address } })),
-      importance: 'high',
-    },
-    saveToSentItems: false,
-  }
-  const resp = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(cuerpo),
-  })
-  if (!resp.ok) {
-    const detalle = await resp.text().catch(() => '')
-    throw new Error(`Graph sendMail ${resp.status}${detalle ? ` — ${detalle}` : ''}`)
-  }
-  console.info(`[Correo alerta] alerta enviada al solicitante (${correoSolicitante}) ${CORREOS_ALERTA_CALIDAD.length} CC · ${solicitud.id}`)
-  return true
+  console.warn(
+    `[Correo alerta] SIN ENVIAR · ${asuntoAlertaMalaCalificacion(solicitud, encuesta)} · ` +
+      `quedaría para ${correoSolicitante} con ${CORREOS_ALERTA_CALIDAD.length} en copia. ` +
+      'El envío por correo está desactivado; hay que mandarlo a mano.'
+  )
+  return false
 }

@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@azure/msal-browser": "^5.21.0",
     "html2canvas-pro": "^2.4.4",
     "jspdf": "^4.2.1",
     "react": "^19.1.1",
