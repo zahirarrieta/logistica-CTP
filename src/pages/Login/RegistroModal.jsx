@@ -4,11 +4,10 @@ import Modal from '../../components/Modal.jsx'
 import CampoClave from '../../components/CampoClave.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 
-// Mismos estilos de campo que el login: el modal vive encima de esa pantalla y
-// otra paleta aquí dentro parecería otra aplicación.
+// Mismos estilos que CambiarClaveModal / AdjuntosModal: fondo blanco, texto oscuro
 const CLASES_CAMPO =
-  'w-full rounded-xl border border-brand-cyan/25 bg-black/25 px-4 py-3 text-brand-mist ' +
-  'placeholder:text-brand-mist/40 outline-none transition focus:border-brand-cyan/70 ' +
+  'w-full rounded-xl border border-brand-ink/15 bg-white px-4 py-3 text-brand-ink ' +
+  'placeholder:text-brand-ink/40 outline-none transition focus:border-brand-cyan/70 ' +
   'focus:ring-2 focus:ring-brand-cyan/25'
 
 const DOMINIO = '@ctpmedica.com'
@@ -78,12 +77,10 @@ export default function RegistroModal({ onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="titulo-registro"
-        className="relative w-full max-w-md rounded-2xl bg-brand-ink ring-1 ring-brand-cyan/25 shadow-[0_24px_60px_rgba(0,0,0,0.6)] animate-scaleIn max-h-[92vh] flex flex-col overflow-hidden"
+        className="relative bg-white text-brand-ink w-full max-w-md rounded-2xl shadow-2xl animate-scaleIn max-h-[92vh] flex flex-col overflow-hidden"
       >
-        <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-cyan/70 to-transparent" />
-
-        {/* Cabecera */}
-        <div className="relative shrink-0 bg-gradient-to-r from-brand-navy to-brand-deep px-5 py-4 flex items-center justify-between gap-3">
+        {/* Header */}
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-brand-navy to-brand-deep flex items-center justify-between gap-3 shrink-0">
           <h3 id="titulo-registro" className="text-white font-extrabold text-base sm:text-lg inline-flex items-center gap-2">
             <span className="grid place-items-center size-8 rounded-xl bg-brand-cyan/20 ring-1 ring-brand-cyan/40 shadow-cyanGlow">
               <MdPersonAdd className="text-brand-cyan text-lg" />
@@ -100,8 +97,9 @@ export default function RegistroModal({ onClose }) {
           </button>
         </div>
 
-        {/* Formulario. `onSubmit` y no `onClick` para poder mandar con Enter. */}
-        <form onSubmit={enviar} className="p-5 sm:p-6 overflow-y-auto">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+          <form onSubmit={enviar} className="flex flex-col">
           <div className="grid gap-3">
             <input
               ref={primerCampoRef}
@@ -131,7 +129,7 @@ export default function RegistroModal({ onClose }) {
                 aria-label="Usuario (se añade @ctpmedica.com automáticamente)"
                 className={`${CLASES_CAMPO} pr-32`}
               />
-              <span className="absolute right-3 text-brand-mist/50 text-sm select-none pointer-events-none" aria-hidden="true">
+              <span className="absolute right-3 text-brand-ink/40 text-sm select-none pointer-events-none" aria-hidden="true">
                 {DOMINIO}
               </span>
             </div>
@@ -165,7 +163,7 @@ export default function RegistroModal({ onClose }) {
           </div>
 
           {faltaConfirmar && confirmacion ? (
-            <p role="alert" className="mt-2 text-sm text-red-300">
+            <p role="alert" className="mt-2 text-sm text-red-600">
               Las contraseñas no coinciden.
             </p>
           ) : null}
@@ -181,7 +179,7 @@ export default function RegistroModal({ onClose }) {
             </span>
           </button>
 
-          <p className="mt-4 text-sm text-center text-brand-mist/80">
+          <p className="mt-4 text-sm text-center text-brand-ink/60">
             ¿Ya tienes cuenta?{' '}
             <button
               type="button"
@@ -197,18 +195,19 @@ export default function RegistroModal({ onClose }) {
           {errorLogin ? (
             <p
               role="alert"
-              className="mt-4 text-sm leading-relaxed rounded-xl border border-red-400/40 bg-red-950/40 px-4 py-3 text-red-100"
+              className="mt-4 text-sm leading-relaxed rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700"
             >
               {errorLogin}
             </p>
           ) : null}
 
-          <p className="mt-4 text-xs leading-relaxed text-brand-mist/60">
+          <p className="mt-4 text-xs leading-relaxed text-brand-ink/50">
             Al registrarte entras con permisos de solicitante: solo verás tus propias solicitudes. Si
             necesitas entrar al panel de administrador o al módulo de conductor, pídele a un
             administrador que suba tu rol.
           </p>
         </form>
+      </div>
       </div>
     </Modal>
   )
