@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { sileo } from 'sileo'
 import {
   cerrarSesionLocal,
   guardarSesion,
@@ -159,7 +160,15 @@ export function AuthProvider({ children }) {
       setRolListo(true)
       setSesionCaducada('')
     } catch (error) {
-      setErrorLogin(error.message)
+      const mensaje = error.message
+      setErrorLogin(mensaje)
+      // Notificación tipo toast con sonido (como el resto de avisos del sistema)
+      sileo.error({
+        duration: 5000,
+        sound: 'default',
+        title: 'Error de acceso',
+        description: mensaje,
+      })
     } finally {
       setLoginEnCurso(false)
     }
