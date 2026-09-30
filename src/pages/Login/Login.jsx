@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { MdLogin, MdPersonAdd } from 'react-icons/md'
+import { MdLogin } from 'react-icons/md'
 import { FiTruck } from 'react-icons/fi'
 import Footer from '../../components/Footer.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
+import RegistroModal from './RegistroModal.jsx'
 import './login.css'
 
 const ASSETS = {
@@ -18,13 +19,13 @@ const ASSETS = {
 
 const TAGS = ['Última milla', 'Cargas especiales', 'Cobertura nacional', 'Logística inversa']
 
-// Una sola caja para los dos modos: iniciar sesión y registrarse. Se alterna con
-// el mismo botón que dispara la acción, para no obligar a elegir una pestaña
-// antes de saber si el usuario ya tiene cuenta.
+// Esta pantalla es solo para entrar. El alta de cuenta va en un modal aparte:
+// casi todo el mundo viene a iniciar sesión, y quien sí viene a registrarse no
+// debería tener que cambiar el formulario de sitio para hacerlo.
 function Login() {
-  const { login, registro, errorLogin, loginEnCurso, sesionCaducada, limpiarAviso } = useAuth()
-  const [modo, setModo] = useState('login')
-  const [form, setForm] = useState({ nombre: '', correo: '', contrasena: '' })
+  const { login, errorLogin, loginEnCurso, sesionCaducada, limpiarAviso } = useAuth()
+  const [registroAbierto, setRegistroAbierto] = useState(false)
+  const [form, setForm] = useState({ correo: '', contrasena: '' })
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const touchStartXRef = useRef(null)
@@ -42,38 +43,28 @@ function Login() {
     return () => clearInterval(id)
   }, [totalSlides, isPaused])
 
-  // El aviso de sesión caducada se limpia al cambiar de modo o al escribir, para
-  // que no se quede ahí mientras el usuario reintenta.
-  const cambiar = (siguiente) => {
-    if (siguiente !== modo) limpiarAviso?.()
-    setModo(siguiente)
-  }
-
+  // El aviso se borra al escribir, para que no se quede ahí mientras el usuario
+  // corrige lo que estaba mal.
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
     setForm((f) => ({ ...f, [campo]: e.target.value }))
   }
 
-  const esLogin = modo === 'login'
-  // En registro la contraseña se pide dos veces. No es TANTA seguridad como un
-  // token de confirmación por correo, pero evita el error real de este tipo de
-  // pantalla: teclear mal y no enterarse hasta el día siguiente.
-  const [confirmacion, setConfirmacion] = useState('')
-  const faltaConfirmar = !esLogin && confirmacion !== form.contrasena
-
   const enviar = (e) => {
     e.preventDefault()
     if (loginEnCurso) return
-    if (esLogin) {
-      login({ correo: form.correo, contrasena: form.contrasena })
-    } else {
-      registro({ nombre: form.nombre, correo: form.correo, contrasena: form.contrasena })
-    }
+    login({ correo: form.correo, contrasena: form.contrasena })
   }
 
-  const rotulo = esLogin
-    ? (loginEnCurso ? 'ENTRANDO…' : 'INICIAR SESIÓN')
-    : (loginEnCurso ? 'CREANDO CUENTA…' : 'REGISTRARME')
+  const abrirRegistro = () => {
+    limpiarAviso?.()
+    setRegistroAbierto(true)
+  }
+
+  const rotulo = loginEnCurso ? 'ENTRANDO…' : 'INICIAR SESIÓN'
+  // Con el modal abierto, el error se lee dentro de él: repetirlo detrás del
+  // velo solo haría ruido.
+  const avisoEnPagina = !registroAbierto && (errorLogin || sesionCaducada)
 
   const clasesCampo =
     'w-full rounded-xl border border-brand-cyan/25 bg-black/25 px-4 py-3 text-brand-mist ' +
@@ -82,8 +73,9 @@ function Login() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-brand-ink text-white">
-      {/* Card oscura contenedor, igual que el Home */}
-      <div className="relative overflow-hidden bg-hero-dark text-white rounded-b-[32px] shadow-[0_24px_60px_rgba(0,0,0,0.45)] animate-slideDown">
+        {/* Card oscura contenedor, igual que el Home. `flex-1` para que ocupe
+            el alto que sobra y el `main` de dentro pueda centrar el card. */}
+        <div className="relative flex-1 flex flex-col overflow-hidden bg-hero-dark text-white rounded-b-[32px] shadow-[0_24px_60px_rgba(0,0,0,0.45)] animate-slideDown">
         {/* Resplandores cian sutiles de fondo */}
         <div aria-hidden className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-brand-cyan/15 blur-[120px]" />
@@ -91,17 +83,20 @@ function Login() {
           <div className="absolute top-1/3 left-1/2 w-[300px] h-[300px] -translate-x-1/2 rounded-full bg-brand-cyan/8 blur-[90px]" />
         </div>
 
-        {/* Solo el logo (la imagen de la píldora), alineado a la izquierda */}
-        <div className="flex justify-start pt-5 sm:pt-8 max-lg:pt-4 ps-12 sm:ps-20 max-lg:ps-14">
+        {/* Logo pequeño arriba a la izquierda. Antes ocupaba casi 100px y
+            empujaba el card hacia abajo; aquí solo marca la cabecera. */}
+        <div className="flex justify-start pt-4 sm:pt-5 max-lg:pt-3 ps-6 sm:ps-8 max-lg:ps-6">
           <img
             src="/CTP.png"
             alt="CTP"
-            className="h-[clamp(60px,9vw,96px)] max-lg:h-[clamp(52px,7vw,68px)] object-contain"
+            className="h-[clamp(32px,4vw,48px)] max-lg:h-[clamp(28px,6vw,40px)] object-contain"
           />
         </div>
 
-        {/* Hero Section, mismo diseño que el Home */}
-        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(0.75rem,3vw,2rem)] max-lg:pt-4 max-lg:pb-4 relative lg:min-h-[46vh] xl:min-h-[52vh] 2xl:min-h-[56vh] lg:max-h-[82vh]">
+        {/* El card se centra en el hueco que queda entre el logo y el footer.
+            Los `vh` de antes (min-h 46-56vh + max-h 82vh) lo hundían y, al
+            recortarlo, el contenido se salía de la caja y el footer lo tapaba. */}
+        <main className="relative flex-1 flex items-center w-full py-[clamp(0.75rem,2vw,1.5rem)]">
           <div className="mx-auto w-full max-w-[min(1680px,88vw)] px-5">
             <div className="relative rounded-[2rem] bg-white/[0.04] backdrop-blur-md ring-1 ring-brand-cyan/15 shadow-2xl p-5 sm:p-7 lg:p-8 max-lg:p-6 overflow-hidden">
               <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-cyan/60 to-transparent" />
@@ -141,21 +136,6 @@ function Login() {
                       de verdad. */}
                   <form onSubmit={enviar} className="mt-8 sm:mt-10 max-lg:mt-6 max-w-lg login-enter">
                     <div className="grid gap-3">
-                      {!esLogin ? (
-                        <input
-                          type="text"
-                          name="nombre"
-                          autoComplete="name"
-                          required
-                          maxLength={190}
-                          value={form.nombre}
-                          onChange={escribir('nombre')}
-                          placeholder="Nombre completo"
-                          aria-label="Nombre completo"
-                          className={clasesCampo}
-                        />
-                      ) : null}
-
                       <input
                         type="email"
                         name="correo"
@@ -172,12 +152,10 @@ function Login() {
                       <input
                         type="password"
                         name="contrasena"
-                        // En registro el gestor de contraseñas debe preguntar de
-                        // nuevo: si autocompleta la misma clave en los dos campos
-                        // de una cuenta nueva, el usuario nunca la elige.
-                        autoComplete={esLogin ? 'current-password' : 'new-password'}
+                        // `current-password` porque esta cuenta ya existe: el
+                        // gestor puede ofrecer la clave sin sorprender a nadie.
+                        autoComplete="current-password"
                         required
-                        minLength={esLogin ? undefined : 8}
                         maxLength={200}
                         value={form.contrasena}
                         onChange={escribir('contrasena')}
@@ -185,41 +163,16 @@ function Login() {
                         aria-label="Contraseña"
                         className={clasesCampo}
                       />
-
-                      {!esLogin ? (
-                        <input
-                          type="password"
-                          name="confirmacion"
-                          autoComplete="new-password"
-                          required
-                          maxLength={200}
-                          value={confirmacion}
-                          onChange={(e) => {
-                            if (errorLogin) limpiarAviso?.()
-                            setConfirmacion(e.target.value)
-                          }}
-                          placeholder="Repetir contraseña"
-                          aria-label="Repetir contraseña"
-                          aria-invalid={faltaConfirmar}
-                          className={`${clasesCampo} ${faltaConfirmar && confirmacion ? 'border-red-400/70' : ''}`}
-                        />
-                      ) : null}
                     </div>
-
-                    {faltaConfirmar && confirmacion ? (
-                      <p role="alert" className="mt-2 text-sm text-red-300">
-                        Las contraseñas no coinciden.
-                      </p>
-                    ) : null}
 
                     <button
                       type="submit"
-                      disabled={loginEnCurso || faltaConfirmar}
+                      disabled={loginEnCurso}
                       className="group relative mt-5 inline-flex w-full items-center justify-center rounded-2xl px-10 py-4 max-lg:px-8 max-lg:py-3.5 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40 disabled:opacity-60 disabled:cursor-wait disabled:hover:translate-y-0"
                     >
                       <span className="login-cta-ring" aria-hidden="true" />
                       <span className="relative z-10 flex w-full items-center justify-center gap-3 tracking-wide text-brand-ink">
-                        {esLogin ? <MdLogin className="login-lock text-2xl" /> : <MdPersonAdd className="login-lock text-2xl" />}
+                        <MdLogin className="login-lock text-2xl" />
                         <span className="flex flex-col items-center tracking-wide text-brand-ink">
                           {rotulo}
                           <span className="mt-1 h-[3px] w-0 rounded-full bg-brand-ink/50 transition-all duration-300 group-hover:w-full group-hover:bg-brand-ink" />
@@ -227,35 +180,27 @@ function Login() {
                       </span>
                     </button>
 
-                    {/* El otro modo. Texto plano y no otro botón grande: la
-                        acción principal siempre es una sola, para que nadie pulse
-                        la que no es. */}
+                    {/* El alta no es un segundo modo del formulario sino un paso
+                        aparte: se entra en él con este enlace y se vuelve atrás
+                        cerrando el modal. */}
                     <p className="mt-4 text-sm text-brand-mist/80">
-                      {esLogin ? '¿Todavía no tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
+                      ¿Todavía no tienes cuenta?{' '}
                       <button
                         type="button"
-                        onClick={() => cambiar(esLogin ? 'registro' : 'login')}
+                        onClick={abrirRegistro}
                         className="font-bold text-brand-cyan underline underline-offset-4 hover:text-brand-cyanSoft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/40 rounded"
                       >
-                        {esLogin ? 'Regístrate aquí' : 'Inicia sesión'}
+                        Regístrate aquí
                       </button>
                     </p>
                   </form>
 
-                  {errorLogin || sesionCaducada ? (
+                  {avisoEnPagina ? (
                     <p
                       role="alert"
                       className="mt-4 max-w-xl text-sm leading-relaxed rounded-xl border border-red-400/40 bg-red-950/40 px-4 py-3 text-red-100"
                     >
                       {errorLogin || sesionCaducada}
-                    </p>
-                  ) : null}
-
-                  {!esLogin ? (
-                    <p className="mt-4 max-w-xl text-xs leading-relaxed text-brand-mist/60">
-                      Al registrarte entras con permisos de solicitante: solo verás tus propias
-                      solicitudes. Si necesitas entrar al panel de administrador o al módulo de
-                      conductor, pídele a un administrador que suba tu rol.
                     </p>
                   ) : null}
                 </section>
@@ -311,6 +256,8 @@ className={`absolute inset-0 m-auto max-h-full max-w-full object-contain transit
       </div>
 
       <Footer />
+
+      {registroAbierto ? <RegistroModal onClose={() => setRegistroAbierto(false)} /> : null}
 
       {/* Botón flotante CTP */}
       <a

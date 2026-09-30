@@ -196,7 +196,12 @@ export function AuthProvider({ children }) {
         errorLogin,
         loginEnCurso,
         sesionCaducada,
-        limpiarAviso: () => setSesionCaducada(''),
+        // Borra los dos avisos a la vez. Antes solo quitaba el de sesión caducada,
+        // así que escribir para corregir un login fallido no lo despejaba.
+        limpiarAviso: () => {
+          setErrorLogin('')
+          setSesionCaducada('')
+        },
       }}
     >
       {children}
