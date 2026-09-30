@@ -72,17 +72,33 @@ function verificarFirma(ruta, expira, firma) {
   return crypto.timingSafeEqual(a, b)
 }
 
-// Guarda el buffer y devuelve la ruta relativa dentro del bucket (lo que se
-// persiste en historial.evidencia_url, igual que antes).
-function guardar(codigo, nombre, buffer) {
-  const destinoRel = path
-    .join(sanitizar(codigo || 'solicitudes'), sanitizar(nombre))
-    .replace(/\\/g, '/')
+// Guarda el buffer y devuelve la ruta relativa (lo que se persiste en la base,
+// igual que antes). `carpetas` puede traer varios niveles separados por '/',
+// p.ej. "Juan Perez/CTPLOG-00001/FacturasoRemisiones": cada segmento se sanea
+// por separado para conservar la estructura real de carpetas (usuario →
+// solicitud → tipo de documento) en vez de aplanarla. Un segmento que sea '.' o
+// '..' se descarta, así que un código manipulado no puede escalar directorios;
+// rutaSegura queda además como red de seguridad.
+function guardar(carpetas, nombre, buffer) {
+  const segmentos = String(carpetas || '')
+    .split('/')
+    .map(segmentoSeguro)
+    .filter(Boolean)
+  if (segmentos.length === 0) segmentos.push('solicitudes')
+  const destinoRel = [...segmentos, sanitizar(nombre)].join('/')
   const destinoAbs = rutaSegura(destinoRel)
   if (!destinoAbs) throw new Error('Ruta de archivo no válida')
   fs.mkdirSync(path.dirname(destinoAbs), { recursive: true })
   fs.writeFileSync(destinoAbs, buffer)
   return destinoRel
+}
+
+// Sanea un segmento de carpeta y neutraliza '.'/'..' para que no haya salto de
+// directorio. Devuelve '' si el segmento no aporta nada (se filtra arriba).
+function segmentoSeguro(segmento) {
+  const limpio = sanitizar(segmento)
+  if (!limpio || limpio === '.' || limpio === '..') return ''
+  return limpio
 }
 
 // Un solo segmento: quita separadores y caracteres problemáticos. El nombre lo

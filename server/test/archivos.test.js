@@ -138,15 +138,24 @@ probar('guardar escribe el archivo dentro de la carpeta de evidencias', () => {
   assert.equal(ruta, 'CTPLOG-TEST/nota.txt')
 })
 
+probar('guardar conserva la estructura usuario → solicitud → subcarpeta', () => {
+  const ruta = archivos.guardar('Juan Perez/CTPLOG-TEST/FacturasoRemisiones', 'f.pdf', Buffer.from('x'))
+  assert.equal(ruta, 'Juan_Perez/CTPLOG-TEST/FacturasoRemisiones/f.pdf')
+  assert.ok(archivos.existe(ruta))
+  // La marca que usa pdfUtils.js para separar facturas de adjuntos.
+  assert.ok(/\/FacturasoRemisiones\//i.test(ruta))
+})
+
 probar('guardar confina un código manipulado dentro de la carpeta', () => {
-  // sanitizar convierte '../../escapo' en un solo segmento '.._.._escapo', así
-  // que no hay excepción: simplemente escribe dentro de evidencias/.
+  // Cada segmento se sanea y los '..' se descartan, así que '../../escapo' no
+  // puede escalar: acaba escrito dentro de evidencias/ como 'escapo/x.txt'.
   const ruta = archivos.guardar('../../escapo', 'x.txt', Buffer.from('y'))
   const base = path.resolve(archivos.RAIZ_EVIDENCIAS)
   const destino = path.resolve(archivos.RAIZ_EVIDENCIAS, ruta)
   assert.ok(destino.startsWith(base + path.sep), `escribió fuera: ${destino}`)
   assert.ok(archivos.existe(ruta))
-  assert.equal(ruta, '.._.._escapo/x.txt')
+  assert.equal(ruta, 'escapo/x.txt')
+  assert.ok(!ruta.includes('..'), 'no debe quedar ningún salto de directorio')
 })
 
 probar('existe devuelve false para rutas que no están', () => {

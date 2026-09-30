@@ -563,11 +563,40 @@ async function codigosVisibles(ctx, codigos) {
   return new Set(filas.map((f) => f.codigo))
 }
 
-// La primera carpeta de la ruta es el código de la solicitud: así las construye
-// archivos.guardar (`{codigo}/{nombre}`).
+// Localiza el código de la solicitud dentro de una ruta. Con la estructura
+// {usuario}/{codigo}/{tipo}/{nombre} el código ya NO es el primer segmento, así
+// que se busca el que tenga forma CTPLOG-#####. Sirve igual para rutas antiguas
+// sin carpeta de usuario (el primer segmento ya es el código).
 function codigoDeRuta(ruta) {
   const limpio = String(ruta || '').replace(/\\/g, '/').replace(/^\/+/, '')
-  return limpio.split('/')[0] || ''
+  const partes = limpio.split('/').filter(Boolean)
+  const encontrado = partes.find((p) => /^CTPLOG-\d+/i.test(p))
+  return encontrado || partes[0] || ''
+}
+
+// Carpeta de usuario bajo la que vive la solicitud. Es el DUEÑO (solicitante), no
+// quien sube el archivo, para que todos los documentos de un pedido queden juntos
+// aunque los suba después un admin o el conductor. Se resuelve del servidor, nunca
+// del cliente, así que no se puede falsear. En la reserva inicial la fila aún no
+// existe y quien crea ES el solicitante, así que se usa su nombre de sesión.
+async function carpetaUsuario(codigoSolicitud, ctx) {
+  const [[fila]] = await pool.execute(
+    'SELECT solicitante_nombre, solicitante_correo FROM solicitudes WHERE codigo = ? LIMIT 1',
+    [codigoSolicitud]
+  )
+  if (fila) {
+    const nombre = String(fila.solicitante_nombre || '').trim()
+    if (nombre) return nombre
+    const correo = String(fila.solicitante_correo || '').trim()
+    if (correo) {
+      const [[usuario]] = await pool.execute(
+        'SELECT nombre FROM usuarios WHERE correo = ? LIMIT 1',
+        [correo]
+      )
+      if (usuario && usuario.nombre) return usuario.nombre
+    }
+  }
+  return String(ctx.nombre || '').trim() || ctx.correo || 'solicitudes'
 }
 
 router.post(
@@ -605,7 +634,15 @@ router.post(
         return res.status(403).json({ error: 'No autorizado' })
       }
     }
-    const rutaRel = archivos.guardar(codigo, nombre || req.file.originalname, req.file.buffer)
+    // Estructura final en disco: {usuario}/{codigo}[/{subcarpeta}]/{nombre}. La
+    // carpeta de usuario la pone el servidor (dueño de la solicitud); `codigo` ya
+    // puede traer la subcarpeta detrás (FacturasoRemisiones, DocEntregas).
+    const usuario = await carpetaUsuario(codigoSolicitud, ctx)
+    const rutaRel = archivos.guardar(
+      `${usuario}/${codigo}`,
+      nombre || req.file.originalname,
+      req.file.buffer
+    )
     res.json({ ruta: rutaRel })
   })
 )
