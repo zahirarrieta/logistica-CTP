@@ -12,6 +12,8 @@
 // cambiar permisos no requiera tocar el frontend.
 // ============================================================================
 
+const crypto = require('crypto')
+
 const { createRemoteJWKSet, jwtVerify, decodeJwt, decodeProtectedHeader, importJWK } = require('jose')
 
 const config = require('./config')
@@ -126,6 +128,39 @@ function resumirToken(token) {
   }
 }
 
+// Huella del token TAL COMO LLEGÓ, para compararla con la que calcula el
+// navegador antes de enviarlo.
+//
+// Es la única forma de separar dos fallos que producen el mismo error de firma:
+// "el token se alteró en tránsito" (un proxy o WAF del hosting reescribe la
+// cabecera Authorization) y "el servidor verifica mal". Si la huella del
+// navegador y la del servidor coinciden, los bytes llegaron intactos y el
+// problema es la verificación; si difieren, alguien tocó el token en el camino.
+//
+// El conteo de caracteres delata el caso concreto de normalización base64: un
+// JWT es base64url y NUNCA lleva '+' ni '/'. Si aparecen, un intermediario
+// convirtió la firma a base64 estándar: el payload sigue decodificando igual
+// (por eso el log muestra aud/iss/exp correctos) pero la firma ya no verifica.
+function integridad(token, crudoCabecera, via) {
+  const cuenta = { menos: 0, guionBajo: 0, mas: 0, barra: 0 }
+  for (const c of token) {
+    if (c === '-') cuenta.menos++
+    else if (c === '_') cuenta.guionBajo++
+    else if (c === '+') cuenta.mas++
+    else if (c === '/') cuenta.barra++
+  }
+  const sha = (texto) => crypto.createHash('sha256').update(texto, 'utf8').digest('hex')
+  return {
+    via,
+    largo: token.length,
+    shaToken: sha(token),
+    shaCabecera: sha(crudoCabecera),
+    primeros: token.slice(0, 12),
+    ultimos: token.slice(-12),
+    caracteres: cuenta,
+  }
+}
+
 // Qué claves ve Node en cada URL de descubrimiento.
 //
 // Importa distinguir Node de curl: un proxy o WAF del hosting puede responder
@@ -199,7 +234,23 @@ async function verificarConClaveFresca(token) {
 // autorizar. Responde 401 solo; las decisiones de rol son de permisos.js.
 async function autenticar(req, res, next) {
   const encabezado = req.get('authorization') || ''
-  const token = encabezado.startsWith('Bearer ') ? encabezado.slice(7).trim() : ''
+  let token = encabezado.startsWith('Bearer ') ? encabezado.slice(7).trim() : ''
+  let via = 'cabecera'
+
+  // Respaldo para cuando un intermediario del hosting altera la cabecera
+  // Authorization: el navegador puede mandar el mismo token en el cuerpo, que
+  // los WAF no reescriben. Solo se usa si la cabecera no trajo token.
+  if (!token) {
+    const delCuerpo = typeof req.body?.token === 'string' ? req.body.token.trim() : ''
+    if (delCuerpo) {
+      token = delCuerpo
+      via = 'cuerpo'
+      // Se retira para que ninguna ruta lo vea ni lo persista: el token no es un
+      // dato del dominio y no debe acabar en MySQL aunque una ruta futura
+      // decida volcar el cuerpo entero.
+      delete req.body.token
+    }
+  }
 
   if (!token) {
     return res.status(401).json({ error: 'Falta el token de autenticación' })
@@ -249,11 +300,13 @@ async function autenticar(req, res, next) {
     // recibió Node, la clave es correcta y el problema es el token; si no está,
     // es que el JWKS no llegó bien. Es la pregunta que decide dónde mirar.
     let claves
+    const llegada = integridad(token, encabezado, via)
     if (codigo === 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') {
       const [clavesUrl, fresca] = await Promise.all([clavesPorUrl(), verificarConClaveFresca(token)])
       console.warn(
         `[Auth] claves recibidas por Node: ${JSON.stringify(clavesUrl)} | clave fresca: ${JSON.stringify(fresca.resultados)}`
       )
+      console.warn(`[Auth] integridad de la llegada: ${JSON.stringify(llegada)}`)
       // Si con la clave descargada sin caché la firma pasa, el token era bueno:
       // lo que estaba inútil era la caché de jose. Se acepta y se deja rastro.
       if (fresca.payload) {
@@ -261,12 +314,15 @@ async function autenticar(req, res, next) {
         if (!aceptar(fresca.payload, fresca.generacion)) return undefined
         return next()
       }
-      claves = { jwks: clavesUrl, claveFresca: fresca.resultados }
+      claves = { jwks: clavesUrl, claveFresca: fresca.resultados, llegada }
     }
 
     return res.status(401).json({
       error: expired ? 'La sesión expiró, vuelve a iniciar sesión' : `Token inválido ${detalle}`,
       ...(claves ? { diagnostico: claves } : {}),
+      // Siempre presente, incluso cuando el error no es de firma: el navegador
+      // lo compara con su propia huella para saber si el token llegó intacto.
+      recibido: llegada,
     })
   }
 }
