@@ -12,7 +12,7 @@
 // cambiar permisos no requiera tocar el frontend.
 // ============================================================================
 
-const { createRemoteJWKSet, jwtVerify, decodeJwt, decodeProtectedHeader } = require('jose')
+const { createRemoteJWKSet, jwtVerify, decodeJwt, decodeProtectedHeader, importJWK } = require('jose')
 
 const config = require('./config')
 
@@ -44,8 +44,8 @@ const jwksV1 = createRemoteJWKSet(new URL(JWKS_V1))
 // Generaciones a probar, en orden. Para cada una se usa su clave y su emisor:
 // mezclar una clave de v1.0 con un emisor de v2.0 (o al revés) nunca valida.
 const GENERACIONES = [
-  { nombre: 'v2.0', jwks: jwksV2, issuer: ISSUER_V2 },
-  { nombre: 'v1.0', jwks: jwksV1, issuer: ISSUER_V1 },
+  { nombre: 'v2.0', jwks: jwksV2, issuer: ISSUER_V2, url: JWKS_V2 },
+  { nombre: 'v1.0', jwks: jwksV1, issuer: ISSUER_V1, url: JWKS_V1 },
 ]
 
 // Verifica el token contra cada generación y devuelve el payload de la primera
@@ -126,6 +126,75 @@ function resumirToken(token) {
   }
 }
 
+// Qué claves ve Node en cada URL de descubrimiento.
+//
+// Importa distinguir Node de curl: un proxy o WAF del hosting puede responder
+// distinto según el User-Agent, así que que curl muestre la clave correcta no
+// garantiza que el proceso de Node reciba el mismo JWKS. Es la diferencia entre
+// "la clave no está" y "la clave llega corrupta", que producen el mismo error.
+async function clavesPorUrl() {
+  const salida = {}
+  for (const [nombre, url] of [['v2.0', JWKS_V2], ['v1.0', JWKS_V1]]) {
+    try {
+      const r = await fetch(url, { headers: { accept: 'application/json' } })
+      const texto = await r.text()
+      try {
+        const j = JSON.parse(texto)
+        // El kid solo no basta: dos claves pueden compartir kid y diferir en el
+        // módulo RSA. La huella de `n` es lo que distingue "la clave correcta"
+        // de "una clave con el mismo nombre pero inutil".
+        salida[nombre] = {
+          http: r.status,
+          claves: (j.keys || []).map((k) => `${k.kid}:${String(k.n || '').slice(0, 12)}`),
+        }
+      } catch {
+        // Si no es JSON, alguien intermedio devolvió otra cosa.
+        salida[nombre] = { http: r.status, error: 'no es JSON', muestra: texto.slice(0, 80) }
+      }
+    } catch (error) {
+      salida[nombre] = { error: error.message }
+    }
+  }
+  return salida
+}
+
+// Última instancia cuando la firma falla contra el JWKS cacheado por jose: se
+// descargan las claves SIN caché y se verifica con ellas directamente. Si así
+// pasa, el token era bueno y lo inútil era la caché del proceso (un arranque
+// detrás de un proxy que respondió mal, por ejemplo); se acepta y se avisa.
+// Si también falla, el diagnóstico dice por generación qué pasó con la clave
+// fresca: "kid no esta" (el JWKS del hosting no coincide con el de Microsoft)
+// o el código de error de jose (el token llegó mutilado del cliente).
+async function verificarConClaveFresca(token) {
+  let kid = ''
+  try {
+    kid = decodeProtectedHeader(token).kid || ''
+  } catch {
+    return { payload: null, resultados: { error: 'cabecera no decodificable' } }
+  }
+  const resultados = {}
+  for (const gen of GENERACIONES) {
+    try {
+      const r = await fetch(gen.url, { headers: { accept: 'application/json' } })
+      const j = await r.json()
+      const clave = (j.keys || []).find((k) => k.kid === kid)
+      if (!clave) {
+        resultados[gen.nombre] = 'kid no esta en el JWKS fresco'
+        continue
+      }
+      const claveImportada = await importJWK(clave, 'RS256')
+      const { payload } = await jwtVerify(token, claveImportada, {
+        issuer: gen.issuer,
+        audience: AUDIENCIAS,
+      })
+      return { payload, generacion: `${gen.nombre} (clave fresca)`, resultados }
+    } catch (error) {
+      resultados[gen.nombre] = error?.code || error?.message
+    }
+  }
+  return { payload: null, resultados }
+}
+
 // Exige un token válido. Deja en req.ctx lo que las rutas necesitan para
 // autorizar. Responde 401 solo; las decisiones de rol son de permisos.js.
 async function autenticar(req, res, next) {
@@ -136,16 +205,24 @@ async function autenticar(req, res, next) {
     return res.status(401).json({ error: 'Falta el token de autenticación' })
   }
 
-  try {
-    const { payload, generacion } = await verificarToken(token)
+  // Deja en req lo que las rutas leen del token. Devuelve false si el payload
+  // no trae correo utilizable (ya respondió 401 en ese caso).
+  const aceptar = (payload, generacion) => {
     const correo = correoDelToken(payload)
     if (!correo) {
-      return res.status(401).json({ error: 'El token no trae un correo utilizable' })
+      res.status(401).json({ error: 'El token no trae un correo utilizable' })
+      return false
     }
     req.token = payload
     req.correo = correo
     req.nombreToken = String(payload.name || '').trim()
     req.generacionToken = generacion
+    return true
+  }
+
+  try {
+    const { payload, generacion } = await verificarToken(token)
+    if (!aceptar(payload, generacion)) return undefined
     return next()
   } catch (error) {
     const expired = error?.code === 'ERR_JWT_EXPIRED'
@@ -165,10 +242,31 @@ async function autenticar(req, res, next) {
       `aud=${info.aud}`,
       `iss=${info.iss}`,
       `exp=${info.exp || 'sin exp'}`,
+      `largo=${info.largo}`,
     ].join(' ')
+
+    // Solo cuando falla la firma. Si el `kid` del token está en la lista que
+    // recibió Node, la clave es correcta y el problema es el token; si no está,
+    // es que el JWKS no llegó bien. Es la pregunta que decide dónde mirar.
+    let claves
+    if (codigo === 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED') {
+      const [clavesUrl, fresca] = await Promise.all([clavesPorUrl(), verificarConClaveFresca(token)])
+      console.warn(
+        `[Auth] claves recibidas por Node: ${JSON.stringify(clavesUrl)} | clave fresca: ${JSON.stringify(fresca.resultados)}`
+      )
+      // Si con la clave descargada sin caché la firma pasa, el token era bueno:
+      // lo que estaba inútil era la caché de jose. Se acepta y se deja rastro.
+      if (fresca.payload) {
+        console.warn(`[Auth] token aceptado con clave fresca (${fresca.generacion})`)
+        if (!aceptar(fresca.payload, fresca.generacion)) return undefined
+        return next()
+      }
+      claves = { jwks: clavesUrl, claveFresca: fresca.resultados }
+    }
 
     return res.status(401).json({
       error: expired ? 'La sesión expiró, vuelve a iniciar sesión' : `Token inválido ${detalle}`,
+      ...(claves ? { diagnostico: claves } : {}),
     })
   }
 }

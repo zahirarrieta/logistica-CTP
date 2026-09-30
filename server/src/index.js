@@ -46,7 +46,7 @@ app.use((req, res, next) => {
 // para confirmar desde fuera qué build está corriendo en el hosting: durante una
 // migración es normal dudar de si el ZIP nuevo llegó a pisar el anterior, y
 // hasta ahora la respuesta era idéntica en todas las versiones.
-const DEPLOY = '2026-09-29-token-v1v2'
+const DEPLOY = '2026-09-30-clave-fresca'
 
 app.get('/api/salud', (req, res) => res.json({ ok: true, deploy: DEPLOY }))
 
