@@ -686,6 +686,12 @@ publico.get('/archivos/ver', (req, res) => {
   }
   const destino = archivos.rutaSegura(ruta)
   if (!destino || !archivos.existe(ruta)) return res.status(404).send('No encontrado')
+
+  // Permitir que el PDF se vea en iframe desde el frontend (diferente subdominio).
+  // Sin esto, el navegador bloquea la carga en <iframe> por X-Frame-Options.
+  res.setHeader('X-Frame-Options', 'ALLOWALL')
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://pedro-ctpmedica.com")
+
   res.sendFile(destino)
 })
 
