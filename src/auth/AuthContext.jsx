@@ -162,10 +162,12 @@ export function AuthProvider({ children }) {
     } catch (error) {
       const mensaje = error.message
       setErrorLogin(mensaje)
-      // Notificación tipo toast con sonido (como el resto de avisos del sistema)
+      // Notificación tipo toast con sonido (como el resto de avisos del sistema).
+      // `fill` obligatorio: sileo.error() trae fondo blanco por defecto.
       sileo.error({
         duration: 5000,
         sound: 'default',
+        fill: '#071A3D',
         title: 'Error de acceso',
         description: mensaje,
       })
