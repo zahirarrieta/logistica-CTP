@@ -17,6 +17,14 @@ const archivos = require('./archivos')
 
 const router = express.Router()
 
+// Rutas que NO pasan por autenticar(). Solo la descarga de archivos firmados:
+// el navegador las carga en un <img>/<iframe> o al abrir una pestaña, y en esos
+// casos no puede mandar la cabecera Authorization. Aquí autoriza la firma HMAC
+// de la URL (ver archivos.verificarFirma), no la sesión. Se monta en index.js
+// ANTES del router protegido; si se dejara dentro, autenticar la rechazaría con
+// 401 "Falta el token" y ningún documento podría verse.
+const publico = express.Router()
+
 // ---------------------------------------------------------------------------
 // Utilidades de serialización
 // ---------------------------------------------------------------------------
@@ -669,8 +677,9 @@ router.post(
 )
 
 // Las URLs firmadas no llevan Authorization (van en un <img src>), así que la
-// firma HMAC es la que autoriza. Por eso esta ruta NO pasa por autenticar().
-router.get('/archivos/ver', (req, res) => {
+// firma HMAC es la que autoriza. Por eso esta ruta vive en el router `publico`,
+// montado en index.js antes del middleware autenticar().
+publico.get('/archivos/ver', (req, res) => {
   const { ruta = '', exp = '', firma = '' } = req.query
   if (!archivos.verificarFirma(ruta, exp, firma)) {
     return res.status(403).send('Enlace inválido o vencido')
@@ -688,4 +697,4 @@ router.get('/salud', ruta(async (req, res) => {
   res.json({ ok: true, hora: new Date().toISOString() })
 }))
 
-module.exports = router
+module.exports = { protegido: router, publico }

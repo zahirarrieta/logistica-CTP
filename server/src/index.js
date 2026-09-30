@@ -47,7 +47,7 @@ app.use((req, res, next) => {
 // para confirmar desde fuera qué build está corriendo en el hosting: durante una
 // migración es normal dudar de si el ZIP nuevo llegó a pisar el anterior, y
 // hasta ahora la respuesta era idéntica en todas las versiones.
-const DEPLOY = '2026-09-30-login-propio'
+const DEPLOY = '2026-09-30-archivos-publicos'
 
 app.get('/api/salud', (req, res) => res.json({ ok: true, deploy: DEPLOY }))
 
@@ -66,8 +66,14 @@ app.get('/', (req, res) =>
 // justamente las rutas que crean la sesión: no hay token que mandar todavía.
 app.use('/api/auth', rutasAuth)
 
+// Descarga de archivos firmados. También va ANTES del middleware autenticar():
+// el navegador abre estas URLs en un <img>/<iframe>/pestaña sin cabecera
+// Authorization, y las autoriza la firma HMAC. Si quedaran dentro del router
+// protegido, autenticar las rechazaría con 401 y ningún documento se vería.
+app.use('/api', rutas.publico)
+
 // Todo lo demás exige un token de sesión válido.
-app.use('/api', autenticar, rutas)
+app.use('/api', autenticar, rutas.protegido)
 
 app.use((req, res) => res.status(404).json({ error: 'Endpoint no encontrado' }))
 
