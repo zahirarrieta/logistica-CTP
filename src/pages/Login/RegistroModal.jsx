@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MdClose, MdPersonAdd } from 'react-icons/md'
 import Modal from '../../components/Modal.jsx'
 import CampoClave from '../../components/CampoClave.jsx'
+import CampoEmailDominio from '../../components/CampoEmailDominio.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 
 // Mismos estilos que CambiarClaveModal / AdjuntosModal: fondo blanco, texto oscuro
@@ -115,24 +116,15 @@ export default function RegistroModal({ onClose }) {
               className={CLASES_CAMPO}
             />
 
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                name="correo"
-                autoComplete="username"
-                required
-                maxLength={190 - DOMINIO.length}
-                value={form.correo}
-                onChange={escribir('correo')}
-                onBlur={alSalirCorreo}
-                placeholder="Usuario"
-                aria-label="Usuario (se añade @ctpmedica.com automáticamente)"
-                className={`${CLASES_CAMPO} pr-32`}
-              />
-              <span className="absolute right-3 text-brand-ink/40 text-sm select-none pointer-events-none" aria-hidden="true">
-                {DOMINIO}
-              </span>
-            </div>
+            <CampoEmailDominio
+              name="correo"
+              value={form.correo}
+              onChange={escribir('correo')}
+              onBlur={alSalirCorreo}
+              placeholder="Usuario"
+              error={false}
+              className="w-full"
+            />
 
             {/* `new-password` en los dos: si el gestor autocompleta la misma clave
                 en ambos campos de una cuenta nueva, el usuario nunca la elige. */}

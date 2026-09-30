@@ -3,6 +3,7 @@ import { MdLogin } from 'react-icons/md'
 import { FiTruck } from 'react-icons/fi'
 import Footer from '../../components/Footer.jsx'
 import CampoClave from '../../components/CampoClave.jsx'
+import CampoEmailDominio from '../../components/CampoEmailDominio.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import RegistroModal from './RegistroModal.jsx'
 import './login.css'
@@ -154,24 +155,15 @@ function Login() {
                       de verdad. */}
                   <form onSubmit={enviar} className="mt-8 sm:mt-10 max-lg:mt-6 max-w-lg login-enter">
                     <div className="grid gap-3">
-                      <div className="relative flex items-center">
-                        <input
-                          type="text"
-                          name="correo"
-                          autoComplete="username"
-                          required
-                          maxLength={190 - DOMINIO.length}
-                          value={form.correo}
-                          onChange={escribir('correo')}
-                          onBlur={alSalirCorreo}
-                          placeholder="Usuario"
-                          aria-label="Usuario (se añade @ctpmedica.com automáticamente)"
-                          className={`${clasesCampo} pr-32`}
-                        />
-                        <span className="absolute right-3 text-brand-mist/50 text-sm select-none pointer-events-none" aria-hidden="true">
-                          {DOMINIO}
-                        </span>
-                      </div>
+                      <CampoEmailDominio
+                        name="correo"
+                        value={form.correo}
+                        onChange={escribir('correo')}
+                        onBlur={alSalirCorreo}
+                        placeholder="Usuario"
+                        error={false}
+                        className="w-full"
+                      />
 
                       <CampoClave
                         name="contrasena"
