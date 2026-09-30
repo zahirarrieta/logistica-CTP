@@ -12,6 +12,7 @@ import {
   MdChevronRight,
 } from 'react-icons/md'
 import { esUrlOneDrive, resolverArchivo } from '../services/visorArchivos.js'
+import VisorPdfModal from './VisorPdfModal.jsx'
 
 const esPdf = (url) => /^data:application\/pdf/i.test(url) || /\.pdf(\?|#|$)/i.test(url)
 
@@ -23,6 +24,7 @@ export default function EvidenciaVisor({ urls }) {
   const [indice, setIndice] = useState(0)
   const [estados, setEstados] = useState([])
   const [ampliado, setAmpliado] = useState(false)
+  const [verPdf, setVerPdf] = useState(null)
 
   const clave = lista.join('|')
   useEffect(() => {
@@ -88,18 +90,17 @@ export default function EvidenciaVisor({ urls }) {
   const actual = estados[indice] || { src: '', abrir: lista[indice], cargando: true }
 
   const enlacePdfCard = (estado, urlBase) => (
-    <a
-      href={estado.abrir || urlBase}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-3 rounded-xl border border-brand-ink/10 bg-brand-mist/40 px-4 py-3.5 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors"
+    <button
+      type="button"
+      onClick={() => setVerPdf(estado.abrir || urlBase)}
+      className="flex items-center gap-3 rounded-xl border border-brand-ink/10 bg-brand-mist/40 px-4 py-3.5 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors cursor-pointer"
     >
       <MdPictureAsPdf className="text-3xl text-red-600 shrink-0" />
       <span className="min-w-0">
         <span className="block text-sm font-extrabold text-brand-deep">Documento PDF de la entrega</span>
-        <span className="block text-xs text-brand-ink/60">Clic para abrir en una nueva pestaña</span>
+        <span className="block text-xs text-brand-ink/60">Clic para ver en el visor</span>
       </span>
-    </a>
+    </button>
   )
 
   const tarjetaCarga = () => (
@@ -300,15 +301,6 @@ export default function EvidenciaVisor({ urls }) {
                       <MdPictureAsPdf className="text-sm" />
                       Documento PDF de la evidencia
                     </span>
-                    <a
-                      href={actual.abrir || lista[indice]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/20 text-brand-cyan px-2.5 py-1 text-[10px] font-bold hover:bg-brand-cyan/30 transition"
-                    >
-                      <MdOpenInNew className="text-xs" />
-                      Abrir en pestaña
-                    </a>
                   </div>
                   <iframe
                     src={actual.src}
@@ -361,6 +353,13 @@ export default function EvidenciaVisor({ urls }) {
           </div>
         </div>
       )}
+
+      <VisorPdfModal
+        open={Boolean(verPdf)}
+        url={verPdf}
+        onClose={() => setVerPdf(null)}
+        titulo="EVIDENCIA DE LA ENTREGA"
+      />
     </>
   )
 }
