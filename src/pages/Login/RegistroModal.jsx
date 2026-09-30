@@ -47,15 +47,21 @@ export default function RegistroModal({ onClose }) {
   // teclear mal y no enterarse hasta el día siguiente.
   const faltaConfirmar = confirmacion !== form.contrasena
 
+  const sanearCorreo = (valor) => {
+    const i = valor.indexOf('@')
+    return i >= 0 ? valor.slice(0, i) : valor
+  }
+
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
-    let valor = e.target.value
-    if (campo === 'correo') {
-      // No permitir @ ni nada después: solo la parte de usuario
-      const i = valor.indexOf('@')
-      if (i >= 0) valor = valor.slice(0, i)
-    }
+    const valor = campo === 'correo' ? sanearCorreo(e.target.value) : e.target.value
     setForm((f) => ({ ...f, [campo]: valor }))
+  }
+
+  // Captura autofill del navegador (onChange no siempre dispara al autollenar)
+  const alSalirCorreo = (e) => {
+    const limpio = sanearCorreo(e.target.value)
+    if (limpio !== form.correo) setForm((f) => ({ ...f, correo: limpio }))
   }
 
   const enviar = (e) => {
@@ -120,6 +126,7 @@ export default function RegistroModal({ onClose }) {
                 maxLength={190 - DOMINIO.length}
                 value={form.correo}
                 onChange={escribir('correo')}
+                onBlur={alSalirCorreo}
                 placeholder="Usuario"
                 aria-label="Usuario (se añade @ctpmedica.com automáticamente)"
                 className={`${CLASES_CAMPO} pr-32`}

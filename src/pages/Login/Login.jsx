@@ -48,15 +48,21 @@ function Login() {
 
   // El aviso se borra al escribir, para que no se quede ahí mientras el usuario
   // corrige lo que estaba mal.
+  const sanearCorreo = (valor) => {
+    const i = valor.indexOf('@')
+    return i >= 0 ? valor.slice(0, i) : valor
+  }
+
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
-    let valor = e.target.value
-    if (campo === 'correo') {
-      // No permitir @ ni nada después: solo la parte de usuario
-      const i = valor.indexOf('@')
-      if (i >= 0) valor = valor.slice(0, i)
-    }
+    const valor = campo === 'correo' ? sanearCorreo(e.target.value) : e.target.value
     setForm((f) => ({ ...f, [campo]: valor }))
+  }
+
+  // Captura autofill del navegador (onChange no siempre dispara al autollenar)
+  const alSalirCorreo = (e) => {
+    const limpio = sanearCorreo(e.target.value)
+    if (limpio !== form.correo) setForm((f) => ({ ...f, correo: limpio }))
   }
 
   const enviar = (e) => {
@@ -157,6 +163,7 @@ function Login() {
                           maxLength={190 - DOMINIO.length}
                           value={form.correo}
                           onChange={escribir('correo')}
+                          onBlur={alSalirCorreo}
                           placeholder="Usuario"
                           aria-label="Usuario (se añade @ctpmedica.com automáticamente)"
                           className={`${clasesCampo} pr-32`}
