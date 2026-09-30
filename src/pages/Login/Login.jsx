@@ -74,7 +74,9 @@ function Login() {
   const rotulo = loginEnCurso ? 'ENTRANDO…' : 'INICIAR SESIÓN'
   // Con el modal abierto, el error se lee dentro de él: repetirlo detrás del
   // velo solo haría ruido.
-  const avisoEnPagina = !registroAbierto && (errorLogin || sesionCaducada)
+  // El error de login ya se muestra como toast (sileo); solo mantenemos
+  // sesionCaducada en página para que el usuario vea por qué lo sacamos.
+  const avisoEnPagina = !registroAbierto && sesionCaducada
 
   const clasesCampo =
     'w-full rounded-xl border border-brand-cyan/25 bg-black/25 px-4 py-3 text-brand-mist ' +
