@@ -49,7 +49,13 @@ export default function RegistroModal({ onClose }) {
 
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
-    setForm((f) => ({ ...f, [campo]: e.target.value }))
+    let valor = e.target.value
+    if (campo === 'correo') {
+      // No permitir @ ni nada después: solo la parte de usuario
+      const i = valor.indexOf('@')
+      if (i >= 0) valor = valor.slice(0, i)
+    }
+    setForm((f) => ({ ...f, [campo]: valor }))
   }
 
   const enviar = (e) => {
