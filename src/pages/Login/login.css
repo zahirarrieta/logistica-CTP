@@ -65,21 +65,39 @@ input:-webkit-autofill:active {
 }
 
 /* CampoEmailDominio: su input es transparente y el borde/fondo los pinta el
-   contenedor. El bloque de autofill de arriba, al ser un `inset` de 1000px, se
-   leía como un cuadrado oscuro suelto dentro del campo redondeado, así que
-   aquí se desactiva y se deja que el contenedor ponga el fondo. */
-.autofill-transparente:-webkit-autofill,
-.autofill-transparente:-webkit-autofill:hover,
-.autofill-transparente:-webkit-autofill:focus,
-.autofill-transparente:-webkit-autofill:active {
+   contenedor. El estilo global de autofill de arriba, al ser un `inset` de
+   1000px, se leía como un cuadrado oscuro suelto dentro del campo redondeado,
+   así que aquí se anula el fondo.
+   El color del texto va explícito por tono y no con `currentColor`: con
+   `currentColor` el texto autocompletado salía en negro en vez de blanco.
+   Estas reglas van después de las de `.bg-white` para ganar también en los
+   modales, que tienen la misma especificidad. */
+.autofill-oscuro:-webkit-autofill,
+.autofill-oscuro:-webkit-autofill:hover,
+.autofill-oscuro:-webkit-autofill:focus,
+.autofill-oscuro:-webkit-autofill:active {
   -webkit-box-shadow: none !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: currentColor !important;
-  caret-color: currentColor;
+  background-color: transparent !important;
+  background-image: none !important;
+  -webkit-text-fill-color: #eaf4f7 !important;
+  caret-color: #eaf4f7;
   transition: background-color 5000s ease-in-out 0s;
 }
 
-.autofill-transparente:-moz-autofill {
+.autofill-claro:-webkit-autofill,
+.autofill-claro:-webkit-autofill:hover,
+.autofill-claro:-webkit-autofill:focus,
+.autofill-claro:-webkit-autofill:active {
+  -webkit-box-shadow: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  -webkit-text-fill-color: #071a3d !important;
+  caret-color: #071a3d;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.autofill-oscuro:-moz-autofill,
+.autofill-claro:-moz-autofill {
   background-color: transparent !important;
   background-image: none !important;
 }

@@ -93,7 +93,7 @@ export default function CampoEmailDominio({
         maxLength={190 - dominio.length}
         aria-label={`Correo, se completa con ${dominio}`}
         aria-invalid={marcaError || undefined}
-        className={`autofill-transparente min-w-0 flex-1 bg-transparent px-4 py-3 outline-none ${estilos.input}`}
+        className={`${tono === 'claro' ? 'autofill-claro' : 'autofill-oscuro'} min-w-0 flex-1 bg-transparent px-4 py-3 outline-none ${estilos.input}`}
         {...resto}
       />
       <span
