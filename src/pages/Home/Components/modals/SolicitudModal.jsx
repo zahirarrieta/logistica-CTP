@@ -291,7 +291,9 @@ useEffect(() => {
     setFormData(prev => ({
       ...prev,
       cliente: u.cliente,
-      cedula: u.cedula,
+      // No se copia la cedula. El campo salio del formulario y la idea es que
+      // la solicitud guarde quien pidio la gestion, no un documento suyo: si se
+      // copiara aqui, volveria a meterse en la fila sin que nadie la viera.
       bodega: '',
       nit: '',
       zona: '',

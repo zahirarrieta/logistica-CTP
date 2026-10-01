@@ -593,20 +593,24 @@ router.post(
 
       await conexion.commit()
 
-      // La carpeta del usuario se crea al dar de alta la solicitud, no cuando se
-      // sube el primer archivo. Así una 'administrativa' (que ya no exige adjunto)
-      // tiene su carpeta {usuario}/{codigo} aunque nunca se suba nada, y las
-      // que sí llevan documentos no cambian de sitio. Es idempotente: si la
-      // carpeta ya existe no la toca.
+      // Carpeta {usuario}/{codigo}, solo en la administrativa.
       //
-      // Va después del commit y sin await de una promesa: si el disco falla, la
-      // solicitud YA está guardada y avisar de un error aquí la perdería. Se
-      // registra en el log y se sigue.
-      try {
-        const carpeta = await carpetaUsuario(fila.codigo, ctx)
-        archivos.crearCarpeta(`${carpeta}/${fila.codigo}`)
-      } catch (error) {
-        console.warn(`[Archivos] no se pudo crear la carpeta de ${fila.codigo}:`, error?.message)
+      // Ahí el adjunto es opcional, así que no se puede esperar al primer archivo
+      // para crearla: la carpeta tiene que existir aunque nunca se suba nada. En
+      // el resto de tipos los documentos son obligatorios y ya nacen dentro de
+      // esta misma ruta al subirlos, así que crearles una carpeta vacía al dar de
+      // alta solo dejaría directorios sueltos.
+      //
+      // Va después del commit y con try/catch: si el disco falla, la solicitud YA
+      // está guardada y devolver un error aquí la perdería. Se registra en el log
+      // y se sigue. Es idempotente: si la carpeta existe no se toca.
+      if (fila.tipo_solicitud === 'ADMINISTRATIVA') {
+        try {
+          const carpeta = await carpetaUsuario(fila.codigo, ctx)
+          await archivos.crearCarpeta(`${carpeta}/${fila.codigo}`)
+        } catch (error) {
+          console.warn(`[Archivos] no se pudo crear la carpeta de ${fila.codigo}:`, error?.message)
+        }
       }
 
       return res.json({ ok: true, codigo: fila.codigo })
