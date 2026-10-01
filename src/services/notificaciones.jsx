@@ -1,13 +1,17 @@
 import { sileo } from 'sileo'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
+  MdApartment,
   MdAssignmentInd,
   MdAssignmentReturn,
   MdCloudDone,
   MdCloudUpload,
+  MdDelete,
+  MdEdit,
   MdErrorOutline,
   MdInbox,
   MdLocalShipping,
+  MdPersonAdd,
   MdRestartAlt,
   MdSend,
   MdSwapHoriz,
@@ -463,5 +467,47 @@ export function almacenamientoLleno() {
     description: linea(
       'No se pudieron guardar los cambios en este dispositivo. Libera espacio o sincroniza con la base y recarga la página.'
     ),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo de clientes (CRUD del super administrador)
+// ---------------------------------------------------------------------------
+const nombreCliente = (cliente) => (cliente && (cliente.nombre || cliente.nit)) || 'Cliente'
+
+export function clienteCreado(cliente = {}) {
+  sileo.success({
+    ...BASE,
+    title: 'Cliente creado',
+    icon: <MdPersonAdd />,
+    description: linea(nombreCliente(cliente)),
+  })
+}
+
+export function clienteActualizado(cliente = {}) {
+  sileo.success({
+    ...BASE,
+    title: 'Cliente actualizado',
+    icon: <MdEdit />,
+    description: linea(nombreCliente(cliente)),
+  })
+}
+
+export function clienteEliminado(cliente = {}) {
+  sileo.info({
+    ...BASE,
+    title: 'Cliente eliminado',
+    icon: <MdDelete />,
+    description: linea(nombreCliente(cliente)),
+  })
+}
+
+export function errorClientes(mensaje) {
+  sileo.error({
+    ...BASE,
+    duration: 6000,
+    title: 'No se pudo guardar el cliente',
+    icon: <MdApartment />,
+    description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
   })
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MdInbox, MdFilterList, MdInsights, MdRestartAlt, MdRefresh, MdDescription, MdAssignmentInd, MdTag } from 'react-icons/md'
+import { MdApartment, MdInbox, MdFilterList, MdInsights, MdRestartAlt, MdRefresh, MdDescription, MdAssignmentInd, MdTag } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
@@ -15,6 +15,7 @@ import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
 import DashboardTab from './Components/DashboardTab.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
+import ClientesModal from './Components/modals/ClientesModal.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud, resetSolicitudes, suscribir, peekNextId, refrescarProximoCodigo } from '../../store/solicitudesStore.js'
 import { estadoActualizado, solicitudAsignada, conductorAsignado, datosReiniciados } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
@@ -27,6 +28,11 @@ const ORDEN_TABS = [
   { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
   { id: 'asignaciones', label: 'Mis solicitudes', Icon: MdAssignmentInd },
   { id: 'planillas', label: 'Planillas', Icon: MdDescription },
+  // El catálogo de clientes abre un modal en vez de cambiar el contenido de la
+  // página, así que se marca con `modal` para que el click lo abra en lugar de
+  // cambiar de pestaña. Solo el super admin: sus endpoints de escritura
+  // responden 403 a cualquier otro rol (ver P.esSuperAdmin).
+  { id: 'clientes', label: 'Clientes', Icon: MdApartment, soloSuper: true, modal: true },
 ]
 
 export default function Administrador() {
@@ -46,6 +52,10 @@ export default function Administrador() {
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
   const [filtroId, setFiltroId] = useState('')
+  // La pestaña «Clientes» no cambia el contenido de la página: abre el modal
+  // encima. Se lleva un estado aparte para poder cerrarlo sin tener que adivinar
+  // a qué pestaña volver.
+  const [clientesAbierto, setClientesAbierto] = useState(false)
 
   useEffect(() => suscribir(setSolicitudes), [])
 
@@ -87,7 +97,7 @@ export default function Administrador() {
   // así que no necesita "Mis solicitudes".
   const TABS = esSuper
     ? ORDEN_TABS.filter((t) => t.id !== 'asignaciones')
-    : ORDEN_TABS
+    : ORDEN_TABS.filter((t) => !t.soloSuper)
 
   // Lista base del tab activo (antes de aplicar los filtros de la barra).
   const baseDelTab = esSuper
@@ -121,6 +131,27 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
 
   const handleEliminar = (solicitud) => {
     setEliminarSolicitud(solicitud)
+  }
+
+  // «Clientes» es una pestaña-modal: al pulsarla se abre el modal encima de la
+  // página sin perder de vista la pestaña de la que se viene. Al cerrarlo se
+  // vuelve al Dashboard, que es donde está el contenido real.
+  const abrirClientes = () => {
+    setClientesAbierto(true)
+    setTab('clientes')
+  }
+
+  const cerrarClientes = () => {
+    setClientesAbierto(false)
+    setTab('dashboard')
+  }
+
+  const irATab = (id) => {
+    if (id === 'clientes') return abrirClientes()
+    // Cambiar de pestaña con el modal abierto lo cierra: si no, el modal
+    // seguiría tapando la página que se acaba de elegir.
+    setClientesAbierto(false)
+    setTab(id)
   }
 
   const confirmarEliminar = (solicitud) => {
@@ -264,7 +295,7 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => setTab(t.id)}
+                    onClick={() => irATab(t.id)}
                     className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-xs sm:px-6 sm:text-sm font-extrabold transition-all ${
                       active
                         ? 'bg-brand-navy text-white shadow-lg'
@@ -288,6 +319,13 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
             <DashboardTab solicitudes={esSuper ? solicitudes : misAsignaciones} />
           ) : tab === 'planillas' ? (
             <PlanillasTab solicitudes={solicitudes} />
+          ) : tab === 'clientes' ? (
+            // La pestaña «Clientes» no tiene contenido propio: el modal se pinta
+            // al final del return. Se deja un aviso para el caso raro de que se
+            // quede seleccionada sin el modal abierto.
+            <p className="rounded-2xl border border-brand-ink/10 bg-brand-mist/60 px-4 py-6 text-center text-sm font-semibold text-brand-ink/60">
+              Pulsa «Clientes» para abrir el catálogo.
+            </p>
           ) : (
             <>
               {baseDelTab.length > 0 && (
@@ -386,6 +424,8 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
         onClose={() => setEliminarSolicitud(null)}
         onConfirm={confirmarEliminar}
       />
+
+      <ClientesModal open={clientesAbierto} onClose={cerrarClientes} />
 
     </div>
   )

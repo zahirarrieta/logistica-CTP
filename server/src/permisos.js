@@ -14,6 +14,7 @@
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const ESTADOS_ENTREGADAS = ['Entregado', 'Entregado Parcial']
 const PRIVILEGIADOS = ['administrador', 'superadmin']
+const SUPERADMIN = 'superadmin'
 
 // Resuelve el contexto del usuario una vez por petición: correo (del token de
 // Microsoft), nombre y rol (de la tabla usuarios). El rol se lee del servidor y
@@ -37,6 +38,13 @@ async function contexto(conexion, correo, nombreToken) {
 
 function esPrivilegiado(rol) {
   return PRIVILEGIADOS.includes(rol)
+}
+
+// El catálogo de clientes es más delicado que el resto: lo consume el selector
+// de las solicitudes, así que un borrado accidental afecta a datos que ya se
+// usaron. Por eso sus rutas de escritura piden superadmin y no solo privilegiado.
+function esSuperAdmin(rol) {
+  return rol === SUPERADMIN
 }
 
 // Marcadores `?` para un IN de tamaño fijo.
@@ -166,6 +174,7 @@ function permiteGuardarSolicitud(ctx, fila) {
 module.exports = {
   contexto,
   esPrivilegiado,
+  esSuperAdmin,
   filtroSolicitudes,
   permiteInsertarSolicitud,
   permiteActualizarSolicitud,

@@ -162,33 +162,122 @@ router.post(
 )
 
 // ---------------------------------------------------------------------------
-// Clientes (catálogo de lectura; solo privileged escribe)
+// Clientes (catálogo)
 // ---------------------------------------------------------------------------
+// Lectura: cualquiera con sesión, porque el selector de clientes de las
+// solicitudes lo necesita para todo el mundo.
+//
+// Escritura: solo superadmin (P.esSuperAdmin), no solo privilegiado. El catálogo
+// alimenta datos que ya se usaron en solicitudes antiguas, así que crear,
+// editar y borrar quedan para el rol más alto.
+//
+// Todas las rutas de escritura van por `:id` y no por `:nit` porque la clave
+// natural de la tabla es el par (nit, bodega): un mismo NIT puede tener varias
+// sedes y el NIT solo no identifica una fila (ver server/sql/schema.mysql.sql).
 router.get(
   '/clientes',
   ruta(async (req, res) => {
     await conContexto(req)
     const [filas] = await pool.query(
-      'SELECT nit, nombre, bodega, zona FROM clientes ORDER BY nombre'
+      'SELECT id, nit, nombre, bodega, zona FROM clientes ORDER BY nombre'
     )
     res.json(filas)
   })
 )
 
+// Texto tal cual lo escribió el usuario, sin espacios en los bordes: un NIT con
+// un espacio final no coincidiría con el unique (nit, bodega) y dejaría el
+// cliente duplicado sin que nadie lo note.
+const textoCliente = (v) => String(v === undefined || v === null ? '' : v).trim()
+
+function leerCliente(cuerpo) {
+  return {
+    nit: textoCliente(cuerpo && cuerpo.nit),
+    nombre: textoCliente(cuerpo && cuerpo.nombre),
+    bodega: textoCliente(cuerpo && cuerpo.bodega),
+    zona: textoCliente(cuerpo && cuerpo.zona),
+  }
+}
+
+// MySQL lanza el error de la unique (nit, bodega) como excepción. Sin esto el
+// modal recibiría un 500 genérico en vez de un 409 que sí puede explicar.
+function esDuplicadoCliente(error) {
+  return Boolean(error) && (error.code === 'ER_DUP_ENTRY' || error.errno === 1062)
+}
+
+const DUPLICADO_CLIENTE = { error: 'Ya existe un cliente con ese NIT y esa bodega' }
+
+function idDeCliente(valor) {
+  const id = Number(valor)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
 router.post(
   '/clientes',
   ruta(async (req, res) => {
     const ctx = await conContexto(req)
-    if (!P.esPrivilegiado(ctx.rol)) {
-      return res.status(403).json({ error: 'No autorizado' })
+    if (!P.esSuperAdmin(ctx.rol)) {
+      return res.status(403).json({ error: 'Solo el super administrador puede crear clientes' })
     }
-    const { nit, nombre = '', bodega = '', zona = '' } = req.body || {}
-    if (!nit) return res.status(400).json({ error: 'Falta el NIT' })
-    await pool.execute(
-      'INSERT INTO clientes (nit, nombre, bodega, zona) VALUES (?, ?, ?, ?)',
-      [nit, nombre, bodega, zona]
-    )
+    const cliente = leerCliente(req.body)
+    if (!cliente.nit) return res.status(400).json({ error: 'Falta el NIT' })
+    try {
+      await pool.execute(
+        'INSERT INTO clientes (nit, nombre, bodega, zona) VALUES (?, ?, ?, ?)',
+        [cliente.nit, cliente.nombre, cliente.bodega, cliente.zona]
+      )
+    } catch (error) {
+      if (esDuplicadoCliente(error)) return res.status(409).json(DUPLICADO_CLIENTE)
+      throw error
+    }
     res.status(201).json({ ok: true })
+  })
+)
+
+router.put(
+  '/clientes/:id',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (!P.esSuperAdmin(ctx.rol)) {
+      return res.status(403).json({ error: 'Solo el super administrador puede editar clientes' })
+    }
+    const id = idDeCliente(req.params.id)
+    if (id === null) return res.status(400).json({ error: 'Cliente inválido' })
+    const cliente = leerCliente(req.body)
+    if (!cliente.nit) return res.status(400).json({ error: 'Falta el NIT' })
+    const [actual] = await pool.execute(
+      'SELECT id FROM clientes WHERE id = ?',
+      [id]
+    )
+    if (!actual[0]) return res.status(404).json({ error: 'El cliente no existe' })
+    try {
+      await pool.execute(
+        'UPDATE clientes SET nit = ?, nombre = ?, bodega = ?, zona = ? WHERE id = ?',
+        [cliente.nit, cliente.nombre, cliente.bodega, cliente.zona, id]
+      )
+    } catch (error) {
+      if (esDuplicadoCliente(error)) return res.status(409).json(DUPLICADO_CLIENTE)
+      throw error
+    }
+    res.json({ ok: true })
+  })
+)
+
+// No hay clave foránea desde solicitudes (guarda copia de nombre, nit, bodega y
+// zona), así que borrar un cliente no rompe el histórico: las solicitudes viejas
+// siguen mostrando los datos con los que se crearon.
+router.delete(
+  '/clientes/:id',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (!P.esSuperAdmin(ctx.rol)) {
+      return res.status(403).json({ error: 'Solo el super administrador puede eliminar clientes' })
+    }
+    const id = idDeCliente(req.params.id)
+    if (id === null) return res.status(400).json({ error: 'Cliente inválido' })
+    const [resultado] = await pool.execute('DELETE FROM clientes WHERE id = ?', [id])
+    if (!resultado.affectedRows) return res.status(404).json({ error: 'El cliente no existe' })
+    res.json({ ok: true })
   })
 )
 
