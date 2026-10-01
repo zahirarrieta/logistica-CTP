@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck, MdAddCircleOutline, MdPersonAdd } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
@@ -9,6 +9,7 @@ import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
 import AgregarUsuarioModal from './AgregarUsuarioModal.jsx'
 import { subirAdjuntos } from '../../../../services/archivosApi.js'
+import { cargarClientes } from '../../../../services/solicitudesApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida } from '../../../../services/notificaciones.jsx'
 import Modal from '../../../../components/Modal.jsx'
 
@@ -78,6 +79,11 @@ export default function SolicitudModal({ open, onClose, onSubmit, solicitud = nu
 
   const [clientPickerOpen, setClientPickerOpen] = useState(false)
   const [usuarioPickerOpen, setUsuarioPickerOpen] = useState(false)
+  // Catálogo para el desplegable del campo Cliente. Se trae una sola vez por
+  // apertura y se reutiliza: son ~223 filas y no cambian durante la sesión, así
+  // que volver a pedirlas en cada keystroke sería absurdo.
+  const [catalogoClientes, setCatalogoClientes] = useState([])
+  const [listaAbierta, setListaAbierta] = useState(false)
   const [formData, setFormData] = useState({
     nombreCompleto: account?.name || '',
     correo: account?.username || '',
@@ -224,8 +230,16 @@ useEffect(() => {
           return { ...prev, [name]: value, cedula: '' }
         }
       }
+      // El Cliente se puede escribir a mano, así que lo tecleado puede no existir
+      // en el catálogo. Se vacían Bodega/NIT/Zona porque esos tres vienen SIEMPRE
+      // del cliente elegido: si se dejaran, se guardarían los de un cliente
+      // anterior junto a un nombre nuevo, que es peor que pedir que los elijas.
+      if (name === 'cliente' && value !== formData.cliente) {
+        return { ...prev, cliente: value, bodega: '', nit: '', zona: '' }
+      }
       return { ...prev, [name]: value }
     })
+    if (name === 'cliente') setListaAbierta(true)
     if (errores.length > 0) setErrores([])
   }
 
@@ -269,6 +283,7 @@ useEffect(() => {
       zona: c.zona,
     }))
     setClientPickerOpen(false)
+    setListaAbierta(false)
     if (errores.length > 0) setErrores([])
   }
 
@@ -283,6 +298,41 @@ useEffect(() => {
     }))
     setUsuarioPickerOpen(false)
     if (errores.length > 0) setErrores([])
+  }
+
+  // -------------------------------------------------------- desplegable cliente
+  // Se busca en los tres campos porque quien teclea escribe cualquiera de ellos:
+  // muchosopersonian el NIT, otros el nombre. Si solo se buscara por nombre, el
+  // NIT —que es la clave real de la fila— no encontraría nada.
+  const sugerencias = useMemo(() => {
+    const q = formData.cliente.trim().toLowerCase()
+    if (!q || catalogoClientes.length === 0) return []
+    const coincide = (c) =>
+      (c.cliente || '').toLowerCase().includes(q) ||
+      (c.nit || '').toLowerCase().includes(q) ||
+      (c.bodega || '').toLowerCase().includes(q)
+    return catalogoClientes.filter(coincide).slice(0, 8)
+  }, [catalogoClientes, formData.cliente])
+
+  // El catálogo se pide una vez por apertura. Si falla, el campo sigue siendo
+  // utilizable: se puede escribir a mano y el botón de buscar sigue abriendo el
+  // selector completo, así que un fallo de red aquí no deja el formulario inservible.
+  useEffect(() => {
+    if (!open || catalogoClientes.length > 0) return undefined
+    let cancelado = false
+    cargarClientes()
+      .then((data) => {
+        if (!cancelado) setCatalogoClientes(data || [])
+      })
+      .catch((err) => {
+        console.error('[SolicitudModal] no se pudo cargar el catálogo de clientes:', err)
+      })
+    return () => { cancelado = true }
+  }, [open, catalogoClientes.length])
+
+  const elegirSugerencia = (c) => {
+    handleSelectCliente(c)
+    setListaAbierta(false)
   }
 
   const resetForm = () => {
@@ -324,15 +374,18 @@ useEffect(() => {
       { campo: 'nombreCompleto', etiqueta: 'Nombre completo' },
       { campo: 'correo', etiqueta: 'Correo' },
       { campo: 'tipoSolicitud', etiqueta: 'Tipo de solicitud' },
-      { campo: 'adjuntos', etiqueta: 'Adjuntos' },
     ]
     if (esAdministrativa) {
-      obligatorios.push(
-        { campo: 'cliente', etiqueta: 'Usuario' },
-        { campo: 'cedula', etiqueta: 'Cédula' },
-      )
+      // En la administrativa el adjunto es OPCIONAL: la carpeta del usuario se
+      // crea aunque no se suba nada, así que una solicitud sin documento es
+      // válida. En el resto de tipos sigue siendo obligatorio.
+      //
+      // Aquí no se pide «Cédula»: se retiró del formulario a propósito. La columna
+      // sigue existiendo para las solicitudes antiguas, pero ya no se escribe.
+      obligatorios.push({ campo: 'cliente', etiqueta: 'Usuario' })
     } else {
       obligatorios.push(
+        { campo: 'adjuntos', etiqueta: 'Adjuntos' },
         { campo: 'cliente', etiqueta: 'Cliente' },
         { campo: 'bodega', etiqueta: 'Bodega' },
         { campo: 'nit', etiqueta: 'NIT' },
@@ -386,7 +439,6 @@ useEffect(() => {
         if (editarCliente) {
           if ((formData.tipoSolicitud || '').trim().toUpperCase() === 'ADMINISTRATIVA') {
             datosEdicion.cliente = formData.cliente
-            datosEdicion.cedula = formData.cedula
             datosEdicion.bodega = ''
             datosEdicion.nit = ''
             datosEdicion.zona = ''
@@ -625,31 +677,21 @@ useEffect(() => {
                     </button>
                   )}
                 </div>
-                <FormField
-                  label="Cédula"
-                  type="text"
-                  name="cedula"
-                  value={formData.cedula}
-                  onChange={handleInputChange}
-                  placeholder="Cédula del usuario"
-                  required
-                  readOnly
-                  icon={<MdTag className="text-sm" />}
-                  invalid={errores.includes('Cédula')}
-                />
               </>
             ) : (
               <>
-                <div className="relative">
+                <div className="relative" onBlur={() => setListaAbierta(false)}>
                   <FormField
                     label="Cliente"
                     type="text"
                     name="cliente"
                     value={formData.cliente}
                     onChange={handleInputChange}
-                    placeholder="Nombre del cliente"
+                    onFocus={() => setListaAbierta(true)}
+                    placeholder="Escribe el nombre, NIT o bodega"
+                    autoComplete="off"
                     required
-                    readOnly
+                    readOnly={modoEdicion && !editarCliente}
                     icon={<MdBusiness className="text-sm" />}
                     invalid={errores.includes('Cliente')}
                   />
@@ -664,6 +706,49 @@ useEffect(() => {
                       <MdSearch className="text-lg" />
                     </button>
                   )}
+
+                  {/* Sugerencias mientras se escribe. Se ocultan al perder el
+                      foco el contenedor; por eso cada opción usa onMouseDown con
+                      preventDefault, que se dispara ANTES que el blur: si se
+                      dejara el blur natural, la lista se cerraría antes de que
+                      llegara el click y no se podría elegir nada. */}
+                  {listaAbierta && sugerencias.length > 0 && (
+                    <div className="absolute z-30 left-0 right-0 top-[calc(100%+4px)] rounded-xl border border-brand-deep/20 bg-white shadow-2xl overflow-hidden animate-scaleIn">
+                      <div className="max-h-56 overflow-y-auto divide-y divide-brand-deep/10 [scrollbar-width:thin]">
+                        {sugerencias.map((c) => (
+                          <button
+                            key={c.id ?? `${c.nit}-${c.bodega}`}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => elegirSugerencia(c)}
+                            className="w-full px-3 py-2.5 text-left transition-colors hover:bg-brand-deep/10 focus:bg-brand-deep/10 outline-none"
+                          >
+                            <span className="block text-sm font-bold text-brand-ink truncate">
+                              {c.cliente}
+                            </span>
+                            <span className="block text-xs text-brand-deep/70 truncate">
+                              NIT {c.nit} · Bodega {c.bodega}
+                              {c.zona ? ` · ${c.zona}` : ''}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="bg-brand-mist/70 px-3 py-1.5 text-[0.65rem] text-brand-deep/70">
+                        {sugerencias.length === 8
+                          ? 'Mostrando los primeros 8. Usa la lupa para ver todos.'
+                          : 'Toca uno para completar bodega, NIT y zona.'}
+                      </div>
+                    </div>
+                  )}
+
+                  {listaAbierta && sugerencias.length === 0 &&
+                    catalogoClientes.length > 0 &&
+                    formData.cliente.trim() !== '' && (
+                      <div className="absolute z-30 left-0 right-0 top-[calc(100%+4px)] rounded-xl border border-brand-deep/20 bg-white shadow-2xl px-3 py-2.5 text-xs text-brand-ink/70">
+                        Sin coincidencias. Escribe el nombre, el NIT o la bodega, o
+                        usa la lupa para ver el catálogo completo.
+                      </div>
+                    )}
                 </div>
                 <FormField
                   label="Bodega"
@@ -728,13 +813,21 @@ useEffect(() => {
           {/* Adjuntos */}
           <div>
             <label className="block text-sm font-semibold text-brand-deep mb-1.5">
-              Adjuntos {formData.adjuntos.length > 0 && <span className="text-brand-cyan">({formData.adjuntos.length}/3)</span>}
+              Adjuntos{' '}
+              {esAdministrativa && (
+                <span className="text-xs font-medium text-brand-ink/50">(opcional)</span>
+              )}
+              {formData.adjuntos.length > 0 && <span className="text-brand-cyan">({formData.adjuntos.length}/3)</span>}
             </label>
             {editarAdjuntos && formData.adjuntos.length < 3 && (
               <label className="flex flex-col items-center justify-center gap-2 w-full px-4 py-5 border-2 border-dashed border-brand-ink/25 rounded-xl bg-brand-mist/30 text-brand-ink/70 cursor-pointer hover:border-brand-cyan hover:bg-brand-mist/50 transition-colors">
                 <MdCloudUpload className="text-3xl text-brand-cyan" />
                 <span className="text-sm font-medium">Haz clic para adjuntar archivos</span>
-                <span className="text-xs text-brand-ink/50">PDF, imágenes, Excel — mínimo 1, máximo 3 archivos</span>
+                <span className="text-xs text-brand-ink/50">
+                  {esAdministrativa
+                    ? 'Opcional — máximo 3 archivos'
+                    : 'PDF, imágenes, Excel — mínimo 1, máximo 3 archivos'}
+                </span>
                 <input type="file" name="adjuntos" multiple onChange={handleFileChange} className="hidden" accept="image/*,.pdf,.xls,.xlsx,.doc,.docx" />
               </label>
             )}

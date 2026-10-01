@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node test/archivos.test.js && node test/clientes-rutas.test.js",
+    "test": "node test/archivos.test.js && node test/clientes-rutas.test.js && node test/recordar.test.js",
     "verificar:sql": "node sql/verificar-columnas.mjs"
   },
   "dependencies": {

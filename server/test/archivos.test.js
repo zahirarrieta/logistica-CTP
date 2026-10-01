@@ -167,6 +167,68 @@ probar('existe devuelve false para un directorio', () => {
   assert.equal(archivos.existe('CTPLOG-TEST'), false)
 })
 
+// ------------------------------------------------------- crearCarpeta
+// Es lo que permite que una solicitud 'administrativa', sin adjunto, tenga su
+// carpeta. Se prueba en la RAÍZ real (no en un temporal) porque es lo que hace
+// el servidor, y se limpia al final para no dejar basura.
+const CARPETA_PRUEBA = 'PRUEBA-CARPETA/CTPLOG-00000'
+function limpiarCarpetaPrueba() {
+  try {
+    require('fs').rmSync(path.join(archivos.RAIZ_EVIDENCIAS, 'PRUEBA-CARPETA'), {
+      recursive: true, force: true,
+    })
+  } catch { /* ya no estaba */ }
+}
+
+probar('crearCarpeta crea la carpeta aunque esté vacía', () => {
+  const rel = archivos.crearCarpeta(CARPETA_PRUEBA)
+  assert.equal(rel, CARPETA_PRUEBA)
+  const abs = archivos.rutaSegura(CARPETA_PRUEBA)
+  assert.ok(require('fs').statSync(abs).isDirectory(), 'debería ser un directorio')
+  // Sin archivos dentro: es justo el caso de la administrativa sin adjunto.
+  assert.deepEqual(require('fs').readdirSync(abs), [])
+})
+
+probar('crearCarpeta es idempotente y no borra lo que ya había', () => {
+  const base = path.join(archivos.RAIZ_EVIDENCIAS, 'PRUEBA-CARPETA', 'CTPLOG-00000')
+  require('fs').writeFileSync(path.join(base, 'factura.pdf'), 'x')
+  assert.doesNotThrow(() => archivos.crearCarpeta(CARPETA_PRUEBA))
+  assert.ok(require('fs').existsSync(path.join(base, 'factura.pdf')), 'no debe borrar el archivo previo')
+})
+
+probar('crearCarpeta nunca sale de la base con rutas hostiles', () => {
+  const base = path.resolve(archivos.RAIZ_EVIDENCIAS)
+  const hostiles = [
+    '../PRUEBA-CARPETA', '../../.env', '..', './../../PRUEBA-CARPETA',
+    'PRUEBA-CARPETA/../../../etc', '....//....//PRUEBA-CARPETA', 'A/../../..',
+  ]
+  for (const entrada of hostiles) {
+    const rel = archivos.crearCarpeta(entrada)
+    if (rel === null) continue
+    const abs = path.resolve(archivos.rutaSegura(rel))
+    assert.ok(
+      abs === base || abs.startsWith(base + path.sep),
+      `${entrada} se salió de la base: ${abs}`,
+    )
+    assert.ok(!rel.includes('..'), `${entrada} dejó un salto de directorio: ${rel}`)
+    try { require('fs').rmSync(abs, { recursive: true, force: true }) } catch { /* noop */ }
+  }
+})
+
+probar('crearCarpeta devuelve null cuando no queda nada que crear', () => {
+  assert.equal(archivos.crearCarpeta(''), null)
+  assert.equal(archivos.crearCarpeta('..'), null)
+  assert.equal(archivos.crearCarpeta('/'), null)
+})
+
+probar('crearCarpeta normaliza un nombre de persona con espacios', () => {
+  const rel = archivos.crearCarpeta('Juan Perez/CTPLOG-00001')
+  assert.equal(rel, 'Juan_Perez/CTPLOG-00001')
+  require('fs').rmSync(path.join(archivos.RAIZ_EVIDENCIAS, 'Juan_Perez'), {
+    recursive: true, force: true,
+  })
+})
+
 // ------------------------------------------------------------------- runner
 ;(async () => {
   let fallos = 0
@@ -179,6 +241,7 @@ probar('existe devuelve false para un directorio', () => {
       console.error(`FALLA  ${nombre}\n        ${error.message}`)
     }
   }
+  limpiarCarpetaPrueba()
   console.log(`\n${pruebas.length - fallos}/${pruebas.length} pruebas correctas`)
   process.exit(fallos > 0 ? 1 : 0)
 })()

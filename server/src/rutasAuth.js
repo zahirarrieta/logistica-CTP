@@ -19,7 +19,8 @@ const express = require('express')
 const crypto = require('crypto')
 
 const { pool } = require('./db')
-const { autenticar, firmarToken } = require('./auth')
+const config = require('./config')
+const { agenteDe, autenticar, firmarToken, hashDeTokenRecordar, nuevoTokenRecordar } = require('./auth')
 const C = require('./contrasenas')
 
 const router = express.Router()
@@ -52,6 +53,93 @@ async function leerPorCorreo(correo) {
     [correo]
   )
   return filas[0] || null
+}
+
+// ---------------------------------------------------------------------------
+// SESIONES RECORDADAS (el «recordar este equipo» del login)
+// Aquí no hay contraseñas, solo tokens opacos: ver la nota larga en auth.js.
+// La tabla guarda el SHA-256 del token, así que estas consultas nunca ven el
+// token en claro, ni al escribirlo ni al buscarlo.
+// ---------------------------------------------------------------------------
+
+// Cuántos segundos de vida tiene un token de confianza. Sale de la variable de
+// entorno y se fuerza a un entero positivo: si alguien pone un valor raro en
+// cPanel, es mejor un mes que un error de sintaxis en el INSERT de MySQL.
+function segundosDeConfianza() {
+  const n = Math.floor(Number(config.sesion.recordarTtl))
+  return Number.isFinite(n) && n > 0 ? n : 30 * 24 * 60 * 60
+}
+
+// Emite un token de confianza para un usuario y devuelve lo que el navegador
+// guarda. La caducidad la calcula MySQL con NOW(3), que va en UTC porque db.js
+// fija time_zone='+00:00' en cada conexión, en vez de con el reloj del proceso:
+// si el servidor de Node viviera en otra zona horaria, NOW(3) y `new Date()`
+// no se partirían por la misma línea y el token duraría unas horas de más o de
+// menos.
+async function emitirConfianza(correo, req) {
+  const { token, hash } = nuevoTokenRecordar()
+  const segundos = segundosDeConfianza()
+  await pool.execute(
+    `INSERT INTO sesiones_recordadas (id, correo, token_hash, agente, expira_en)
+     VALUES (?, ?, ?, ?, DATE_ADD(NOW(3), INTERVAL ? SECOND))`,
+    [crypto.randomUUID(), correo, hash, agenteDe(req), segundos]
+  )
+  // Para mostrarla en la interfaz. No es la que manda: la que manda es
+  // expira_en en la base, que es la única que se puede cambiar sin tocar el
+  // token ya entregado.
+  const expira = new Date(Date.now() + segundos * 1000).toISOString()
+  return { token, expira }
+}
+
+// Canjea un token de confianza por una sesión normal. Devuelve null si el token
+// no vale, sin decir POR QUÉ no vale: un 404 o un 401 distinto para «caducado»
+// o «revocado» le diría a quien lo tiene cuál de las dos cosas pasó.
+async function canjearConfianza(token) {
+  const hash = hashDeTokenRecordar(token)
+  if (!hash) return null
+
+  const [filas] = await pool.execute(
+    `SELECT correo FROM sesiones_recordadas
+      WHERE token_hash = ? AND expira_en > NOW(3)
+      LIMIT 1`,
+    [hash]
+  )
+  const fila = filas[0]
+  if (!fila) return null
+
+  const usuario = await leerPorCorreo(fila.correo)
+  if (!usuario) return null
+
+  // Cuenta desactivada o borrada: el token se limpia aquí mismo. Si no, el
+  // would-be usuario se queda con un token que el backend acepta y que solo
+  // falla más adelante, en un 403 que no explica el motivo.
+  if (!usuario.activo) {
+    await revocarConfianza(hash)
+    return null
+  }
+
+  await pool.execute(
+    'UPDATE sesiones_recordadas SET ultimo_uso = NOW(3) WHERE token_hash = ?',
+    [hash]
+  )
+
+  return {
+    token: await firmarToken({ correo: usuario.correo, nombre: usuario.nombre }),
+    usuario: filaPublica(usuario),
+  }
+}
+
+// Borra una fila por su hash. Sirve para «olvidar este equipo» y para la
+// limpieza automática de un token que ya no sirve.
+async function revocarConfianza(hash) {
+  await pool.execute('DELETE FROM sesiones_recordadas WHERE token_hash = ?', [hash])
+}
+
+// Poda los tokens caducados. Se llama en cada emisión: son pocas filas y la
+// operación es trivial, pero evita que la tabla crezca para siempre en un
+// servidor que se reinicia a menudo.
+async function podarConfianza() {
+  await pool.execute('DELETE FROM sesiones_recordadas WHERE expira_en <= NOW(3)')
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +281,7 @@ function minutosRestantes(req) {
 router.post(
   '/login',
   ruta(async (req, res) => {
-    const { correo = '', contrasena = '' } = req.body || {}
+    const { correo = '', contrasena = '', recordar = false } = req.body || {}
     const correoLimpio = C.normalizarCorreo(correo)
 
     if (!correoLimpio || !String(contrasena || '')) {
@@ -249,8 +337,117 @@ router.post(
     }
 
     const token = await firmarToken({ correo: fila.correo, nombre: fila.nombre })
+
+    // «Recordar este equipo» es opcional y va SIN marcar por defecto. Solo
+    // entonces se entrega un token de confianza; sin la casilla, la respuesta no
+    // trae nada que guardar en el navegador y el usuario vuelve a escribir su
+    // clave cuando la sesión caduque.
+    let confianza = null
+    if (recordar) {
+      try {
+        await podarConfianza()
+        confianza = await emitirConfianza(fila.correo, req)
+      } catch (error) {
+        // El token es un extra, no la puerta de entrada: la contraseña ya es
+        // correcta y la sesión ya está firmada. Si la tabla no existe todavía
+        // (esquema sin aplicar) o MySQL falla, se entra igual y se avisa por
+        // log. Fallar aquí sería dejar al usuario fuera por un detalle
+        // opcional.
+        console.error('[Auth] no se pudo emitir el token de confianza:', error?.message)
+        confianza = null
+      }
+    }
+
     console.log(`[Auth] sesión iniciada: ${fila.correo} (${fila.rol})`)
-    return res.json({ token, usuario: filaPublica(fila) })
+    return res.json({ token, usuario: filaPublica(fila), confianza })
+  })
+)
+
+// ---------------------------------------------------------------------------
+// POST /api/auth/recordar
+// Canjea un token de confianza por una sesión normal. Es la ruta que hace que
+// «entrar» sea un clic y no volver a escribir la contraseña.
+//
+// Va por fetch directo, sin autenticar: es justamente la que crea la sesión, y
+// no tiene token de sesión todavía. Lo que trae es el token de confianza, que
+// no sirve para nada más que esto.
+//
+// Mismo límite de intentos por IP que /login. El token son 32 bytes
+// aleatorios, así que adivinarlo no es factible; el límite está para que un
+// escáner no pueda martillear la ruta.
+// ---------------------------------------------------------------------------
+router.post(
+  '/recordar',
+  ruta(async (req, res) => {
+    const { token: crudo = '' } = req.body || {}
+    const token = String(crudo || '').trim()
+
+    if (!token) return res.status(400).json({ error: 'Falta el token' })
+
+    if (agotado(req)) {
+      console.warn(`[Auth] canje de token de confianza bloqueado desde ${ipDe(req)}`)
+      return res.status(429).json({
+        error: `Demasiados intentos. Espera ${minutosRestantes(req)} min y vuelve a intentar.`,
+      })
+    }
+
+    const canje = await canjearConfianza(token)
+
+    if (!canje) {
+      // Se responde 401 con un texto neutro, sin decir si el token caducó, se
+      // revocó o nunca existió. El frontend lo trata como "este equipo ya no
+      // está guardado" y saca el usuario de la lista.
+      console.warn(`[Auth] token de confianza rechazado desde ${ipDe(req)}`)
+      registraIntentoFallido(req)
+      return res.status(401).json({ error: 'Este equipo ya no está registrado' })
+    }
+
+    limpiaIntentos(req)
+    console.log(`[Auth] sesión abierta con token de confianza: ${canje.usuario.correo}`)
+    return res.json(canje)
+  })
+)
+
+// ---------------------------------------------------------------------------
+// POST /api/auth/recordar/revocar
+// Olvida el token de confianza. Va autenticada, porque la fila se busca por el
+// correo de QUIEN está entrando, no por lo que mande el cuerpo: si se borrara
+// por el hash que llega, cualquiera con un token adivinado podría borrar el de
+// otro.
+//
+// Sin cuerpo: olvida este equipo. Con { todos: true }: sale de todos los
+// equipos, que es lo que necesita quien pierde el teléfono o sospecha.
+// ---------------------------------------------------------------------------
+router.post(
+  '/recordar/revocar',
+  autenticar,
+  ruta(async (req, res) => {
+    const todos = Boolean(req.body?.todos)
+
+    if (todos) {
+      const [resultado] = await pool.execute(
+        'DELETE FROM sesiones_recordadas WHERE correo = ?',
+        [req.correo]
+      )
+      console.log(`[Auth] tokens de confianza revocados (todos): ${req.correo}`)
+      return res.json({ ok: true, borrados: resultado.affectedRows || 0 })
+    }
+
+    const hash = hashDeTokenRecordar(req.body?.token)
+    if (!hash) return res.status(400).json({ error: 'Falta el token' })
+
+    // El AND correo = ? es lo que impide que un token válido borre la fila de
+    // otro usuario: el hash basta para encontrarla, pero no para decidir de quién
+    // es.
+    const [resultado] = await pool.execute(
+      'DELETE FROM sesiones_recordadas WHERE token_hash = ? AND correo = ?',
+      [hash, req.correo]
+    )
+    if (!resultado.affectedRows) {
+      return res.status(404).json({ error: 'Ese equipo ya no estaba registrado' })
+    }
+    console.log(`[Auth] token de confianza revocado: ${req.correo}`)
+    return res.json({ ok: true })
   })
 )
 

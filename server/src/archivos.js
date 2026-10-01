@@ -113,6 +113,43 @@ function sanitizar(segmento) {
     .slice(0, 180)
 }
 
+// Crea la carpeta de una solicitud sin dejar ningún archivo dentro. Es lo que
+// permite que una solicitud 'administrativa' —donde el adjunto es opcional—
+// tenga su carpeta desde el primer momento, en vez de aparecer en el disco solo
+// si alguien llega a subir un documento.
+//
+// Es idempotente: mkdirSync con recursive:true no falla si ya existe, así que se
+// puede llamar en cada alta sin comprobar nada antes. Si la carpeta ya existe,
+// simplemente se queda como está, que es justo lo que se pidió: no se toca lo que
+// hubiera.
+//
+// Devuelve la ruta relativa ({usuario}/{codigo}) o null si la ruta no es válida.
+// Igual que segmentoSeguro, pero además descarta cualquier segmento que EMPIECE
+// por '..'. archivo.guardar solo descarta el '..' exacto porque sus nombres los
+// genera el backend; aquí la carpeta viene del nombre del usuario, que sí es
+// texto elegido por una persona, y '..' seguido de algo tampoco puede ser un
+// nombre de carpeta legítimo. Se rechaza en vez de confiar en rutaSegura para que
+// un nombre hostil no acabe creando una carpeta llamada '.env' dentro de
+// evidencias.
+function segmentoDeCarpeta(segmento) {
+  const limpio = segmentoSeguro(segmento)
+  if (!limpio || limpio.startsWith('..')) return ''
+  return limpio
+}
+
+function crearCarpeta(carpetas) {
+  const segmentos = String(carpetas || '')
+    .split('/')
+    .map(segmentoDeCarpeta)
+    .filter(Boolean)
+  if (segmentos.length === 0) return null
+  const destinoRel = segmentos.join('/')
+  const destinoAbs = rutaSegura(destinoRel)
+  if (!destinoAbs) return null
+  fs.mkdirSync(destinoAbs, { recursive: true })
+  return destinoRel
+}
+
 function existe(ruta) {
   const destino = rutaSegura(ruta)
   if (!destino) return false
@@ -128,6 +165,7 @@ module.exports = {
   RAIZ_EVIDENCIAS,
   LIMITE_BYTES,
   guardar,
+  crearCarpeta,
   existe,
   sanitizar,
   urlFirmada,

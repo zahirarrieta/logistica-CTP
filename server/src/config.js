@@ -62,6 +62,10 @@ const config = {
     secreto: leer('SESSION_SECRET'),
     ttl: Number(leer('SESSION_TTL', 8 * 60 * 60)),
     emisor: leer('SESSION_EMISOR', 'logistica-ctp'),
+    // Vida del token de confianza de «recordar este equipo». Vive aparte de la
+    // sesión: 30 días es largo a propósito, y por eso se puede revocar desde la
+    // base en cualquier momento (ver tabla sesiones_recordadas).
+    recordarTtl: Number(leer('SESSION_RECORDAR_TTL', 30 * 24 * 60 * 60)),
   },
 
   // Secreto de firma de las URLs de evidencia. Obligatorio en producción: con uno
@@ -160,6 +164,7 @@ const resumen = {
   base: `${config.db.user}@${config.db.host}:${config.db.port}/${config.db.name}`,
   sesion: config.sesion.secreto ? 'secreta definida' : 'secreto temporal (solo desarrollo)',
   ttlSesion: `${Math.round(config.sesion.ttl / 60)} min`,
+  ttlRecordar: `${Math.round(config.sesion.recordarTtl / 86400)} días`,
   firma: config.firma.secreto ? 'definida' : 'temporal (solo desarrollo)',
   cors: config.cors.origenes.length > 0 ? config.cors.origenes.join(', ') : 'cualquiera',
 }

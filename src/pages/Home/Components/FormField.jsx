@@ -13,7 +13,10 @@ export default function FormField({
   readOnly = false,
   disabled = false,
   icon,
-  invalid = false
+  invalid = false,
+  onFocus,
+  autoComplete,
+  ...rest
 }) {
   const [open, setOpen] = useState(false)
   const invalidClasses = "border-red-400 focus:border-red-400 focus:ring-red-200"
@@ -160,11 +163,14 @@ export default function FormField({
         type={type}
         value={value}
         onChange={onChange}
+        onFocus={onFocus}
+        autoComplete={autoComplete}
         placeholder=" "
         name={name}
         className={`${baseClasses} ${readOnlyClasses} ${invalid ? invalidClasses : ''}`}
         required={required}
         readOnly={readOnly}
+        {...rest}
       />
       <label className={`${iconLabel} ${floatingWhenFilled} ${focusFloating}`}>
         {fieldIcon}
