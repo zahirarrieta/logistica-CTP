@@ -1,98 +1,99 @@
-import { useState, forwardRef } from 'react'
+import { useState } from 'react'
 
-// Campo de email con dominio fijo, mismo diseño visual que CampoClave.
-// Se ve como un solo input con el dominio fijo a la derecha (como el botón de ver clave).
-// El usuario ve:  [ usuario_______________ @ctpmedica.com ]
-// Donde @ctpmedica.com tiene el mismo estilo que el botón "ver clave".
-const CampoEmailDominio = forwardRef(function CampoEmailDominio({
+// Campo de email con dominio fijo.
+//
+// El dominio va DENTRO del input, como una etiqueta pegada a la derecha, para
+// que se lea el correo completo (`nombre@ctpmedica.com`) sin que el usuario
+// tenga que escribirlo ni sospechar que se le va a añadir por sorpresa.
+//
+// El input real no lleva ni borde ni fondo propios: es el contenedor el que los
+// pinta. Así el campo se ve exactamente igual que el de contraseña de al lado
+// (mismo alto, mismo radio, mismo borde) en vez de ser dos cajas pegadas.
+//
+// `tono` permite el mismo componente en el login (oscuro) y en los modales
+// blancos de registro y cambio de clave.
+const DOMINIO_POR_DEFECTO = '@ctpmedica.com'
+
+const TONOS = {
+  oscuro: {
+    contenedor:
+      'rounded-xl border border-brand-cyan/40 bg-black/25 focus-within:border-brand-cyan/70 ' +
+      'focus-within:ring-2 focus-within:ring-brand-cyan/25',
+    input: 'text-brand-mist placeholder:text-brand-mist/40',
+    chip: 'bg-brand-ink/80 text-brand-cyan ring-brand-cyan/30',
+  },
+  claro: {
+    contenedor:
+      'rounded-xl border border-brand-cyan/45 bg-white focus-within:border-brand-cyan ' +
+      'focus-within:ring-2 focus-within:ring-brand-cyan/25',
+    input: 'text-brand-ink placeholder:text-brand-ink/40',
+    chip: 'bg-brand-ink/10 text-brand-ink/60 ring-brand-ink/10',
+  },
+}
+
+export default function CampoEmailDominio({
   value,
   onChange,
   onBlur,
-  placeholder = 'Usuario',
-  maxLength,
+  placeholder = 'Correo adicional',
+  dominio = DOMINIO_POR_DEFECTO,
   required = true,
   autoComplete = 'username',
   disabled = false,
   className = '',
-  dominio = '@ctpmedica.com',
+  tono = 'oscuro',
   error = false,
-  'aria-label': ariaLabel,
+  name,
+  invalid,
   ...resto
-}, ref) {
+}) {
   const [foco, setFoco] = useState(false)
+  const estilos = TONOS[tono] || TONOS.oscuro
+  const marcaError = error || invalid
 
-  const manejarCambio = (e) => {
-    let v = e.target.value
-    const i = v.indexOf('@')
-    if (i >= 0) v = v.slice(0, i)
-    onChange?.(v)
+  // El usuario solo escribe la parte anterior a la `@`. Si el gestor de
+  // contraseñas autocompleta el correo entero, se recorta por aquí.
+  const sanear = (texto) => {
+    const i = texto.indexOf('@')
+    return i >= 0 ? texto.slice(0, i) : texto
   }
 
-  const manejarBlur = (e) => {
-    const limpio = e.target.value.split('@')[0]
+  const alEscribir = (e) => onChange?.(sanear(e.target.value))
+  const alSalir = (e) => {
+    const limpio = sanear(e.target.value)
     if (limpio !== e.target.value) onChange?.(limpio)
     onBlur?.(e)
   }
 
-  const largoMax = maxLength ? maxLength - dominio.length : undefined
-
-  // Mismas clases base que CampoClave (input + botón derecho)
-  const baseInput =
-    'w-full rounded-xl border bg-white px-4 py-3 text-brand-ink ' +
-    'placeholder:text-brand-ink/40 outline-none transition ' +
-    'focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/20 ' +
-    'disabled:bg-brand-ink/5 disabled:cursor-not-allowed'
-
-  const baseBoton =
-    'absolute inset-y-0 right-0 grid place-items-center w-24 ' +
-    'text-brand-ink/40 select-none pointer-events-none ' +
-    'rounded-r-xl border-l border-brand-ink/10 bg-brand-ink/5'
-
-  const bordeError = error
-    ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
-    : foco
-      ? 'border-brand-cyan'
-      : 'border-brand-ink/15'
-
   return (
-    <div className={`relative ${className}`}>
+    <div
+      className={`relative flex items-center transition ${estilos.contenedor} ${className}`}
+      data-foco={foco || undefined}
+    >
       <input
-        ref={ref}
         type="text"
-        placeholder={placeholder}
+        name={name}
         value={value}
-        onChange={(e) => {
-          let v = e.target.value
-          const i = v.indexOf('@')
-          if (i >= 0) v = v.slice(0, i)
-          onChange?.(v)
-        }}
-        onBlur={(e) => {
-          const limpio = e.target.value.split('@')[0]
-          if (limpio !== e.target.value) onChange?.(limpio)
-          onBlur?.(e)
-        }}
+        onChange={alEscribir}
+        onBlur={alSalir}
         onFocus={() => setFoco(true)}
         onBlurCapture={() => setFoco(false)}
-        maxLength={maxLength ? maxLength - dominio.length : undefined}
+        placeholder={placeholder}
         required={required}
         autoComplete={autoComplete}
         disabled={disabled}
-        aria-label={ariaLabel || `Usuario (se añade ${dominio} automáticamente)`}
-        aria-invalid={error}
-        className={`${baseInput} pr-28 ${bordeError}`}
+        maxLength={190 - dominio.length}
+        aria-label={`Correo adicional, se completa con ${dominio}`}
+        aria-invalid={marcaError || undefined}
+        className={`min-w-0 flex-1 bg-transparent px-4 py-3 outline-none ${estilos.input}`}
         {...resto}
       />
-      <div
-        className={`${baseBoton} ${error ? 'text-red-400 border-red-400' : ''}`}
+      <span
         aria-hidden="true"
+        className={`mr-2 shrink-0 select-none rounded-lg px-2.5 py-1 text-[13px] font-semibold ring-1 ${estilos.chip}`}
       >
         {dominio}
-      </div>
+      </span>
     </div>
   )
-})
-
-CampoEmailDominio.displayName = 'CampoEmailDominio'
-
-export default CampoEmailDominio
+}

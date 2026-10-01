@@ -160,8 +160,8 @@ function Login() {
                         value={form.correo}
                         onChange={escribir('correo')}
                         onBlur={alSalirCorreo}
-                        placeholder="Usuario"
-                        error={false}
+                        placeholder="Correo adicional"
+                        tono="oscuro"
                         className="w-full"
                       />
 

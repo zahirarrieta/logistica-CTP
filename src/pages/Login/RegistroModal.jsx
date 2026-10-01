@@ -121,8 +121,8 @@ export default function RegistroModal({ onClose }) {
               value={form.correo}
               onChange={escribir('correo')}
               onBlur={alSalirCorreo}
-              placeholder="Usuario"
-              error={false}
+              placeholder="Correo"
+              tono="claro"
               className="w-full"
             />
 
