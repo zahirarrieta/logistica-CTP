@@ -1,29 +1,25 @@
 import { useState } from 'react'
-import { MdBadge, MdClose, MdPerson, MdPersonAdd } from 'react-icons/md'
+import { MdClose, MdPerson, MdPersonAdd } from 'react-icons/md'
 
 export default function AgregarUsuarioModal({ open, onClose, onSelect }) {
-  const [cedula, setCedula] = useState('')
   const [nombre, setNombre] = useState('')
   const [error, setError] = useState('')
 
   if (!open) return null
 
   const handleAgregar = () => {
-    const c = cedula.trim()
     const n = nombre.trim().toUpperCase()
-    if (!c || !n) {
-      setError('Escribe la cédula y el nombre completo del usuario')
+    if (!n) {
+      setError('Escribe el nombre completo del usuario')
       return
     }
-    onSelect?.({ cedula: c, cliente: n })
-    setCedula('')
+    onSelect?.({ cliente: n })
     setNombre('')
     setError('')
     onClose()
   }
 
   const handleClose = () => {
-    setCedula('')
     setNombre('')
     setError('')
     onClose()
@@ -61,7 +57,7 @@ export default function AgregarUsuarioModal({ open, onClose, onSelect }) {
         {/* Cuerpo */}
         <div className="p-5 sm:p-6 space-y-4">
           <p className="text-sm text-brand-ink/60 -mt-1">
-            Registra los datos del usuario para la solicitud administrativa.
+            Registra el nombre del usuario para la solicitud administrativa.
           </p>
 
           {error && (
@@ -75,21 +71,6 @@ export default function AgregarUsuarioModal({ open, onClose, onSelect }) {
 
           <div>
             <label className="flex items-center gap-1.5 text-sm font-semibold text-brand-deep mb-1.5">
-              <MdBadge className="text-brand-cyan" />
-              Cédula
-            </label>
-            <input
-              type="text"
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value)}
-              placeholder="Número de cédula"
-              autoFocus
-              className="w-full px-3 py-2.5 rounded-xl bg-white border border-brand-deep/20 shadow-sm focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:shadow-none transition-all text-brand-ink"
-            />
-          </div>
-
-          <div>
-            <label className="flex items-center gap-1.5 text-sm font-semibold text-brand-deep mb-1.5">
               <MdPerson className="text-brand-cyan" />
               Nombre completo
             </label>
@@ -98,6 +79,7 @@ export default function AgregarUsuarioModal({ open, onClose, onSelect }) {
               value={nombre}
               onChange={(e) => setNombre(e.target.value.toUpperCase())}
               placeholder="Nombre completo del usuario"
+              autoFocus
               className="w-full px-3 py-2.5 rounded-xl bg-white border border-brand-deep/20 shadow-sm focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:shadow-none transition-all text-brand-ink uppercase"
             />
           </div>
