@@ -6,6 +6,10 @@ import { subirEvidenciaEntrega } from './archivosApi.js'
 // no aparece ni en dataUrls (base64) ni en las rutas del backend.
 const SEP_EVIDENCIA = '|'
 
+// Separador del campo `adjunto` del historial (la factura/remisión del «En
+// Trámite»). El store lo escribe con `join(', ')`, así que se parte por coma.
+const SEP_ADJUNTO = ','
+
 // Normaliza a array de cadenas.
 //
 // El backend ya devuelve `adjuntos` como array (aArrayJson en routes.js) y
@@ -95,7 +99,7 @@ function aLocal(fila, historial) {
   }
 }
 
-function historialALocal(h, evidencia) {
+function historialALocal(h, firmadas) {
   return {
     id: h.id,
     campo: h.campo,
@@ -103,11 +107,14 @@ function historialALocal(h, evidencia) {
     nuevo: h.nuevo,
     nota: h.nota,
     referencia: h.referencia,
-    adjunto: h.adjunto,
+    // La factura/remisión del «En Trámite» vive aquí y es una ruta del backend:
+    // hay que firmarla igual que la evidencia, o el visor recibe la ruta cruda y
+    // no carga nada.
+    adjunto: firmarRutas(h.adjunto, firmadas, SEP_ADJUNTO),
     conductor: h.conductor,
     vehiculo: h.vehiculo,
     placa: h.placa,
-    evidencia,
+    evidencia: firmarRutas(h.evidencia_url, firmadas, SEP_EVIDENCIA),
     encuesta: h.encuesta || null,
     persona: h.persona,
     fecha: h.fecha,
@@ -155,14 +162,15 @@ async function resolverEvidencia(codigo, entrada) {
 
 // Sustituye cada ruta guardada por su URL firmada (24 h) y deja intactas las
 // direcciones que ya son http (o los enlaces de OneDrive de los registros
-// antiguos, que se detectan aparte en el visor).
-function firmarEvidencia(evidenciaUrl, firmadas) {
-  return String(evidenciaUrl || '')
-    .split(SEP_EVIDENCIA)
+// antiguos, que se detectan aparte en el visor). `sep` es el separador del campo:
+// '|' para la evidencia de entrega, ',' para el adjunto (factura/remisión).
+function firmarRutas(valor, firmadas, sep = SEP_EVIDENCIA) {
+  return String(valor || '')
+    .split(sep)
     .map((u) => u.trim())
     .filter(Boolean)
     .map((u) => firmadas[u] || u)
-    .join(SEP_EVIDENCIA)
+    .join(sep)
 }
 
 // Trae las solicitudes y, de forma incremental, solo el historial de las que
@@ -185,14 +193,15 @@ export async function descargarSolicitudes(desde = '') {
   const registros = datos.historial || []
 
   // Se piden firmas de TODO lo que es una ruta del backend y no un http: la
-  // evidencia del historial Y los adjuntos de la solicitud. Antes solo se firmaba
-  // la evidencia, porque los adjuntos vivían en OneDrive y venían como URL
-  // pública. Ahora que los dos están en el backend, sin firmar los adjuntos
-  // aparecerían como texto suelto y el visor no podría abrirlos.
+  // evidencia del historial, la factura/remisión del historial (campo `adjunto`)
+  // Y los adjuntos de la solicitud. Antes solo se firmaban evidencia y adjuntos,
+  // así que la factura del «En Trámite» llegaba al visor como ruta cruda y no se
+  // podía abrir.
   const rutas = [
     ...new Set(
       [
         ...registros.flatMap((h) => aTexto(h.evidencia_url).flatMap((u) => u.split(SEP_EVIDENCIA))),
+        ...registros.flatMap((h) => aTexto(h.adjunto).flatMap((u) => u.split(SEP_ADJUNTO))),
         ...filas.flatMap((f) => aTexto(f.adjuntos)),
       ]
         .map((u) => String(u || '').trim())
@@ -212,7 +221,7 @@ export async function descargarSolicitudes(desde = '') {
   const porSolicitud = new Map()
   for (const h of registros) {
     const lista = porSolicitud.get(h.solicitud) || []
-    lista.push(historialALocal(h, firmarEvidencia(h.evidencia_url, firmadas)))
+    lista.push(historialALocal(h, firmadas))
     porSolicitud.set(h.solicitud, lista)
   }
 
