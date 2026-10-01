@@ -49,28 +49,21 @@ function Login() {
 
   // El aviso se borra al escribir, para que no se quede ahí mientras el usuario
   // corrige lo que estaba mal.
-  const sanearCorreo = (valor) => {
-    const i = valor.indexOf('@')
-    return i >= 0 ? valor.slice(0, i) : valor
-  }
-
+  //
+  // El correo NO se recorta aquí: CampoEmailDominio deja escribir la `@` y
+  // pegar o elegir un correo guardado del navegador, y solo lo normaliza al
+  // salir del campo. Si se truncara en cada pulsación no se podría teclear el
+  // correo entero.
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
-    const valor = campo === 'correo' ? sanearCorreo(e.target.value) : e.target.value
-    setForm((f) => ({ ...f, [campo]: valor }))
-  }
-
-  // Captura autofill del navegador (onChange no siempre dispara al autollenar)
-  const alSalirCorreo = (e) => {
-    const limpio = sanearCorreo(e.target.value)
-    if (limpio !== form.correo) setForm((f) => ({ ...f, correo: limpio }))
+    setForm((f) => ({ ...f, [campo]: e.target.value }))
   }
 
   const enviar = (e) => {
     e.preventDefault()
     if (loginEnCurso) return
-    const correoCompleto = form.correo.includes('@') ? form.correo : form.correo + DOMINIO
-    login({ correo: correoCompleto, contrasena: form.contrasena })
+    const usuario = form.correo.split('@')[0].trim()
+    login({ correo: usuario + DOMINIO, contrasena: form.contrasena })
   }
 
   const abrirRegistro = () => {
@@ -159,8 +152,7 @@ function Login() {
                         name="correo"
                         value={form.correo}
                         onChange={escribir('correo')}
-                        onBlur={alSalirCorreo}
-                        placeholder="Correo adicional"
+                        placeholder="Correo"
                         tono="oscuro"
                         className="w-full"
                       />

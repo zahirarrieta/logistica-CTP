@@ -1,14 +1,20 @@
-import { useState } from 'react'
+import { useRef } from 'react'
 
 // Campo de email con dominio fijo.
 //
 // El dominio va DENTRO del input, como una etiqueta pegada a la derecha, para
 // que se lea el correo completo (`nombre@ctpmedica.com`) sin que el usuario
-// tenga que escribirlo ni sospechar que se le va a añadir por sorpresa.
+// tenga que escribirlo.
 //
-// El input real no lleva ni borde ni fondo propios: es el contenedor el que los
-// pinta. Así el campo se ve exactamente igual que el de contraseña de al lado
-// (mismo alto, mismo radio, mismo borde) en vez de ser dos cajas pegadas.
+// Decisión importante: aquí NO se borra nada mientras se escribe. Si el campo
+// recortara los caracteres a cada pulsación, el usuario no podría teclear la
+// `@` ni pegar un correo entero, y el autocompletado del navegador (que a
+// veces no dispara `onChange`) se perdería. Se escribe libre y se normaliza
+// solo al salir del campo.
+//
+// El input real no lleva ni borde ni fondo propios: los pinta el contenedor.
+// Así el campo se ve igual que el de contraseña de al lado (mismo alto, mismo
+// radio) en vez de ser dos cajas pegadas.
 //
 // `tono` permite el mismo componente en el login (oscuro) y en los modales
 // blancos de registro y cambio de clave.
@@ -35,7 +41,7 @@ export default function CampoEmailDominio({
   value,
   onChange,
   onBlur,
-  placeholder = 'Correo adicional',
+  placeholder = 'Correo',
   dominio = DOMINIO_POR_DEFECTO,
   required = true,
   autoComplete = 'username',
@@ -43,57 +49,72 @@ export default function CampoEmailDominio({
   className = '',
   tono = 'oscuro',
   error = false,
-  name,
   invalid,
+  name,
   ...resto
 }) {
-  const [foco, setFoco] = useState(false)
+  // Se guarda lo último que el navegador metió por su cuenta. El autocompletado
+  // de Chrome escribe en el DOM sin avisar a React, y como el input es
+  // controlado, cualquier re-render posterior (al enfocar, por ejemplo) lo
+  // borraba. Guardarlo aquí permite rescatarlo al salir del campo.
+  const escritoPorElNavegador = useRef('')
   const estilos = TONOS[tono] || TONOS.oscuro
   const marcaError = error || invalid
 
-  // El usuario solo escribe la parte anterior a la `@`. Si el gestor de
-  // contraseñas autocompleta el correo entero, se recorta por aquí.
-  const sanear = (texto) => {
+  // Se escribe tal cual. La `@` y el dominio se admiten: si el usuario pega o
+  // elige un correo guardado, tiene que aparecer entero.
+  const alEscribir = (e) => onChange?.(e.target.value)
+
+  // Al salir se normaliza a la parte anterior a la `@`, que es lo que se guarda
+  // en el backend; el dominio lo pone la etiqueta de al lado.
+  const normalizar = (texto) => {
     const i = texto.indexOf('@')
     return i >= 0 ? texto.slice(0, i) : texto
   }
 
-  const alEscribir = (e) => onChange?.(sanear(e.target.value))
   const alSalir = (e) => {
-    const limpio = sanear(e.target.value)
-    if (limpio !== e.target.value) onChange?.(limpio)
+    // Si React nunca llegó a recibir el cambio, el valor sigue solo en el DOM.
+    const delDom = e.target.value
+    const bruto = delDom !== value ? delDom : escritoPorElNavegador.current
+    const limpio = normalizar(bruto)
+    if (limpio !== value) onChange?.(limpio)
+    escritoPorElNavegador.current = ''
     onBlur?.(e)
   }
 
+  // Con la `@` ya escrita el dominio se ve duplicado, así que la etiqueta se
+  // retira hasta que el campo vuelva a quedar solo con el nombre.
+  const conDominioEnElCampo = typeof value === 'string' && value.includes('@')
+
   return (
-    <div
-      className={`relative flex items-center transition ${estilos.contenedor} ${className}`}
-      data-foco={foco || undefined}
-    >
+    <div className={`relative flex items-center transition ${estilos.contenedor} ${className}`}>
       <input
         type="text"
         name={name}
         value={value}
-        onChange={alEscribir}
+        onChange={(e) => {
+          escritoPorElNavegador.current = e.target.value
+          alEscribir(e)
+        }}
         onBlur={alSalir}
-        onFocus={() => setFoco(true)}
-        onBlurCapture={() => setFoco(false)}
         placeholder={placeholder}
         required={required}
         autoComplete={autoComplete}
         disabled={disabled}
-        maxLength={190 - dominio.length}
-        aria-label={`Correo adicional, se completa con ${dominio}`}
+        maxLength={190}
+        aria-label={`Correo, se completa con ${dominio}`}
         aria-invalid={marcaError || undefined}
         className={`min-w-0 flex-1 bg-transparent px-4 py-3 outline-none ${estilos.input}`}
         {...resto}
       />
-      <span
-        aria-hidden="true"
-        className={`mr-2 shrink-0 select-none rounded-lg px-2.5 py-1 text-[13px] font-semibold ring-1 ${estilos.chip}`}
-      >
-        {dominio}
-      </span>
+      {!conDominioEnElCampo ? (
+        <span
+          aria-hidden="true"
+          className={`mr-2 shrink-0 select-none rounded-lg px-2.5 py-1 text-[13px] font-semibold ring-1 ${estilos.chip}`}
+        >
+          {dominio}
+        </span>
+      ) : null}
     </div>
   )
 }

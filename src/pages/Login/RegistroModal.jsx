@@ -47,28 +47,19 @@ export default function RegistroModal({ onClose }) {
   // teclear mal y no enterarse hasta el día siguiente.
   const faltaConfirmar = confirmacion !== form.contrasena
 
-  const sanearCorreo = (valor) => {
-    const i = valor.indexOf('@')
-    return i >= 0 ? valor.slice(0, i) : valor
-  }
-
+  // El correo no se recorta al escribir: CampoEmailDominio deja teclear la `@`
+  // y pegar o elegir un correo guardado, y solo lo normaliza al salir. Si se
+  // truncara en cada pulsación no se podría escribir el correo entero.
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
-    const valor = campo === 'correo' ? sanearCorreo(e.target.value) : e.target.value
-    setForm((f) => ({ ...f, [campo]: valor }))
-  }
-
-  // Captura autofill del navegador (onChange no siempre dispara al autollenar)
-  const alSalirCorreo = (e) => {
-    const limpio = sanearCorreo(e.target.value)
-    if (limpio !== form.correo) setForm((f) => ({ ...f, correo: limpio }))
+    setForm((f) => ({ ...f, [campo]: e.target.value }))
   }
 
   const enviar = (e) => {
     e.preventDefault()
     if (loginEnCurso || faltaConfirmar) return
-    const correoCompleto = form.correo.includes('@') ? form.correo : form.correo + DOMINIO
-    registro({ nombre: form.nombre, correo: correoCompleto, contrasena: form.contrasena })
+    const usuario = form.correo.split('@')[0].trim()
+    registro({ nombre: form.nombre, correo: usuario + DOMINIO, contrasena: form.contrasena })
   }
 
   return (
@@ -120,7 +111,6 @@ export default function RegistroModal({ onClose }) {
               name="correo"
               value={form.correo}
               onChange={escribir('correo')}
-              onBlur={alSalirCorreo}
               placeholder="Correo"
               tono="claro"
               className="w-full"
