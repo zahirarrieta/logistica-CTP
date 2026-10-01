@@ -12,7 +12,13 @@ import { shortName } from '../auth/user.js'
 // Se puede sobrescribir con VITE_API_URL en .env.local si cambia.
 const FALLBACK_API = 'https://api.pedro-ctpmedica.com'
 
-const base = (import.meta.env.VITE_API_URL || FALLBACK_API).trim().replace(/\/+$/, '')
+// En desarrollo se puede dejar VITE_API_URL VACÍO a propósito (ver
+// .env.development.local) para que las peticiones salgan relativas (/api/...) y
+// las reenvíe el proxy del Vite dev server a la API real. Así el navegador ve el
+// mismo origen (localhost) y no hay bloqueo por CORS. Si la variable NO está
+// definida, se usa el dominio absoluto: es lo que hace el build de producción.
+const envApi = import.meta.env.VITE_API_URL
+const base = (envApi === undefined ? FALLBACK_API : envApi).trim().replace(/\/+$/, '')
 
 export const API_URL = base
 export const backendActivo = true

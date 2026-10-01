@@ -7,6 +7,18 @@ export default defineConfig(() => ({
   base: '/',
   server: {
     port: 5173,
+    // Proxy SOLO del dev server: reenvía /api a la API real para que el navegador
+    // hable con el mismo origen (localhost:5173) y no haya bloqueo por CORS. Con
+    // changeOrigin el Host que ve el servidor es el de la API, así las URLs
+    // firmadas de archivos salen correctas. No afecta al build de producción, que
+    // usa la URL absoluta de VITE_API_URL (ver .env).
+    proxy: {
+      '/api': {
+        target: 'https://api.pedro-ctpmedica.com',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
   },
   build: {
     outDir: 'dist',
