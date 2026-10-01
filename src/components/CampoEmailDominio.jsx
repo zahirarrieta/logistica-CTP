@@ -4,16 +4,14 @@ import { useRef } from 'react'
 //
 // El dominio va DENTRO del input, como una etiqueta pegada a la derecha, para
 // que se lea el correo completo (`nombre@ctpmedica.com`) sin que el usuario
-// tenga que escribirlo.
+// tenga que escribirlo. La `@` y el dominio no se pueden teclear: se recortan
+// en cuanto se escriben, porque el dominio ya está puesto en la etiqueta.
 //
-// Decisión importante: aquí NO se borra nada mientras se escribe. Si el campo
-// recortara los caracteres a cada pulsación, el usuario no podría teclear la
-// `@` ni pegar un correo entero. Se escribe libre y se normaliza al salir.
-//
-// CONTRATO: `onChange` recibe el TEXTO ya leído, no el evento. Se lee del input
-// porque el autocompletado del navegador escribe en el DOM sin pasar por React y
-// el evento puede llegar sin `target`. Quien lo use junto a CampoClave (que sí
-// entrega el evento) tiene que aceptar las dos formas en su handler.
+// CONTRATO: `onChange` recibe el TEXTO ya leído y normalizado, no el evento. Se
+// lee del input porque el autocompletado del navegador escribe en el DOM sin
+// pasar por React y el evento puede llegar sin `target`. Quien lo use junto a
+// CampoClave (que sí entrega el evento) tiene que aceptar las dos formas en su
+// handler.
 //
 // El input real no lleva ni borde ni fondo propios: los pinta el contenedor. Así
 // el campo se ve igual que el de contraseña de al lado (mismo alto, mismo radio)
@@ -60,26 +58,24 @@ export default function CampoEmailDominio({
   const estilos = TONOS[tono] || TONOS.oscuro
   const marcaError = error || invalid
 
-  // Normaliza a la parte anterior a la `@`, que es lo que se guarda; el dominio
-  // lo pone la etiqueta de al lado.
+  // Normaliza a la parte anterior a la `@`, que es lo único que se escribe: el
+  // dominio lo pone la etiqueta de al lado.
   const normalizar = (texto) => {
     const i = texto.indexOf('@')
     return i >= 0 ? texto.slice(0, i) : texto
   }
 
-  const alEscribir = () => onChange?.(inputRef.current?.value ?? '')
+  // Se lee del DOM, no del evento: si el navegador autocompletó un correo
+  // entero sin avisar a React, aquí es donde se recoge y se recorta igual.
+  const alEscribir = () => onChange?.(normalizar(inputRef.current?.value ?? ''))
 
+  // Red de seguridad para el autocompletado que no dispara ningún evento: si al
+  // salir el DOM trae la `@`, se normaliza igualmente.
   const alSalir = () => {
-    // Se lee del DOM, no del evento: si el navegador autocompletó sin avisar a
-    // React, aquí es donde se recupera ese valor.
     const limpio = normalizar(inputRef.current?.value ?? '')
     if (limpio !== value) onChange?.(limpio)
     onBlur?.()
   }
-
-  // Con la `@` ya escrita el dominio se vería duplicado, así que la etiqueta se
-  // retira hasta que el campo vuelva a quedar solo con el nombre.
-  const conDominioEnElCampo = value.includes('@')
 
   return (
     <div className={`relative flex items-center transition ${estilos.contenedor} ${className}`}>
@@ -94,20 +90,18 @@ export default function CampoEmailDominio({
         required={required}
         autoComplete={autoComplete}
         disabled={disabled}
-        maxLength={190}
+        maxLength={190 - dominio.length}
         aria-label={`Correo, se completa con ${dominio}`}
         aria-invalid={marcaError || undefined}
         className={`autofill-transparente min-w-0 flex-1 bg-transparent px-4 py-3 outline-none ${estilos.input}`}
         {...resto}
       />
-      {!conDominioEnElCampo ? (
-        <span
-          aria-hidden="true"
-          className={`mr-2 shrink-0 select-none rounded-lg px-2.5 py-1 text-[13px] font-semibold ring-1 ${estilos.chip}`}
-        >
-          {dominio}
-        </span>
-      ) : null}
+      <span
+        aria-hidden="true"
+        className={`mr-2 shrink-0 select-none rounded-lg px-2.5 py-1 text-[13px] font-semibold ring-1 ${estilos.chip}`}
+      >
+        {dominio}
+      </span>
     </div>
   )
 }
