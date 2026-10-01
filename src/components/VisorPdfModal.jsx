@@ -26,6 +26,7 @@ export default function VisorPdfModal({ open, url, onClose, titulo }) {
     })
     Promise.race([resolverArchivo(url), tiempoLimite])
       .then((res) => {
+        console.log('[VisorPdf] resolved:', res);
         if (cancelado) return
         if (res.src.startsWith('blob:')) objectUrl = res.src
         setSrc(res.src)

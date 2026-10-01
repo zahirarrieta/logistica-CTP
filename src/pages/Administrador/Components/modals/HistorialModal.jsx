@@ -158,9 +158,9 @@ export default function HistorialModal({ solicitud, open, onClose }) {
                           Factura/Remisión: {h.referencia}
                         </p>
                       )}
-                      {h.adjunto && (
-                        <AdjuntoEnlace adjunto={h.adjunto} onVerPdf={setPdfUrl} />
-                      )}
+{h.adjunto && (
+                         <AdjuntoEnlace adjunto={h.adjunto} onVerPdf={(u) => { console.log('[HistorialModal] PDF url:', u); setPdfUrl(u); }} />
+                       )}
                     </div>
                   </li>
                 )
