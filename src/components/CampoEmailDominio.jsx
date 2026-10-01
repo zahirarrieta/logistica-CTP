@@ -10,10 +10,10 @@ import { useRef } from 'react'
 // recortara los caracteres a cada pulsación, el usuario no podría teclear la
 // `@` ni pegar un correo entero. Se escribe libre y se normaliza al salir.
 //
-// El valor se lee del propio input (ref) y no del evento. El autocompletado del
-// navegador escribe en el DOM sin pasar por React, y algunos navegadores
-// entregan el evento sin `target`; leer el nodo es lo único fiable en ambos
-// casos.
+// CONTRATO: `onChange` recibe el TEXTO ya leído, no el evento. Se lee del input
+// porque el autocompletado del navegador escribe en el DOM sin pasar por React y
+// el evento puede llegar sin `target`. Quien lo use junto a CampoClave (que sí
+// entrega el evento) tiene que aceptar las dos formas en su handler.
 //
 // El input real no lleva ni borde ni fondo propios: los pinta el contenedor. Así
 // el campo se ve igual que el de contraseña de al lado (mismo alto, mismo radio)

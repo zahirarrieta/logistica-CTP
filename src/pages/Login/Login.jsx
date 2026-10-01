@@ -54,9 +54,15 @@ function Login() {
   // pegar o elegir un correo guardado del navegador, y solo lo normaliza al
   // salir del campo. Si se truncara en cada pulsación no se podría teclear el
   // correo entero.
+  // CampoEmailDominio entrega el valor ya leído del input (un string), mientras
+  // que CampoClave entrega el evento del input. Este handler sirve para los
+  // dos, así que se aceptan las dos formas: si se leyera siempre e.target.value
+  // sobre un string, saldría undefined y el campo se quedaría siempre vacío,
+  // sin dejar escribir nada.
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
-    setForm((f) => ({ ...f, [campo]: e?.target?.value ?? '' }))
+    const valor = typeof e === 'string' ? e : e?.target?.value ?? ''
+    setForm((f) => ({ ...f, [campo]: valor }))
   }
 
   const enviar = (e) => {

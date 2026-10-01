@@ -50,9 +50,14 @@ export default function RegistroModal({ onClose }) {
   // El correo no se recorta al escribir: CampoEmailDominio deja teclear la `@`
   // y pegar o elegir un correo guardado, y solo lo normaliza al salir. Si se
   // truncara en cada pulsación no se podría escribir el correo entero.
+  // CampoEmailDominio entrega el valor ya leído del input (un string), mientras
+  // que CampoClave entrega el evento del input. Este handler sirve para los
+  // dos, así que se aceptan las dos formas: si se leyera siempre e.target.value
+  // sobre un string, saldría undefined y el campo se quedaría siempre vacío.
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
-    setForm((f) => ({ ...f, [campo]: e?.target?.value ?? '' }))
+    const valor = typeof e === 'string' ? e : e?.target?.value ?? ''
+    setForm((f) => ({ ...f, [campo]: valor }))
   }
 
   const enviar = (e) => {
