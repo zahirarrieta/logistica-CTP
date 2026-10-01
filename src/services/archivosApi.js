@@ -1,4 +1,4 @@
-import { apiFetch } from './apiClient.js'
+import { apiFetch, apiPost } from './apiClient.js'
 
 // ============================================================================
 // ARCHIVOS
@@ -130,4 +130,39 @@ export async function subirEvidenciaEntrega(blob, referencia, codigo) {
   const ruta = await subir(codigo, CARPETA_ENTREGAS, nombre, blob)
   console.info(`[Archivos] evidencia de entrega subida → ${ruta}`)
   return { nombre, ruta, url: ruta }
+}
+
+// ---------------------------------------------------------------------------
+// Firma bajo demanda
+// ---------------------------------------------------------------------------
+// El store guarda el `adjunto` del historial como RUTA cruda en la misma sesión
+// en que se sube (solo se firma al re-descargar las solicitudes). Si el visor
+// recibe esa ruta cruda, el <iframe> la resuelve contra el origen del frontend y
+// no carga nada. Estos helpers firman una ruta suelta en el momento, devolviendo
+// la URL absoluta de 24 h del backend.
+
+// Firma varias rutas y devuelve el mapa { ruta: urlFirmada }. Las que el backend
+// descarta (no existen o no son visibles) simplemente no vienen en el mapa.
+export async function firmarRutas(rutas) {
+  const limpias = [
+    ...new Set(
+      (Array.isArray(rutas) ? rutas : [])
+        .map((r) => String(r || '').trim())
+        .filter((r) => r && !/^https?:\/\//i.test(r) && !/^data:/i.test(r) && !/^blob:/i.test(r))
+    ),
+  ]
+  if (limpias.length === 0) return {}
+  try {
+    const mapa = await apiPost('/api/archivos/firmar', { rutas: limpias })
+    return mapa || {}
+  } catch (error) {
+    console.warn('[Archivos] no se pudo firmar bajo demanda:', error?.message)
+    return {}
+  }
+}
+
+// Firma una sola ruta. Devuelve la URL firmada o null si el backend no la firmó.
+export async function firmarRuta(ruta) {
+  const mapa = await firmarRutas([ruta])
+  return mapa[String(ruta).trim()] || null
 }

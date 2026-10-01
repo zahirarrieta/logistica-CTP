@@ -13,6 +13,8 @@
 // anteriores a este cambio.
 // ============================================================================
 
+import { firmarRuta } from './archivosApi.js'
+
 // Enlaces de OneDrive/SharePoint que quedaron en la base de datos. Se reconocen
 // por el dominio, igual que antes.
 export function esUrlOneDrive(url) {
@@ -20,6 +22,13 @@ export function esUrlOneDrive(url) {
     /^https?:\/\//i.test(url) &&
     /(sharepoint\.com|1drv\.ms|graph\.microsoft\.com)/i.test(url)
   )
+}
+
+// Dirección ya utilizable por el navegador: http(s), blob o data. Todo lo demás
+// es una RUTA cruda del backend ({usuario}/{codigo}/.../archivo.pdf) que hay que
+// firmar antes de poder verla.
+export function esDireccionLista(url) {
+  return /^(https?:|blob:|data:)/i.test(url)
 }
 
 function nombreDesdeUrl(url) {
@@ -59,5 +68,19 @@ export async function resolverArchivo(url) {
   if (!url || typeof url !== 'string') {
     throw new Error('No hay archivo para mostrar')
   }
-  return { src: url, nombre: nombreDesdeUrl(url), abrir: url }
+  // Ya viene firmada (o es un blob/data): se usa tal cual.
+  if (esDireccionLista(url)) {
+    return { src: url, nombre: nombreDesdeUrl(url), abrir: url }
+  }
+  // Es una RUTA cruda del backend. Pasa cuando el documento se acaba de subir en
+  // esta misma sesión: el store guarda la ruta y solo se firma al re-descargar.
+  // Se firma aquí bajo demanda para que el visor no se quede cargando una ruta
+  // relativa que el navegador no puede resolver.
+  const firmada = await firmarRuta(url)
+  if (!firmada) {
+    throw new Error(
+      'El documento aún no está disponible en el servidor. Cierra y vuelve a abrir la solicitud, o recarga la página, para intentarlo de nuevo.'
+    )
+  }
+  return { src: firmada, nombre: nombreDesdeUrl(firmada), abrir: firmada }
 }

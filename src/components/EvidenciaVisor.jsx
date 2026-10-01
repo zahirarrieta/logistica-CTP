@@ -11,7 +11,7 @@ import {
   MdChevronLeft,
   MdChevronRight,
 } from 'react-icons/md'
-import { esUrlOneDrive, resolverArchivo } from '../services/visorArchivos.js'
+import { esDireccionLista, resolverArchivo } from '../services/visorArchivos.js'
 import VisorPdfModal from './VisorPdfModal.jsx'
 
 const esPdf = (url) => /^data:application\/pdf/i.test(url) || /\.pdf(\?|#|$)/i.test(url)
@@ -40,16 +40,18 @@ export default function EvidenciaVisor({ urls }) {
   // firmadas y el <img> las carga directamente.
   useEffect(() => {
     setEstados(lista.map((u) => ({ src: '', abrir: u, cargando: true, esPdf: esPdf(u), error: '' })))
-    if (!lista.some((u) => esUrlOneDrive(u))) {
+    // Camino rápido: si TODO ya son direcciones listas (http firmadas, blob o
+    // data), no hay nada que resolver. Las rutas crudas del backend y los enlaces
+    // heredados de OneDrive sí pasan por resolverArchivo, que firma las primeras
+    // bajo demanda y lanza un aviso claro en las segundas.
+    if (lista.every((u) => esDireccionLista(u))) {
       setEstados(
         lista.map((u) => ({ src: u, abrir: u, cargando: false, esPdf: esPdf(u), error: '' }))
       )
       return
     }
     let cancelado = false
-    Promise.allSettled(
-      lista.map((u) => (esUrlOneDrive(u) ? resolverArchivo(u) : Promise.resolve({ src: u, abrir: u })))
-    ).then((resultados) => {
+    Promise.allSettled(lista.map((u) => resolverArchivo(u))).then((resultados) => {
       if (cancelado) return
       setEstados(
         lista.map((u, i) => {

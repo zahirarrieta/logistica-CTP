@@ -799,8 +799,12 @@ publico.get('/archivos/ver', (req, res) => {
 
   // Permitir que el PDF se vea en iframe desde el frontend (diferente subdominio).
   // Sin esto, el navegador bloquea la carga en <iframe> por X-Frame-Options.
+  // Se incluye localhost:5173 para el desarrollo local contra la API de producción.
   res.setHeader('X-Frame-Options', 'ALLOWALL')
-  res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://pedro-ctpmedica.com")
+  res.setHeader(
+    'Content-Security-Policy',
+    "frame-ancestors 'self' https://pedro-ctpmedica.com http://localhost:5173"
+  )
 
   res.sendFile(destino)
 })
