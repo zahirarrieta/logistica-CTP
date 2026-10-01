@@ -152,7 +152,7 @@ function Login() {
                   {/* Formulario. El `onSubmit` en vez de `onClick` en el botón
                       permite mandar con Enter, que es como se rellena un formulario
                       de verdad. */}
-                  <form onSubmit={enviar} className="mt-8 sm:mt-10 max-lg:mt-6 max-w-lg login-enter">
+                  <form onSubmit={enviar} className="mt-8 sm:mt-10 max-lg:mt-6 w-full max-w-lg login-enter">
                     <div className="grid gap-3">
                       <CampoEmailDominio
                         name="correo"
@@ -160,7 +160,7 @@ function Login() {
                         onChange={escribir('correo')}
                         placeholder="Correo"
                         tono="oscuro"
-                        className="w-full"
+                        className="w-full min-w-0"
                       />
 
                       <CampoClave
@@ -171,7 +171,7 @@ function Login() {
                         autoComplete="current-password"
                         value={form.contrasena}
                         onChange={escribir('contrasena')}
-                        className={clasesCampo}
+                        className={`${clasesCampo} min-w-0`}
                       />
                     </div>
 
