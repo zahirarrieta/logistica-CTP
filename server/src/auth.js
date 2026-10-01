@@ -111,49 +111,9 @@ function correoDelToken(payload) {
   return String(candidato).trim().toLowerCase()
 }
 
-// ============================================================================
-// TOKEN DE CONFIANZA («recordar este equipo»)
-// No es un JWT: son 32 bytes aleatorios en base64url, sin firma ni contenido que
-// leer. No lleva datos, así que no hay claim que falsificar y no se puede usar
-// como token de sesión: su único valor es servir para canjearse por una sesión
-// contra la fila que le corresponde en `sesiones_recordadas`.
-//
-// Lo que se guarda en MySQL es el SHA-256, nunca el token. Consecuencias que son
-// justo las buscadas:
-//   - una copia de la tabla no permite entrar en nada;
-//   - borrar la fila revoca el acceso al instante, sin esperar a que expire;
-//   - el hash es determinista, así que la búsqueda es un SELECT por un índice UNIQUE.
-//
-// El token lleva 30 días de vida (config.sesion.recordarTtl) y caduca por
-// `expira_en` en la base, no por una fecha dentro del token.
-// ============================================================================
-function nuevoTokenRecordar() {
-  const token = crypto.randomBytes(32).toString('base64url')
-  return { token, hash: crypto.createHash('sha256').update(token).digest('hex') }
-}
-
-// Normaliza lo que llega desde el navegador antes de hashearlo. Si no coincide
-// con el hash guardado, la fila no existe y el token no vale: por eso se
-// devuelve '' en vez de lanzar, para tratarlo como un token inválido más.
-function hashDeTokenRecordar(token) {
-  const limpio = String(token || '').trim()
-  if (!limpio || limpio.length > 200) return ''
-  return crypto.createHash('sha256').update(limpio).digest('hex')
-}
-
-// Agente del cliente, solo para que un superadmin pueda reconocer el equipo en
-// la tabla. Se recorta porque va a un VARCHAR(255) y el User-Agent lo manda el
-// cliente: sin recorte, un valor enorme rompe el INSERT.
-function agenteDe(req) {
-  return String(req?.get?.('user-agent') || '').trim().slice(0, 255)
-}
-
 module.exports = {
-  agenteDe,
   autenticar,
   correoDelToken,
   firmarToken,
-  hashDeTokenRecordar,
-  nuevoTokenRecordar,
   verificarToken,
 }
