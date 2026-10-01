@@ -64,6 +64,26 @@ input:-webkit-autofill:active {
   transition: background-color 5000s ease-in-out 0s;
 }
 
+/* CampoEmailDominio: su input es transparente y el borde/fondo los pinta el
+   contenedor. El bloque de autofill de arriba, al ser un `inset` de 1000px, se
+   leía como un cuadrado oscuro suelto dentro del campo redondeado, así que
+   aquí se desactiva y se deja que el contenedor ponga el fondo. */
+.autofill-transparente:-webkit-autofill,
+.autofill-transparente:-webkit-autofill:hover,
+.autofill-transparente:-webkit-autofill:focus,
+.autofill-transparente:-webkit-autofill:active {
+  -webkit-box-shadow: none !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: currentColor !important;
+  caret-color: currentColor;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.autofill-transparente:-moz-autofill {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
 /* Firefox oscuro */
 input:-moz-autofill {
   background-color: #071A3D !important;

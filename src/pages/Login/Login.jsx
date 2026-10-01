@@ -56,7 +56,7 @@ function Login() {
   // correo entero.
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
-    setForm((f) => ({ ...f, [campo]: e.target.value }))
+    setForm((f) => ({ ...f, [campo]: e?.target?.value ?? '' }))
   }
 
   const enviar = (e) => {

@@ -52,7 +52,7 @@ export default function RegistroModal({ onClose }) {
   // truncara en cada pulsación no se podría escribir el correo entero.
   const escribir = (campo) => (e) => {
     if (errorLogin) limpiarAviso?.()
-    setForm((f) => ({ ...f, [campo]: e.target.value }))
+    setForm((f) => ({ ...f, [campo]: e?.target?.value ?? '' }))
   }
 
   const enviar = (e) => {

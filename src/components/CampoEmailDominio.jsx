@@ -8,13 +8,16 @@ import { useRef } from 'react'
 //
 // Decisión importante: aquí NO se borra nada mientras se escribe. Si el campo
 // recortara los caracteres a cada pulsación, el usuario no podría teclear la
-// `@` ni pegar un correo entero, y el autocompletado del navegador (que a
-// veces no dispara `onChange`) se perdería. Se escribe libre y se normaliza
-// solo al salir del campo.
+// `@` ni pegar un correo entero. Se escribe libre y se normaliza al salir.
 //
-// El input real no lleva ni borde ni fondo propios: los pinta el contenedor.
-// Así el campo se ve igual que el de contraseña de al lado (mismo alto, mismo
-// radio) en vez de ser dos cajas pegadas.
+// El valor se lee del propio input (ref) y no del evento. El autocompletado del
+// navegador escribe en el DOM sin pasar por React, y algunos navegadores
+// entregan el evento sin `target`; leer el nodo es lo único fiable en ambos
+// casos.
+//
+// El input real no lleva ni borde ni fondo propios: los pinta el contenedor. Así
+// el campo se ve igual que el de contraseña de al lado (mismo alto, mismo radio)
+// en vez de ser dos cajas pegadas.
 //
 // `tono` permite el mismo componente en el login (oscuro) y en los modales
 // blancos de registro y cambio de clave.
@@ -38,7 +41,7 @@ const TONOS = {
 }
 
 export default function CampoEmailDominio({
-  value,
+  value = '',
   onChange,
   onBlur,
   placeholder = 'Correo',
@@ -53,49 +56,39 @@ export default function CampoEmailDominio({
   name,
   ...resto
 }) {
-  // Se guarda lo último que el navegador metió por su cuenta. El autocompletado
-  // de Chrome escribe en el DOM sin avisar a React, y como el input es
-  // controlado, cualquier re-render posterior (al enfocar, por ejemplo) lo
-  // borraba. Guardarlo aquí permite rescatarlo al salir del campo.
-  const escritoPorElNavegador = useRef('')
+  const inputRef = useRef(null)
   const estilos = TONOS[tono] || TONOS.oscuro
   const marcaError = error || invalid
 
-  // Se escribe tal cual. La `@` y el dominio se admiten: si el usuario pega o
-  // elige un correo guardado, tiene que aparecer entero.
-  const alEscribir = (e) => onChange?.(e.target.value)
-
-  // Al salir se normaliza a la parte anterior a la `@`, que es lo que se guarda
-  // en el backend; el dominio lo pone la etiqueta de al lado.
+  // Normaliza a la parte anterior a la `@`, que es lo que se guarda; el dominio
+  // lo pone la etiqueta de al lado.
   const normalizar = (texto) => {
     const i = texto.indexOf('@')
     return i >= 0 ? texto.slice(0, i) : texto
   }
 
-  const alSalir = (e) => {
-    // Si React nunca llegó a recibir el cambio, el valor sigue solo en el DOM.
-    const delDom = e.target.value
-    const bruto = delDom !== value ? delDom : escritoPorElNavegador.current
-    const limpio = normalizar(bruto)
+  const alEscribir = () => onChange?.(inputRef.current?.value ?? '')
+
+  const alSalir = () => {
+    // Se lee del DOM, no del evento: si el navegador autocompletó sin avisar a
+    // React, aquí es donde se recupera ese valor.
+    const limpio = normalizar(inputRef.current?.value ?? '')
     if (limpio !== value) onChange?.(limpio)
-    escritoPorElNavegador.current = ''
-    onBlur?.(e)
+    onBlur?.()
   }
 
-  // Con la `@` ya escrita el dominio se ve duplicado, así que la etiqueta se
+  // Con la `@` ya escrita el dominio se vería duplicado, así que la etiqueta se
   // retira hasta que el campo vuelva a quedar solo con el nombre.
-  const conDominioEnElCampo = typeof value === 'string' && value.includes('@')
+  const conDominioEnElCampo = value.includes('@')
 
   return (
     <div className={`relative flex items-center transition ${estilos.contenedor} ${className}`}>
       <input
+        ref={inputRef}
         type="text"
         name={name}
         value={value}
-        onChange={(e) => {
-          escritoPorElNavegador.current = e.target.value
-          alEscribir(e)
-        }}
+        onChange={alEscribir}
         onBlur={alSalir}
         placeholder={placeholder}
         required={required}
@@ -104,7 +97,7 @@ export default function CampoEmailDominio({
         maxLength={190}
         aria-label={`Correo, se completa con ${dominio}`}
         aria-invalid={marcaError || undefined}
-        className={`min-w-0 flex-1 bg-transparent px-4 py-3 outline-none ${estilos.input}`}
+        className={`autofill-transparente min-w-0 flex-1 bg-transparent px-4 py-3 outline-none ${estilos.input}`}
         {...resto}
       />
       {!conDominioEnElCampo ? (
