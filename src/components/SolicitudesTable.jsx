@@ -62,10 +62,14 @@ const urlsTramite = (s) => {
     }
   }
   if (!entrada) return []
+  // Se aceptan también las rutas crudas del backend (no solo http). Cuando la
+  // firma por lotes de /api/archivos/firmar falla o no cubre una ruta, el campo
+  // llega como ruta cruda; el visor la firma bajo demanda. Antes se filtraban a
+  // http-only y por eso los botones aparecían y desaparecían en producción.
   return String(entrada.adjunto)
     .split(',')
     .map((u) => u.trim())
-    .filter((u) => /^https?:\/\//i.test(u))
+    .filter(Boolean)
 }
 
 // Documento que debe entregar el conductor: SIEMPRE la factura/remisión del

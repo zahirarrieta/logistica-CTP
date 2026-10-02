@@ -232,6 +232,7 @@ export function notificar() {
 
 function escribir(list) {
   let raw = null
+  let persistido = true
   try {
     raw = JSON.stringify(list)
     localStorage.setItem(STORAGE_KEY, raw)
@@ -239,6 +240,7 @@ function escribir(list) {
   } catch (error) {
     // Falla de cuota/almacenamiento: avisar una sola vez para que el usuario sepa
     // que los cambios locales NO se guardaron en este dispositivo.
+    persistido = false
     if (!avisoCuotaDado) {
       avisoCuotaDado = true
       console.error('[Store] no se pudo guardar en localStorage:', error?.message || error)
@@ -246,7 +248,11 @@ function escribir(list) {
     }
   }
   cache = list
-  cacheRaw = raw
+  // Si no se pudo persistir (cuota llena), cacheRaw debe seguir apuntando a lo que
+  // HAY en localStorage, no al JSON que no se guardó. Así loadSolicitudes devuelve
+  // la caché en memoria (correcta) en vez de releer el snapshot viejo: la sesión no
+  // pierde lo sincronizado y no vuelve a detectar el hueco en cada tick de 8 s.
+  cacheRaw = persistido ? raw : localStorage.getItem(STORAGE_KEY) || ''
   return list
 }
 
@@ -956,6 +962,30 @@ export async function sincronizarInicial() {
     return locales
   }
   if (!resultado || !Array.isArray(resultado.solicitudes)) return locales
+
+  // La descarga incremental solo trae el historial de las filas que cambiaron
+  // desde el watermark; del resto se asume que ya está en la caché local. Esa
+  // suposición se rompe cuando la caché no se pudo persistir (cuota de
+  // localStorage llena: en producción hay >1000 pedidos con su historial y no
+  // caben) o quedó vieja tras un fallo de escritura. El watermark sobrevive pero
+  // la caché no, y las filas sin historial local llegan VACÍAS: un pedido
+  // entregado se ve como «Aún no hay una entrega registrada» y sin su PDF. Se
+  // detecta el hueco (fila del servidor sin historial recién traído y sin copia
+  // local) y se fuerza una descarga completa, que sí trae todo el historial.
+  if (leerWatermark()) {
+    const idsLocales = new Set(locales.map((s) => s.id))
+    const hueco = resultado.solicitudes.some(
+      (r) => !resultado.conHistorial.has(r.id) && !idsLocales.has(r.id)
+    )
+    if (hueco) {
+      try {
+        const completo = await descargarSolicitudes('')
+        if (completo && Array.isArray(completo.solicitudes)) resultado = completo
+      } catch (error) {
+        console.warn('[API] no se pudo re-sincronizar completo:', error)
+      }
+    }
+  }
 
   const { solicitudes: remotas, conHistorial, watermark } = resultado
   const porIdLocal = new Map(locales.map((s) => [s.id, s]))

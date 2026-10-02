@@ -1,8 +1,8 @@
 {
-  "version": "2026.10.02-2",
+  "version": "2026.10.02-3",
   "fecha": "2026-10-02",
   "cambios": [
-    "La evidencia de entrega en PDF ahora se ve directamente en los detalles de la solicitud, con botones para verla en grande o abrirla en otra pestaña. Antes podía aparecer como una foto rota o solo como un enlace.",
-    "Cuando la sesión se cierra por inactividad, la app reproduce un aviso con sonido (como las demás notificaciones), incluso si tienes la pestaña en segundo plano."
+    "Los botones para ver el documento de entrega o la factura ya no aparecen y desaparecen: ahora se muestran siempre que el pedido tenga el documento.",
+    "Corregido: en algunos pedidos ya entregados el detalle decía «Aún no hay una entrega registrada» y no mostraba el PDF de la entrega. Ahora la información y la evidencia se ven correctamente."
   ]
 }
