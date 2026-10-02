@@ -3,7 +3,7 @@ import { shortName } from '../auth/user.js'
 import { backendActivo, iniciarSesion, datosUsuario, apiGet, apiPost } from '../services/apiClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud } from '../utils/pdfUtils.js'
-import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada, asignacionRecibida, entregaRealizada, almacenamientoLleno } from '../services/notificaciones.jsx'
+import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada, asignacionRecibida, entregaRealizada, almacenamientoLleno, solicitudNoGuardada } from '../services/notificaciones.jsx'
 import { esConductorDe, esAsignadoA } from '../auth/roles.js'
 
 const STORAGE_KEY = 'ctp_solicitudes'
@@ -259,7 +259,32 @@ function pendiente(id) {
   return escribir(loadSolicitudes().map((s) => (s.id === id ? { ...s, pendienteSync: true } : s)))
 }
 
-function empujar(solicitud) {
+// El servidor confirmó que la fila existe. Desde este momento, y solo desde este
+// momento, la sincronización puede descartar la copia local si la fila desaparece
+// del servidor (borrada en remoto). Una solicitud que el servidor todavía no ha
+// confirmado nunca se borra sola.
+function confirmarEnServidor(id) {
+  return escribir(
+    loadSolicitudes().map((s) =>
+      s.id === id ? { ...s, pendienteSync: false, rechazada: false, enServidor: true } : s
+    )
+  )
+}
+
+// El servidor la rechazó con 403: no está en la base y reintentar no lo va a
+// resolver. Antes se devolvía sin marcar nada, así que la solicitud quedaba
+// local como «sincronizada» y el siguiente poll la eliminaba de la lista sin
+// avisar a nadie. Se conserva en el dispositivo, marcada para que la cola no la
+// reintente en bucle, y se le avisa al usuario.
+function marcarRechazada(id) {
+  return escribir(
+    loadSolicitudes().map((s) =>
+      s.id === id ? { ...s, pendienteSync: true, rechazada: true } : s
+    )
+  )
+}
+
+function empujar(solicitud, opciones = {}) {
   if (!backendActivo || !solicitud?.id) return
   if (!navigator.onLine) {
     console.info(`[API] sin conexión: ${solicitud.id} queda en la cola, se sube al volver la red`)
@@ -267,18 +292,18 @@ function empujar(solicitud) {
     return
   }
   const actual = loadSolicitudes().find((s) => s.id === solicitud.id) || solicitud
-  void empujarSolicitud(actual)
+  void empujarSolicitud(actual, opciones)
     .then(() => {
-      escribir(loadSolicitudes().map((s) => (s.id === actual.id ? { ...s, pendienteSync: false } : s)))
+      confirmarEnServidor(actual.id)
     })
     .catch((error) => {
       if (esBloqueoPermanente(error)) {
-        // Permiso denegado (RLS): reintentar no lo resolverá y dejaría una
-        // copia huérfana en la cola. Se avisa y NO se encola.
         console.warn(
-          `[API] no se pudo subir ${actual.id} (permiso denegado):`,
+          `[API] no se pudo subir ${actual.id} (${error?.estado}):`,
           error?.message
         )
+        marcarRechazada(actual.id)
+        solicitudNoGuardada(actual.id, error?.message)
         return
       }
       console.warn('[API] no se pudo subir:', error)
@@ -456,6 +481,25 @@ export async function reservarProximoCodigo() {
   }
 }
 
+// Devuelve al contador un código reservado que acabó sin usarse (la creación
+// falló al subir los adjuntos o antes de guardar). El servidor solo lo descuenta
+// si ese número sigue siendo el último reservado y no existe ninguna fila con
+// él, así que nunca recicla un código ya publicado.
+export async function liberarProximoCodigo(codigo) {
+  if (!backendActivo || !navigator.onLine || !codigoValido(codigo)) return false
+  try {
+    await iniciarSesion()
+    const data = await apiPost('/api/codigos/liberar', { codigo })
+    if (!data?.liberado) return false
+    proximoVisible = null
+    console.info(`[API] código liberado: ${codigo}`)
+    return true
+  } catch (error) {
+    console.warn('[API] no se pudo liberar el código reservado:', error?.message)
+    return false
+  }
+}
+
 function nextId() {
   const counter = siguienteNumero()
   try {
@@ -606,7 +650,9 @@ export async function saveSolicitud(data, idFijo = null) {
   }
   const next = escribir([entry, ...list])
   marcarEchoLocal([entry])
-  empujar(entry)
+  // Alta, no edición: el servidor lo usa para rechazar con 409 en vez de
+  // convertirla en edición si el código ya estuviera ocupado.
+  empujar(entry, { crear: true })
   notificar()
   return next
 }
@@ -816,36 +862,44 @@ export function marcarPendienteSync(id) {
   return pendiente(id)
 }
 
-// Un rechazo por permisos (403 del backend) no se resuelve reintentando: o la
-// fila ya no existe en remoto, o el estado no está permitido para este rol.
+// Un rechazo que reintentar no resuelve: 403 (permiso denegado) o 409 (el código
+// ya estaba ocupado, o no era una reserva válida de esta cuenta). El 409 antes
+// no existía en el servidor y salía como 500 genérico, con lo que el frontend lo
+// tratava como error de red y reintentaba cada 8 s para siempre.
 function esBloqueoPermanente(error) {
-  return error?.estado === 403
+  return error?.estado === 403 || error?.estado === 409
 }
 
 export async function sincronizarPendientes() {
   if (!backendActivo) return 0
-  const pendientes = loadSolicitudes().filter((s) => s.pendienteSync)
+  // Las rechazadas (403) ya no se reintentan: se guardaron en el dispositivo
+  // para que el solicitante no vea desaparecer lo que acaba de crear, pero no
+  // pueden volver a la cola cada 8 segundos.
+  const pendientes = loadSolicitudes().filter((s) => s.pendienteSync && !s.rechazada)
   if (pendientes.length === 0) return 0
   let subidas = 0
   let cambio = false
   const liberar = (id) => {
-    escribir(loadSolicitudes().map((x) => (x.id === id ? { ...x, pendienteSync: false } : x)))
+    confirmarEnServidor(id)
     cambio = true
   }
   for (const s of pendientes) {
     try {
-      await empujarSolicitud(s)
+      // Si el servidor nunca confirmó la fila, es un alta y tiene que decirlo:
+      // es lo que hace que el backend rechace con 409 un código ya ocupado en
+      // vez de pisar la solicitud que hubiera.
+      await empujarSolicitud(s, { crear: !s.enServidor })
       subidas += 1
       liberar(s.id)
     } catch (error) {
       if (esBloqueoPermanente(error)) {
-        // Corta el bucle infinito: suelta el pendiente para que la próxima
-        // sincronización descarte la copia local huérfana (la BD manda).
         console.warn(
-          `[API] pendiente ${s.id} descartado (permiso denegado, no se reintentará):`,
+          `[API] pendiente ${s.id} descartado (${error?.estado}, no se reintentará):`,
           error?.message
         )
-        liberar(s.id)
+        marcarRechazada(s.id)
+        solicitudNoGuardada(s.id, error?.message)
+        cambio = true
         continue
       }
       console.warn('[API] pendientes en pausa:', error)
@@ -910,17 +964,28 @@ export async function sincronizarInicial() {
   const fusion = []
   for (const remota of remotas) {
     const local = porIdLocal.get(remota.id)
+    // El servidor trajo la fila: existe para los dos lados.
     if (local?.pendienteSync) {
-      fusion.push(local)
+      // Cambios locales sin subir: gana la versión local, pero ya se sabe que el
+      // servidor la tiene, así que a partir de aquí puede borrarse si desaparece
+      // de la respuesta.
+      fusion.push({ ...local, enServidor: true, rechazada: false })
     } else if (local && !conHistorial.has(remota.id)) {
-      fusion.push({ ...remota, historial: local.historial })
+      fusion.push({ ...remota, historial: local.historial, enServidor: true })
     } else {
-      fusion.push(remota)
+      fusion.push({ ...remota, enServidor: true })
     }
   }
-  // Los locales pendientes que ya no existen en remoto se conservan (aún sin subir).
+  // Lo que el servidor NO trajo, en vez de borrarse, se conserva salvo que se
+  // confirme que estaba en la base y allí desapareció (borrado en remoto). Antes
+  // la lista se armaba solo con lo remoto, de modo que cualquier solicitud
+  // recién creada cuyo POST iba en camino, o que el servidor había rechazado con
+  // 403, se borraba de este dispositivo en el siguiente tick de 8 s sin dejar
+  // rastro: el contador ya había avanzado y no aparecía por ninguna parte.
   for (const local of locales) {
-    if (local.pendienteSync && !idsRemotos.has(local.id)) fusion.push(local)
+    if (idsRemotos.has(local.id)) continue
+    if (local.enServidor && !local.pendienteSync) continue
+    fusion.push(local)
   }
 
   escribir(fusion)

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { MdClose, MdCloudUpload, MdSearch, MdSend, MdTag, MdPerson, MdEmail, MdAssignmentAdd, MdBusiness, MdWarehouse, MdPlace, MdNotes, MdInsertDriveFile, MdPictureAsPdf, MdTableChart, MdImage, MdCancel, MdVisibility, MdAssignmentReturn, MdOpenInNew, MdCheck, MdAddCircleOutline, MdPersonAdd } from 'react-icons/md'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
-import { peekNextId, refrescarProximoCodigo, reservarProximoCodigo, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteDevolucion } from '../../../../store/solicitudesStore.js'
+import { peekNextId, refrescarProximoCodigo, reservarProximoCodigo, liberarProximoCodigo, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteDevolucion } from '../../../../store/solicitudesStore.js'
 import CuentaRegresivaDevolucion from '../../../../components/CuentaRegresivaDevolucion.jsx'
 import { nombrePdfFromUrl } from '../../../../utils/pdfUtils.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
@@ -464,8 +464,17 @@ useEffect(() => {
     // Se reserva el código ahora (avanza la secuencia una sola vez): es el ID
     // autoritativo que usan los archivos y el guardado final. Sin backend/conexión
     // se usa el número visible (derivación local).
+    //
+    // Reservar y guardar son pasos separados, así que hay un hueco en el que el
+    // número ya está consumido y todavía no existe la fila. Si algo falla ahí, el
+    // código se devuelve al contador: si no, el contador avanza y el número
+    // desaparece sin solicitud detrás, que es lo que hacía parecer que se salían
+    // solicitudes.
+    let reservado = null
+    let guardado = false
     try {
-      const idSolicitud = (await reservarProximoCodigo()) || siguiente
+      reservado = await reservarProximoCodigo()
+      const idSolicitud = reservado || siguiente
       // En creación también puede haber rutas ya subidas (plantilla de vencida).
       // Separamos las existentes de los archivos nuevos.
       const existentes = formData.adjuntos.filter((a) => esUrlAdjunto(a))
@@ -483,6 +492,7 @@ useEffect(() => {
           documentosSubidos({ id: idSolicitud, nombres: nuevos.map((f) => f.name) })
         } catch (err) {
           console.error('[SolicitudModal] error subiendo adjuntos:', err)
+          await liberarProximoCodigo(reservado)
           setLoading(false)
           setErrores([`Error subiendo archivos: ${err.message}`])
           notificarErrorSubida(err.message, idSolicitud)
@@ -493,9 +503,15 @@ useEffect(() => {
       if (onSubmit) {
         await onSubmit({ ...formData, adjuntos: adjuntosRutas }, idSolicitud)
       }
+      guardado = true
       resetForm()
       onClose()
     } catch (err) {
+      // Solo se devuelve el código si el guardado no llegó a completarse: con la
+      // fila ya escrita, liberarlo la dejaría sin registro en un código que
+      // además se recicla. El servidor exige además que no exista fila con ese
+      // código, pero mejor no depender de esa carrera.
+      if (!guardado) await liberarProximoCodigo(reservado)
       console.error('[SolicitudModal] error creando la solicitud:', err)
       setLoading(false)
       setErrores([`No se pudo guardar la solicitud: ${err?.message || 'error inesperado'}`])

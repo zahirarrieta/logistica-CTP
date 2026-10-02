@@ -248,14 +248,18 @@ export function AuthProvider({ children }) {
     })
   }, [])
 
-  const logout = useCallback(() => {
-    cerrarSesionLocal()
-    setAccount(null)
-    setUsuario(null)
-    setRolListo(true)
-    setErrorLogin('')
-    setSesionCaducada('')
-  }, [])
+// `motivo` es opcional y explica en el login por qué se cortó la sesión (cierre
+// por inactividad, token caducado). Se filtra a string a propósito: el botón del
+// Header hace onClick={logout}, así que sin este chequeo el evento de React
+// acabaría impreso en la pantalla de login.
+const logout = useCallback((motivo = '') => {
+  cerrarSesionLocal()
+  setAccount(null)
+  setUsuario(null)
+  setRolListo(true)
+  setErrorLogin('')
+  setSesionCaducada(typeof motivo === 'string' ? motivo : '')
+}, [])
 
   const rol = usuario?.rol || 'solicitante'
 

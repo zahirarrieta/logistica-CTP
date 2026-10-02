@@ -93,7 +93,7 @@ export default function Header() {
               <button
                 type="button"
                 role="menuitem"
-                onClick={logout}
+                onClick={() => logout()}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-red-300 hover:bg-red-950/30 hover:text-red-200 transition-colors"
               >
                 <MdLogout className="size-5" />

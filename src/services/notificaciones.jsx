@@ -458,6 +458,22 @@ export function errorSubida(mensaje, id) {
   })
 }
 
+// El servidor rechazó guardar una solicitud (403). La solicitud NO se borra del
+// dispositivo, pero tampoco queda en la base: hay que decirlo, o el solicitante
+// cree que quedó registrada y luego no aparece en ningún lado.
+export function solicitudNoGuardada(id, mensaje) {
+  sileo.error({
+    ...BASE,
+    duration: 9000,
+    title: titulo(id, 'No se pudo registrar'),
+    icon: <MdErrorOutline />,
+    description: linea(
+      (mensaje ? `${mensaje}. ` : '')
+      + 'La solicitud sigue en este dispositivo, pero el servidor no la aceptó: no está en la base.'
+    ),
+  })
+}
+
 export function almacenamientoLleno() {
   sileo.error({
     ...BASE,

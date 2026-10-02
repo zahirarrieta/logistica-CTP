@@ -94,7 +94,65 @@ function formatearCodigo(n) {
   return `CTPLOG-${String(n).padStart(5, '0')}`
 }
 
+// Todo código que llega del cliente se valida contra este patrón antes de tocar
+// nada: es lo que impide que una fila arbitraria se cuele como clave primaria.
+const RE_CODIGO = /^CTPLOG-\d{5}$/
+
+function esCodigoValido(c) {
+  return typeof c === 'string' && RE_CODIGO.test(c)
+}
+
+function numeroDeCodigo(c) {
+  return Number(String(c).slice(-5))
+}
+
 const LOTE_CODIGOS = 200
+
+// Minutos que una reserva puede seguir viva sin que alguien la reclame. Es el
+// margen para subir adjuntos con archivos grandes y terminar el formulario; a
+// partir de aquí se considera abandonada.
+const VIGENCIA_RESERVA_MIN = 30
+
+// Recupera los códigos que quedaron a medias: el proceso se reinició, el
+// navegador se cerró a mitad de la subida, o la creación falló. La reserva sigue
+// en la tabla pero no hay fila que la use, así que se borra.
+//
+// El contador NO se toca salvo que el número liberado sea exactamente el último
+// emitido. Retroceder más allá dejaría la secuencia por detrás de una reserva
+// viva y volvería a handing out un número que alguien ya tiene. Los huecos que
+// queden por medio son inofensivos: en una secuencia, saltarse un número no
+// rompe nada (es lo que hacen las secuencias de Postgres y los folios de
+// factura); lo que no puede pasar es que falte un registro.
+async function liberarReservasVencidas(conexion) {
+  // La vigencia se escribe en el SQL con el valor de la constante de arriba, no
+  // con un parámetro: MySQL no admite un marcador en la unidad de INTERVAL de
+  // forma fiable, y aquí el valor no viene del cliente.
+  const [vencidas] = await conexion.execute(
+    `DELETE r FROM codigos_reservados r
+       LEFT JOIN solicitudes s ON s.codigo = r.codigo
+      WHERE r.creado_en < DATE_SUB(NOW(3), INTERVAL ${VIGENCIA_RESERVA_MIN} MINUTE)
+        AND s.codigo IS NULL`
+  )
+  if (!vencidas.length) return 0
+
+  const mayor = vencidas.reduce((acc, r) => Math.max(acc, numeroDeCodigo(r.codigo)), 0)
+  const [cont] = await conexion.execute(
+    'SELECT valor FROM contadores WHERE nombre = ? FOR UPDATE',
+    ['solicitudes_codigo']
+  )
+  const actual = cont[0] ? Number(cont[0].valor) : 1
+  if (mayor + 1 === actual) {
+    await conexion.execute(
+      'UPDATE contadores SET valor = ? WHERE nombre = ?',
+      [mayor, 'solicitudes_codigo']
+    )
+  }
+  console.warn(
+    `[Codigos] ${vencidas.length} reserva(s) vencida(s) liberada(s); `
+    + `liberada mayor=${formatearCodigo(mayor)}, contador=${actual}`
+  )
+  return vencidas.length
+}
 
 router.get(
   '/codigos/siguiente',
@@ -111,9 +169,75 @@ router.get(
 // Reserva el siguiente código. La transacción con SELECT ... FOR UPDATE sobre la
 // fila del contador es lo que garantiza que dos usuarios no obtengan el mismo
 // número a la vez (equivalente a la atomicidad de nextval() en Postgres).
+//
+// Además deja constancia de a QUIÉN se le entregó, en la misma transacción. Sin
+// ese registro el servidor no podría distinguir el código de este usuario del de
+// otro, y un POST con un código ajeno se aceptaría como edición (el rol de
+// administrador pisa la fila sin avisar).
 router.post(
   '/codigos/reservar',
   ruta(async (req, res) => {
+    const conexion = await pool.getConnection()
+    try {
+      await conexion.beginTransaction()
+
+      // Si la fila del contador no existiera, SELECT ... FOR UPDATE no la
+      // bloquearía, el UPDATE no tocaría nada y TODOS recibirían CTPLOG-00001.
+      // El INSERT ... ON DUPLICATE asegura que existe antes de leerla.
+      await conexion.execute(
+        `INSERT INTO contadores (nombre, valor) VALUES (?, 1)
+           ON DUPLICATE KEY UPDATE nombre = VALUES(nombre)`,
+        ['solicitudes_codigo']
+      )
+
+      // Primero se recupera lo que quedó a medias de intentos anteriores, para
+      // que el número que se entrega ahora sea el primero libre de verdad.
+      await liberarReservasVencidas(conexion)
+
+      const [filas] = await conexion.execute(
+        'SELECT valor FROM contadores WHERE nombre = ? FOR UPDATE',
+        ['solicitudes_codigo']
+      )
+      const actual = filas[0] ? Number(filas[0].valor) : 1
+      const codigo = formatearCodigo(actual)
+      await conexion.execute(
+        'UPDATE contadores SET valor = ? WHERE nombre = ?',
+        [actual + 1, 'solicitudes_codigo']
+      )
+      await conexion.execute(
+        'INSERT INTO codigos_reservados (codigo, correo) VALUES (?, ?)',
+        [codigo, String(req.correo || '').trim().toLowerCase()]
+      )
+      await conexion.commit()
+      res.json({ codigo })
+    } catch (error) {
+      await conexion.rollback()
+      throw error
+    } finally {
+      conexion.release()
+    }
+  })
+)
+
+// Devuelve al contador un código que se reservó pero que nunca llegó a usarse
+// (la creación falló al subir los adjuntos o antes de guardar). Sin esto el
+// contador avanzaba y el número quedaba consumido sin ninguna fila detrás, que
+// es lo que hacía ver que se salían solicitudes.
+//
+// Solo retrocede si se cumple TODO lo siguiente, para que un código ya publicado
+// nunca se recicle ni se duplique:
+//   · el número es el último reservado (el contador quedó justo por encima),
+//   · no existe ninguna fila en solicitudes con ese código.
+// En cualquier otro caso responde liberado: false y el frontend lo ignora.
+router.post(
+  '/codigos/liberar',
+  ruta(async (req, res) => {
+    const codigo = String(req.body?.codigo || '').trim()
+    if (!esCodigoValido(codigo)) {
+      return res.status(400).json({ error: 'Código inválido' })
+    }
+    const numero = numeroDeCodigo(codigo)
+
     const conexion = await pool.getConnection()
     try {
       await conexion.beginTransaction()
@@ -122,12 +246,25 @@ router.post(
         ['solicitudes_codigo']
       )
       const actual = filas[0] ? Number(filas[0].valor) : 1
+      if (numero + 1 !== actual) {
+        await conexion.rollback()
+        return res.json({ liberado: false })
+      }
+      const [[enUso]] = await conexion.execute(
+        'SELECT 1 AS existe FROM solicitudes WHERE codigo = ? LIMIT 1',
+        [codigo]
+      )
+      if (enUso) {
+        await conexion.rollback()
+        return res.json({ liberado: false })
+      }
       await conexion.execute(
         'UPDATE contadores SET valor = ? WHERE nombre = ?',
-        [actual + 1, 'solicitudes_codigo']
+        [numero, 'solicitudes_codigo']
       )
+      await conexion.execute('DELETE FROM codigos_reservados WHERE codigo = ?', [codigo])
       await conexion.commit()
-      res.json({ codigo: formatearCodigo(actual) })
+      res.json({ liberado: true, codigo })
     } catch (error) {
       await conexion.rollback()
       throw error
@@ -538,13 +675,25 @@ async function escribirHistorial(conexion, entradas, ctx) {
 // Reemplaza el upsert + el RPC guardar_solicitud. Autoriza con la misma regla
 // que la función SECURITY DEFINER y escribe solicitud e historial en una sola
 // transacción, que es lo que hacía RLS con el bypass.
+//
+// El cuerpo dice si es un ALTA (`crear: true`) o una EDICIÓN. Sin esa
+// distinción el servidor no puede saber qué hacer cuando el código ya existe, y
+// la única opción segura sería rechazar, con lo que las ediciones de las
+// solicitudes ya guardadas dejarían de funcionar. Con ella, un alta nunca cae
+// en el camino de edición: si el código ya está ocupado, se rechaza con 409 en
+// vez de pisar la fila que hubiera.
 router.post(
   '/solicitudes',
   ruta(async (req, res) => {
     const ctx = await conContexto(req)
     const { fila: entrada, historial = [] } = req.body || {}
+    const esAlta = req.body?.crear === true
     if (!entrada || !entrada.codigo) {
       return res.status(400).json({ error: 'Falta el código de la solicitud' })
+    }
+    // El código es clave primaria: se valida antes de tocar la base, no después.
+    if (!esCodigoValido(String(entrada.codigo).trim())) {
+      return res.status(400).json({ error: `Código inválido: ${entrada.codigo}` })
     }
 
     const fila = prepararFila(entrada)
@@ -563,6 +712,17 @@ router.post(
       const actual = existentes[0]
 
       if (actual) {
+        // Un alta que llega a un código ocupado NO se convierte en edición: se
+        // rechaza. Sin esto, dos administradores guardando a la vez el mismo
+        // código (o un cliente que reenvía un alta) pisarían la solicitud
+        // existente de abajo abajo, porque permiteActualizarSolicitud devuelve
+        // true para administrador y superadmin.
+        if (esAlta) {
+          await conexion.rollback()
+          return res.status(409).json({
+            error: `El código ${fila.codigo} ya existe. Recarga y revisa si la solicitud ya se había creado.`,
+          })
+        }
         if (!P.permiteActualizarSolicitud(ctx, actual, fila)) {
           await conexion.rollback()
           return res.status(403).json({ error: 'No autorizado' })
@@ -578,11 +738,58 @@ router.post(
           await conexion.rollback()
           return res.status(403).json({ error: 'No autorizado' })
         }
-        await conexion.execute(
-          `INSERT INTO solicitudes (codigo, ${COLUMNAS_SOLICITUD.join(', ')})
-           VALUES (?, ${COLUMNAS_SOLICITUD.map(() => '?').join(', ')})`,
-          [fila.codigo, ...COLUMNAS_SOLICITUD.map((c) => fila[c])]
+        // El alta exige que el código sea uno que la secuencia ya entregara a
+        // ESTA cuenta. Sin esta comprobación el servidor aceptaría cualquier
+        // código inventado por el cliente, y dos dispositivos podrían acabar
+        // peleándose el mismo CTPLOG-xxxxx.
+        const [reservas] = await conexion.execute(
+          'SELECT correo FROM codigos_reservados WHERE codigo = ? LIMIT 1',
+          [fila.codigo]
         )
+        if (reservas[0]) {
+          if (String(reservas[0].correo || '') !== ctx.correo) {
+            await conexion.rollback()
+            return res.status(409).json({
+              error: `El código ${fila.codigo} está reservado a otra cuenta. Vuelve a pedir un número.`,
+            })
+          }
+        } else {
+          // Sin reserva viva: solo se admite si la secuencia ya pasó por ese
+          // número (es el camino sin conexión, que deriva el código en local) o
+          // si la reserva caducó mientras subía los archivos.
+          const [cont] = await conexion.execute(
+            'SELECT valor FROM contadores WHERE nombre = ?',
+            ['solicitudes_codigo']
+          )
+          const actual_contador = cont[0] ? Number(cont[0].valor) : 1
+          if (numeroDeCodigo(fila.codigo) >= actual_contador) {
+            await conexion.rollback()
+            return res.status(409).json({
+              error: `El código ${fila.codigo} no está reservado. Vuelve a pedir un número.`,
+            })
+          }
+        }
+        try {
+          await conexion.execute(
+            `INSERT INTO solicitudes (codigo, ${COLUMNAS_SOLICITUD.join(', ')})
+             VALUES (?, ${COLUMNAS_SOLICITUD.map(() => '?').join(', ')})`,
+            [fila.codigo, ...COLUMNAS_SOLICITUD.map((c) => fila[c])]
+          )
+        } catch (error) {
+          // PRIMARY KEY (codigo): si otra transacción escribió este código entre
+          // el SELECT ... FOR UPDATE y el INSERT, MySQL lo rejects aquí. Sin
+          // esta captura salía un 500 genérico y el frontend lo reintentaba en
+          // bucle por siempre.
+          if (error?.code === 'ER_DUP_ENTRY') {
+            await conexion.rollback()
+            return res.status(409).json({
+              error: `El código ${fila.codigo} se usó mientras se guardaba. Vuelve a pedir un número.`,
+            })
+          }
+          throw error
+        }
+        // La reserva se consume: el código ya tiene fila y no hay nada que liberar.
+        await conexion.execute('DELETE FROM codigos_reservados WHERE codigo = ?', [fila.codigo])
       }
 
       const okHistorial = await escribirHistorial(conexion, historial, ctx)

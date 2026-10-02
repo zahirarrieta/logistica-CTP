@@ -241,7 +241,11 @@ export async function descargarSolicitudes(desde = '') {
   }
 }
 
-export async function empujarSolicitud(s) {
+// `crear` distingue un alta de una edición. El servidor lo necesita: si un alta
+// llega a un código que ya existe tiene que rechazarla con 409, no convertirla
+// en edición (eso pisaba la solicitud de otro usuario sin avisar). Sin el flag
+// el backend no tiene forma de saberlo.
+export async function empujarSolicitud(s, { crear = false } = {}) {
   if (!backendActivo || !s?.id) return false
   await preparar()
 
@@ -276,6 +280,7 @@ export async function empujarSolicitud(s) {
   await apiPost('/api/solicitudes', {
     fila,
     historial: filasHistorial.filter((f) => f.id),
+    crear,
   })
 
   console.info(

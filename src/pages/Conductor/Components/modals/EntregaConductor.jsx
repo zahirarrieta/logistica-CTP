@@ -198,7 +198,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
       }
       try {
         const subida = await subirEvidenciaEntrega(
-          dataUrlABlob(evidencia).blob,
+          dataUrlABlob(evidencia),
           solicitud.numeroReferencia || solicitud.id,
           solicitud.id
         )

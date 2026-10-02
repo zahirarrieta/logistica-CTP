@@ -134,6 +134,26 @@ INSERT INTO contadores (nombre, valor) VALUES ('solicitudes_codigo', 1)
   ON DUPLICATE KEY UPDATE nombre = nombre;
 
 -- ----------------------------------------------------------------------------
+-- 3c. CÓDIGOS RESERVADOS
+--     Una reserva se crea al pedir un código (POST /api/codigos/reservar) y se
+--     consume al crear la solicitud. Sirve para dos cosas:
+--       · que un cliente no pueda reclamar el código que el servidor le entregó
+--         a otro (el POST valida que la reserva sea suya),
+--       · recuperar los códigos que quedaron a medias: si el proceso se reinicia
+--         entre reservar y guardar, la reserva envejece y al siguiente pedido se
+--         libera. Sin esta tabla, un número consumido a la mitad se perdía para
+--         siempre y el contador nunca volvía atrás.
+--     La libera `liberarReservasVencidas` (routes.js) al reservar el siguiente.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS codigos_reservados (
+  codigo    VARCHAR(32)  NOT NULL,
+  correo    VARCHAR(190) NOT NULL DEFAULT '',
+  creado_en DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (codigo),
+  KEY codigos_reservados_vencimiento_idx (creado_en)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- 4. HISTORIAL (auditoría + datos de la entrega; de aquí sale «Detalles»)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS historial (
