@@ -11,6 +11,7 @@ import {
   MdErrorOutline,
   MdInbox,
   MdLocalShipping,
+  MdLockClock,
   MdPersonAdd,
   MdRestartAlt,
   MdSend,
@@ -133,6 +134,7 @@ const SONIDOS = {
   default: defaultNotif,
   conductor,
   asignada,
+  'Sesión cerrada': devolucion,
   'En Tránsito': transito,
   'En Tránsito Parcial': transitoParcial,
   'En Trámite': tramite,
@@ -483,6 +485,20 @@ export function almacenamientoLleno() {
     description: linea(
       'No se pudieron guardar los cambios en este dispositivo. Libera espacio o sincroniza con la base y recarga la página.'
     ),
+  })
+}
+
+// La sesión se cortó sola (cierre por inactividad). Además del mensaje que queda
+// en la pantalla de login, suena y avisa como el resto de notificaciones para que
+// el usuario se entere en el momento, incluso con la pestaña en segundo plano.
+export function sesionCerrada(motivo) {
+  sileo.warning({
+    ...BASE,
+    duration: 8000,
+    sonido: 'Sesión cerrada',
+    title: 'Sesión cerrada',
+    icon: <MdLockClock />,
+    description: linea(motivo || 'Tu sesión se cerró. Vuelve a iniciar sesión para continuar.'),
   })
 }
 

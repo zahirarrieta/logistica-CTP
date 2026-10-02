@@ -1,11 +1,8 @@
 {
-  "version": "2026.10.02-1",
+  "version": "2026.10.02-2",
   "fecha": "2026-10-02",
   "cambios": [
-    "Corregida la subida de la evidencia de entrega del conductor: ahora las fotos y el PDF se guardan en el servidor en vez de quedar en el equipo.",
-    "Nuevo aviso de cierre de sesión por inactividad para proteger las sesiones abiertas.",
-    "Super administrador: se quitó el botón 'Eliminar información' y el próximo código ahora es solo de lectura.",
-    "El visor de PDF firma las rutas bajo demanda, así los documentos se abren sin quedarse cargando.",
-    "Aviso de nueva versión: cuando publicamos una actualización, la app te avisa con la fecha y los cambios para actualizar sin recargar a mano."
+    "La evidencia de entrega en PDF ahora se ve directamente en los detalles de la solicitud, con botones para verla en grande o abrirla en otra pestaña. Antes podía aparecer como una foto rota o solo como un enlace.",
+    "Cuando la sesión se cierra por inactividad, la app reproduce un aviso con sonido (como las demás notificaciones), incluso si tienes la pestaña en segundo plano."
   ]
 }

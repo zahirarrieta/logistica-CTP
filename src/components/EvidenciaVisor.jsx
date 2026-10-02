@@ -132,7 +132,51 @@ export default function EvidenciaVisor({ urls }) {
       {/* Carrusel: se muestra UNA foto a la vez con flechas y contador */}
       <div className="relative mx-auto w-fit max-w-full">
         {actual.esPdf ? (
-          enlacePdfCard(actual, lista[indice])
+          actual.cargando ? (
+            tarjetaCarga()
+          ) : actual.src ? (
+            // Vista previa del PDF en línea: como no hay foto que mostrar, se
+            // renderiza el documento aquí mismo en vez de dejar solo un enlace.
+            <div className="w-[min(26rem,88vw)] overflow-hidden rounded-xl border border-brand-ink/10 bg-white shadow-sm">
+              <div className="flex items-center justify-between gap-2 bg-brand-mist/70 px-3 py-2">
+                <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-extrabold text-red-600">
+                  <MdPictureAsPdf className="shrink-0 text-base" />
+                  <span className="truncate">Documento PDF de la entrega</span>
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setAmpliado(true)}
+                    title="Ver en grande"
+                    aria-label="Ver en grande"
+                    className="grid size-7 place-items-center rounded-full bg-white text-brand-deep ring-1 ring-brand-ink/10 transition hover:bg-brand-cyan/20"
+                  >
+                    <MdZoomIn className="text-sm" />
+                  </button>
+                  {actual.abrir && (
+                    <a
+                      href={actual.abrir}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Abrir en otra pestaña"
+                      aria-label="Abrir en otra pestaña"
+                      className="grid size-7 place-items-center rounded-full bg-white text-brand-deep ring-1 ring-brand-ink/10 transition hover:bg-brand-cyan/20"
+                    >
+                      <MdOpenInNew className="text-sm" />
+                    </a>
+                  )}
+                </span>
+              </div>
+              <iframe
+                src={actual.src}
+                title={`Evidencia PDF de la entrega ${indice + 1}`}
+                className="block h-[24rem] w-full bg-white"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            </div>
+          ) : (
+            enlacePdfCard(actual, lista[indice])
+          )
         ) : actual.cargando ? (
           tarjetaCarga()
         ) : actual.error || !actual.src ? (

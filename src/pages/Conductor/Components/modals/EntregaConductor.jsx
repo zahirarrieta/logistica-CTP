@@ -171,10 +171,18 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     }
     const reader = new FileReader()
     reader.onload = () => {
-      const dataUrl = String(reader.result || '')
+      let dataUrl = String(reader.result || '')
       if (dataUrl.length > 12 * 1024 * 1024) {
         alert('El PDF es demasiado grande (máximo 12 MB).')
         return
+      }
+      // Algunos dispositivos (Android) no reportan el tipo y FileReader genera un
+      // data URL genérico (octet-stream). Se fuerza application/pdf para que la
+      // evidencia se guarde como .pdf y el visor la reconozca como PDF en vez de
+      // intentar mostrarla como una foto rota.
+      if (!/^data:application\/pdf/i.test(dataUrl)) {
+        const coma = dataUrl.indexOf(',')
+        if (coma !== -1) dataUrl = `data:application/pdf;base64,${dataUrl.slice(coma + 1)}`
       }
       setEvidencias((prev) => (prev.length >= MAX_IMAGENES ? prev : [...prev, dataUrl]))
     }

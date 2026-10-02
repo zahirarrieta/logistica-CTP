@@ -8,6 +8,7 @@ import {
 } from './sesion.js'
 import { API_URL, apiFetch } from '../services/apiClient.js'
 import { setRolActual, setUsuarioActual } from '../store/solicitudesStore.js'
+import { sesionCerrada } from '../services/notificaciones.jsx'
 
 const AuthContext = createContext(null)
 
@@ -258,7 +259,12 @@ const logout = useCallback((motivo = '') => {
   setUsuario(null)
   setRolListo(true)
   setErrorLogin('')
-  setSesionCaducada(typeof motivo === 'string' ? motivo : '')
+  const texto = typeof motivo === 'string' ? motivo : ''
+  setSesionCaducada(texto)
+  // Un cierre con motivo es involuntario (inactividad): además del texto en el
+  // login, suena y avisa como el resto de notificaciones. El logout manual del
+  // Header no trae motivo, así que no suena.
+  if (texto) sesionCerrada(texto)
 }, [])
 
   const rol = usuario?.rol || 'solicitante'
