@@ -56,7 +56,7 @@ const ICONOS_POR_ESTADO = {
   Entregado: MdVerified,
 }
 
-export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir, onEliminar }) {
+export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir, onEliminar, correoUsuario }) {
   if (!open || !solicitud) return null
 
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
@@ -69,7 +69,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const entrega = buscarEntrega(solicitud)
 
   // Calcular tiempo restante para eliminar (solo si es del solicitante actual)
-  const tiempoEliminar = restanteEliminar(solicitud, '')
+  const tiempoEliminar = restanteEliminar(solicitud, correoUsuario)
   const esDev = estado === 'Devolución a Solicitante'
   const devolucion = esDev ? buscarDevolucion(solicitud) : null
   const { campos: camposCorregir, texto: textoMotivo } = parsearMotivoDevolucion(devolucion?.nota)

@@ -186,6 +186,7 @@ export default function Solicitudes() {
         solicitudes={mias}
         onCorregir={handleCorregir}
         onEliminar={handleEliminar}
+        correoUsuario={correoActual}
       />
     </div>
   )
