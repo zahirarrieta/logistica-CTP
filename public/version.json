@@ -1,14 +1,10 @@
 {
-  "version": "2026.10.02-11",
+  "version": "2026.10.02-14",
   "fecha": "2026-10-02",
   "cambios": [
-    "Dashboard: tarjetas clickeables por estado (conteo en vivo) que filtran la tabla al pulsar y cambian a la pestaña Solicitudes.",
-    "Dashboard: filtros por mes y año para administrador y superadmin, aplicables a gráficos y tabla.",
-    "Inactividad: cierre de sesión por 5 min de inactividad SOLO para solicitantes; administrador, superadmin y conductor exentos.",
-    "Solicitante: botón «Eliminar» en sus solicitudes, visible solo durante 3 minutos tras la subida; pasado ese tiempo desaparece.",
-    "SolicitudesTable: nuevo prop `puedeEliminar` para controlar visibilidad del botón eliminar por fila.",
-    "Filtros de estado movidos al tab Solicitudes/Asignaciones: panel interactivo pequeño junto al contador, botones por estado con contador y botón limpiar.",
-    "VisorExcel: corregido error «intermediate value is not iterable» al abrir hojas vacías; botones Descargar y Abrir en otra pestaña ya funcionan.",
-    "VisorExcel: botones de descarga y abrir en nueva pestaña ya visibles cuando la hoja carga correctamente."
+    "Solicitante: botón eliminar con cuenta regresiva de 3 minutos en sus solicitudes; pasado el tiempo desaparece y solo superadmin puede borrar.",
+    "Eliminado filtro Estado del módulo Solicitante (solo queda búsqueda por cliente/zona).",
+    "Filtro Asignado vuelto a habilitar para Admin y SuperAdmin (dropdown lista con contadores).",
+    "VisorExcel: botones Descargar, Abrir en otra pestaña y Visualizar (toggle) funcionando; error 'intermediate value is not iterable' corregido."
   ]
 }

@@ -31,7 +31,7 @@ import {
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../utils/estadoColors.js'
 import { pdfsTramite } from '../utils/pdfUtils.js'
-import { nombreDeAsignado, restanteDevolucion } from '../store/solicitudesStore.js'
+import { nombreDeAsignado, restanteDevolucion, restanteEliminar } from '../store/solicitudesStore.js'
 import CuentaRegresivaDevolucion from './CuentaRegresivaDevolucion.jsx'
 import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'
@@ -164,7 +164,7 @@ function DocEntregaIcono({ count, onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, ahora, puedeEliminar }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, ahora, puedeEliminar, restanteEliminar }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const vencidaDev = devolucionVencida(s, ahora)
@@ -378,7 +378,12 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors px-2 py-2 text-xs font-bold"
                 >
                   <MdDeleteOutline className="text-lg" />
-                  Eliminar
+                  {restanteEliminar && (
+                    <>
+                      <MdTimer className="text-lg" />
+                      <span className="ml-1 font-mono">{restanteEliminar}</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -476,30 +481,34 @@ export default function SolicitudesTable({
     <>
       {/* Cards — visible solo en móvil */}
       <div className="md:hidden space-y-3">
-        {currentItems.map((s, i) => (
-          <SolicitudCard
-            key={s.id}
-            s={s}
-            index={i}
-            number={startIndex + i + 1}
-            expanded={expandedId === s.id}
-            onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
-            actions={cardActions}
-            onEstadoClick={onEstadoClick}
-            onAsignarClick={onAsignarClick}
-            onCambiarEstadoClick={onCambiarEstadoClick}
-            onSeguimientoClick={onSeguimientoClick}
-            onEntregaDetallesClick={onEntregaDetallesClick}
-            onEliminarClick={onEliminarClick}
-            onCorregirClick={onCorregirClick}
-            onClickObs={openObs}
-            onVerAdjuntosClick={setAdjuntosSolicitud}
-            colorRow={colorRowsPorEstado}
-            mostrarDocEntrega={mostrarDocEntrega}
-            ahora={ahora}
-            puedeEliminar={puedeEliminar}
-          />
-        ))}
+        {currentItems.map((s, i) => {
+            const restDel = restanteEliminar ? restanteEliminar(s) : null
+            return (
+              <SolicitudCard
+                key={s.id}
+                s={s}
+                index={i}
+                number={startIndex + i + 1}
+                expanded={expandedId === s.id}
+                onToggle={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                actions={cardActions}
+                onEstadoClick={onEstadoClick}
+                onAsignarClick={onAsignarClick}
+                onCambiarEstadoClick={onCambiarEstadoClick}
+                onSeguimientoClick={onSeguimientoClick}
+                onEntregaDetallesClick={onEntregaDetallesClick}
+                onEliminarClick={onEliminarClick}
+                onCorregirClick={onCorregirClick}
+                onClickObs={openObs}
+                onVerAdjuntosClick={setAdjuntosSolicitud}
+                colorRow={colorRowsPorEstado}
+                mostrarDocEntrega={mostrarDocEntrega}
+                ahora={ahora}
+                puedeEliminar={puedeEliminar}
+                restanteEliminar={restDel}
+              />
+            )
+          })}
       </div>
 
       {/* Tabla — visible en tablet y desktop, con scroll horizontal si se alarga */}

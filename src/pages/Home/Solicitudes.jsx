@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MdAdd, MdInbox, MdFilterList, MdDeleteOutline } from 'react-icons/md'
+import { MdAdd, MdInbox, MdFilterList } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
 import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
-import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import { loadSolicitudes, saveSolicitud, corregirSolicitud, suscribir, removeSolicitud, puedeEliminarSolicitud } from '../../store/solicitudesStore.js'
@@ -18,7 +17,6 @@ export default function Solicitudes() {
   const [editarSolicitud, setEditarSolicitud] = useState(null)
   const [detalleSolicitud, setDetalleSolicitud] = useState(null)
   const [plantilla, setPlantilla] = useState(null)
-  const [filterEstado, setFilterEstado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
 
@@ -50,15 +48,13 @@ export default function Solicitudes() {
     const cliente = filtroCliente.toLowerCase()
     const zona = filtroZona.toLowerCase()
     return mias.filter((s) => {
-      const e = s.estado || 'Abierto'
-      if (filterEstado && e !== filterEstado) return false
       if (cliente && !(s.cliente || '').toLowerCase().includes(cliente)) return false
       if (zona && !(s.zona || '').toLowerCase().includes(zona)) return false
       return true
     })
-  }, [mias, filterEstado, filtroCliente, filtroZona])
+  }, [mias, filtroCliente, filtroZona])
 
-  const hasFilters = Boolean(filterEstado || filtroCliente || filtroZona)
+  const hasFilters = Boolean(filtroCliente || filtroZona)
 
   const handleNewSolicitud = async (data, idSolicitud) => {
     const siguiente = await saveSolicitud(data, idSolicitud)
@@ -129,7 +125,6 @@ export default function Solicitudes() {
 
           {mias.length > 0 && (
             <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
-              <EstadoFilter solicitudes={mias} value={filterEstado} onChange={setFilterEstado} />
               <SearchFilters
                 cliente={filtroCliente}
                 zona={filtroZona}

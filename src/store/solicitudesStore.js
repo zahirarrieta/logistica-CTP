@@ -431,6 +431,17 @@ export function puedeEliminarSolicitud(solicitud, correo, ahora = Date.now()) {
   return ahora - ts < VENTANA_ELIMINAR_MS
 }
 
+// Milisegundos que faltan para que venza la ventana de eliminar (0 si ya venció).
+// Null si la solicitud no es del usuario o no tiene fecha válida.
+export function restanteEliminar(solicitud, correo, ahora = Date.now()) {
+  if (!correo || (solicitud?.correo || '').trim().toLowerCase() !== correo.trim().toLowerCase()) {
+    return null
+  }
+  const ts = parseStamp(solicitud?.fechaSubida, solicitud?.horaSubida)
+  if (!ts) return null
+  return Math.max(0, VENTANA_ELIMINAR_MS - (ahora - ts))
+}
+
 function currentPersona() {
   return shortName(getActiveAccount())
 }

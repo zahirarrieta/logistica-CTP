@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { MdApartment, MdInbox, MdFilterList, MdInsights, MdDescription, MdAssignmentInd, MdTag, MdFilterAlt } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
-import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import AsignadoFilter from '../../components/AsignadoFilter.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
@@ -352,10 +351,7 @@ export default function Administrador() {
             <>
               {baseDelTab.length > 0 && (
                 <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
-                  <EstadoFilter solicitudes={baseDelTab} value={filterEstado} onChange={setFilterEstado} />
-                  {esSuper && (
-                    <AsignadoFilter solicitudes={baseDelTab} value={filtroAsignado} onChange={setFiltroAsignado} />
-                  )}
+                  <AsignadoFilter solicitudes={baseDelTab} value={filtroAsignado} onChange={setFiltroAsignado} />
                   <SearchFilters
                     cliente={filtroCliente}
                     zona={filtroZona}
