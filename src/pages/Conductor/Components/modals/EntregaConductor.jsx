@@ -4,6 +4,7 @@ import { RiSteering2Line } from 'react-icons/ri'
 import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
 import { subirEvidenciaEntrega } from '../../../../services/archivosApi.js'
+import { esPdfUrl } from '../../../../utils/pdfUtils.js'
 import { enviarAlertaMalaCalificacion, UMBRAL_ALERTA_CALIDAD } from '../../../../services/enviarCorreo.js'
 import { evidenciaSubida, subidaPendiente } from '../../../../services/notificaciones.jsx'
 import {
@@ -40,7 +41,10 @@ const MAX_IMAGENES = 3
 const SEP_EVIDENCIA = '|'
 
 // La evidencia puede ser una foto (data:image…) o un PDF (data:application/pdf).
-const esEvidenciaPdf = (src) => /^data:application\/pdf/i.test(src) || /\.pdf(\?|#|$)/i.test(src)
+// Se usa el helper común en vez de otro regex propio: las dos copias locales solo
+// aceptaban ? o # detrás del .pdf, y la URL firmada del backend lleva la extensión
+// seguida de «&» (ver?ruta=…pdf&exp=…), así que el PDF se tomaba por una foto.
+const esEvidenciaPdf = esPdfUrl
 
 function formatearBytes(bytes) {
   if (!bytes && bytes !== 0) return ''

@@ -6,10 +6,13 @@ import Modal from './Modal.jsx'
 // único que el usuario tiene que mirar: dice cuánto le queda para que se le cierre
 // la sesión.
 //
-// El fondo NO se cierra con un clic. Se cierra con cualquier gesto en la página
-// (lo escucha useInactividadSesion), y un clic en el fondo ES un gesto, así que
-// reescribirlo aquí no aportaría nada. Lo que sí hace falta es el botón, para
-// que quede claro que la sesión se puede recuperar.
+// El fondo NO se cierra con un clic y no hay aspa en la cabecera: la única forma
+// de cancelar el cierre es el botón. Si el clic en cualquier parte lo cerrara, un
+// movimiento de mouse sin querer (o el clic que iba a otro botón) lo haría
+// desaparecer, y entonces no avisaría de nada.
+//
+// El número va en font-display (Bebas Neue), la misma de los títulos grandes de
+// Login y Home. El resto del texto va en Montserrat, la fuente por defecto de la app.
 //
 // Lo que NO se guarda al cerrar sesión: las solicitudes siguen en localStorage
 // (cerrar sesión solo borra el token), y el store vuelve a subirlas al entrar.
@@ -60,16 +63,12 @@ export default function AvisoCierreSesion({ abierto, restante, onContinuar }) {
             más use esta sesión abierta, se cerrará sola en:
           </p>
 
-          <div
-            className="my-5 font-black tabular-nums tracking-tight"
-            role="timer"
-            aria-live="off"
-          >
+          <div className="my-5" role="timer" aria-live="off">
             <span
               className={
                 urgente
-                  ? 'block text-6xl text-red-600 animate-pulse'
-                  : 'block text-6xl text-brand-deep'
+                  ? 'block font-display text-[clamp(4rem,14vw,6.5rem)] leading-[0.9] text-red-600 animate-pulse'
+                  : 'block font-display text-[clamp(4rem,14vw,6.5rem)] leading-[0.9] text-brand-deep'
               }
             >
               {reloj}
@@ -88,8 +87,8 @@ export default function AvisoCierreSesion({ abierto, restante, onContinuar }) {
           </button>
 
           <p className="mt-4 text-xs leading-relaxed text-brand-ink/50">
-            También basta con tocar o mover el mouse. Si dejas que se cierre, tendrás que
-            volver a iniciar sesión; las solicitudes ya creadas no se borran.
+            Si no pulsas el botón, la sesión se cerrará sola. Al volver a iniciar sesión
+            tus solicitudes seguirán ahí: no se borra nada.
           </p>
         </div>
       </div>

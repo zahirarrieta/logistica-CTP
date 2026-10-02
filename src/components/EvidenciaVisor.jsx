@@ -10,11 +10,12 @@ import {
   MdZoomIn,
   MdChevronLeft,
   MdChevronRight,
+  MdVisibility,
+  MdBrokenImage,
 } from 'react-icons/md'
 import { esDireccionLista, resolverArchivo } from '../services/visorArchivos.js'
+import { esPdfUrl } from '../utils/pdfUtils.js'
 import VisorPdfModal from './VisorPdfModal.jsx'
-
-const esPdf = (url) => /^data:application\/pdf/i.test(url) || /\.pdf(\?|#|$)/i.test(url)
 
 export default function EvidenciaVisor({ urls }) {
   // Un carrusel: muestra una foto a la vez y, en «ver en grande», todas con
@@ -39,14 +40,14 @@ export default function EvidenciaVisor({ urls }) {
   // aún sea un enlace de OneDrive heredado: las rutas del backend llegan ya
   // firmadas y el <img> las carga directamente.
   useEffect(() => {
-    setEstados(lista.map((u) => ({ src: '', abrir: u, cargando: true, esPdf: esPdf(u), error: '' })))
+    setEstados(lista.map((u) => ({ src: '', abrir: u, cargando: true, esPdf: esPdfUrl(u), error: '' })))
     // Camino rápido: si TODO ya son direcciones listas (http firmadas, blob o
     // data), no hay nada que resolver. Las rutas crudas del backend y los enlaces
     // heredados de OneDrive sí pasan por resolverArchivo, que firma las primeras
     // bajo demanda y lanza un aviso claro en las segundas.
     if (lista.every((u) => esDireccionLista(u))) {
       setEstados(
-        lista.map((u) => ({ src: u, abrir: u, cargando: false, esPdf: esPdf(u), error: '' }))
+        lista.map((u) => ({ src: u, abrir: u, cargando: false, esPdf: esPdfUrl(u), error: '' }))
       )
       return
     }
@@ -61,7 +62,7 @@ export default function EvidenciaVisor({ urls }) {
             src: cargado ? res.value.src : '',
             abrir: cargado && res.value.abrir ? res.value.abrir : u,
             cargando: false,
-            esPdf: esPdf(u),
+            esPdf: esPdfUrl(u),
             error: cargado ? '' : (res.reason?.message || 'No se pudo cargar la evidencia'),
           }
         })
@@ -119,10 +120,14 @@ export default function EvidenciaVisor({ urls }) {
       rel="noopener noreferrer"
       className="flex items-center gap-3 rounded-xl border border-brand-ink/10 bg-brand-mist/40 px-4 py-3.5 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors"
     >
-      <MdPhotoCamera className="text-3xl text-brand-deep shrink-0" />
+      <MdBrokenImage className="text-3xl text-brand-deep shrink-0" />
       <span className="min-w-0">
-        <span className="block text-sm font-extrabold text-brand-deep">Evidencia de la entrega</span>
-        <span className="block text-xs text-brand-ink/60">Clic para abrirla en una nueva pestaña</span>
+        <span className="block text-sm font-extrabold text-brand-deep">
+          {estado.esPdf ? 'Documento PDF de la entrega' : 'Evidencia de la entrega'}
+        </span>
+        <span className="block text-xs text-brand-ink/60">
+          No se pudo mostrar aquí. Clic para abrirla en una nueva pestaña
+        </span>
       </span>
     </a>
   )
@@ -173,6 +178,18 @@ export default function EvidenciaVisor({ urls }) {
                 className="block h-[24rem] w-full bg-white"
                 sandbox="allow-scripts allow-same-origin"
               />
+              {/* El <iframe> de arriba es la vista rápida, pero hay navegadores y
+                  celulares donde el visor PDF integrado no dibuja nada y sale en
+                  blanco. Este botón es el camino fiable: abre el visor de la app,
+                  que además avisa con un mensaje si el archivo no se puede cargar. */}
+              <button
+                type="button"
+                onClick={() => setVerPdf(actual.abrir || lista[indice])}
+                className="flex w-full items-center justify-center gap-2 border-t border-brand-ink/10 bg-brand-mist/60 px-4 py-2.5 text-xs font-extrabold text-brand-deep transition-colors hover:bg-brand-cyan/15"
+              >
+                <MdVisibility className="text-base" />
+                VER PDF
+              </button>
             </div>
           ) : (
             enlacePdfCard(actual, lista[indice])
@@ -191,6 +208,16 @@ export default function EvidenciaVisor({ urls }) {
             <img
               src={actual.src}
               alt={`Evidencia de la entrega ${indice + 1}`}
+              // Sin esto el navegador enseña su icono de imagen rota: la URL se ve
+              // bien en la lista pero al cargar falla (firma vencida, archivo
+              // borrado). Se marca el error y se cae a la tarjeta con el enlace.
+              onError={() =>
+                setEstados((prev) =>
+                  prev.map((e, i) =>
+                    i === indice ? { ...e, src: '', error: 'No se pudo cargar la imagen' } : e
+                  )
+                )
+              }
               className="mx-auto block max-h-72 w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
             />
             <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/60 text-white px-3 py-1 text-[11px] font-bold">
@@ -404,7 +431,7 @@ export default function EvidenciaVisor({ urls }) {
         open={Boolean(verPdf)}
         url={verPdf}
         onClose={() => setVerPdf(null)}
-        titulo="EVIDENCIA DE LA ENTREGA"
+        titulo="VISTA PREVIA PDF"
       />
     </>
   )

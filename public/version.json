@@ -1,8 +1,10 @@
 {
-  "version": "2026.10.02-3",
+  "version": "2026.10.02-4",
   "fecha": "2026-10-02",
   "cambios": [
-    "Los botones para ver el documento de entrega o la factura ya no aparecen y desaparecen: ahora se muestran siempre que el pedido tenga el documento.",
-    "Corregido: en algunos pedidos ya entregados el detalle decía «Aún no hay una entrega registrada» y no mostraba el PDF de la entrega. Ahora la información y la evidencia se ven correctamente."
+    "Cierre de sesión por inactividad: si pasan 5 minutos sin trabajar, aparece un contador regresivo. Solo se cancela con el botón «Seguir trabajando»; al llegar a cero la sesión se cierra y antes se suben las solicitudes que estaban pendientes.",
+    "Corregido: el PDF de la evidencia salía como una imagen rota en «Detalles de la entrega». Ahora se reconoce el documento y se muestra con su vista previa y un botón «VER PDF» que abre el visor del archivo.",
+    "Cuando una foto de evidencia no se puede cargar, se muestra un enlace para abrirla en otra pestaña en lugar de la imagen rota.",
+    "Los documentos PDF ya se descargan con su nombre real; antes se guardaban como «ver.pdf»."
   ]
 }

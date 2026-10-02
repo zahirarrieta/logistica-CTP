@@ -1,14 +1,22 @@
 export function esPdfUrl(url) {
   if (!url) return false
-  // PDF directo
-  if (/\.pdf([?#]|$)/i.test(url)) return true
+  const s = String(url)
+  // PDF incrustado: el tipo va en la cabecera data:, no en el nombre. Sin esto un
+  // PDF en base 64 se tomaba por una imagen y salía el icono de imagen rota.
+  if (/^data:application\/pdf/i.test(s)) return true
+  // PDF directo. Ojo con el carácter después del .pdf: en la URL firmada del
+  // backend la extensión va seguida de «&» (ver?ruta=...pdf&exp=...), así que si
+  // el patrón solo admite ? # o el final NO la reconoce.
+  if (/\.pdf([?&#]|$)/i.test(s)) return true
   // Carpeta de facturas/remisiones
-  if (String(url).includes('FacturasoRemisiones')) return true
-  // URL firmada del backend: /api/archivos/ver?ruta=...pdf... -> extraer ruta y mirar extensión
+  if (s.includes('FacturasoRemisiones')) return true
+  // URL firmada del backend: /api/archivos/ver?ruta=...pdf&exp=... -> extraer ruta y
+  // mirar la extensión. Se mantiene aunque el caso anterior ya lo cubra, por si el
+  // nombre llega codificado.
   try {
-    const u = new URL(url, 'http://x')
+    const u = new URL(s, 'http://x')
     const ruta = u.searchParams.get('ruta') || ''
-    if (/\.pdf([?#]|$)/i.test(ruta)) return true
+    if (/\.pdf([?&#]|$)/i.test(ruta)) return true
   } catch {
     // ignorar
   }
@@ -32,8 +40,11 @@ export function nombrePdfFromUrl(url, fallback) {
   if (url.startsWith('blob:') || url.startsWith('data:')) return fallback || 'Documento PDF'
   try {
     const urlObj = new URL(url)
-    const id = urlObj.searchParams.get('id')
-    const ruta = id ? id.split('?')[0] : urlObj.pathname
+    // La URL firmada del backend manda la ruta en «ruta»; «id» era de una versión
+    // anterior. Sin lo de «ruta» el nombre salía del pathname, que acaba en
+    // /ver, y el PDF se descargaba como ver.pdf.
+    const desdeQuery = urlObj.searchParams.get('ruta') || urlObj.searchParams.get('id')
+    const ruta = desdeQuery ? desdeQuery.split('?')[0] : urlObj.pathname
     const partes = ruta.split('/').filter(Boolean)
     const ultimo = partes[partes.length - 1]
     if (!ultimo) return fallback || 'Documento PDF'
