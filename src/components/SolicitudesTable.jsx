@@ -30,6 +30,7 @@ import {
   MdReceiptLong,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../utils/estadoColors.js'
+import { pdfsTramite } from '../utils/pdfUtils.js'
 import { nombreDeAsignado, restanteDevolucion } from '../store/solicitudesStore.js'
 import CuentaRegresivaDevolucion from './CuentaRegresivaDevolucion.jsx'
 import { RiSteering2Line } from 'react-icons/ri'
@@ -47,30 +48,12 @@ const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !
 // Devolución cuyo tiempo de corrección venció: ya no se tramita.
 const devolucionVencida = (s, ahora) => esDevolucion(s) && restanteDevolucion(s, ahora) === 0
 
-// Cuando la solicitud está en tránsito, el adjunto relevante es la factura o
-// remisión que cargó el administrador al pasarla a «En Trámite». Esas URLs viven
-// en el historial (campo 'estado', nuevo 'En Trámite'); los campos de la fila
-// (nuevaFacturaUrls/adjuntosTramite) solo existen en la sesión que los subió.
-const urlsTramite = (s) => {
-  const historial = Array.isArray(s.historial) ? s.historial : []
-  // Se toma el «En Trámite» más reciente (un pedido pudo pasar a trámite varias veces).
-  let entrada = null
-  for (let i = historial.length - 1; i >= 0; i -= 1) {
-    if (historial[i].campo === 'estado' && historial[i].nuevo === 'En Trámite' && historial[i].adjunto) {
-      entrada = historial[i]
-      break
-    }
-  }
-  if (!entrada) return []
-  // Se aceptan también las rutas crudas del backend (no solo http). Cuando la
-  // firma por lotes de /api/archivos/firmar falla o no cubre una ruta, el campo
-  // llega como ruta cruda; el visor la firma bajo demanda. Antes se filtraban a
-  // http-only y por eso los botones aparecían y desaparecían en producción.
-  return String(entrada.adjunto)
-    .split(',')
-    .map((u) => u.trim())
-    .filter(Boolean)
-}
+// Cuando la solicitud está en tránsito, el adjunto relevante son las facturas o
+// remisiones que cargó el administrador en cada paso por «En Trámite». Esas URLs
+// viven en el historial (campo 'estado', nuevo 'En Trámite'); cada tanda queda
+// en su propia entrada del historial y aquí se concatenan todas, de la más
+// antigua a la más reciente. Antes se tomaba solo la última tanda.
+const urlsTramite = (s) => pdfsTramite(Array.isArray(s.historial) ? s.historial : [])
 
 // Documento que debe entregar el conductor: SIEMPRE la factura/remisión del
 // trámite (del historial), nunca el PDF que subió el solicitante al crear el
@@ -78,12 +61,15 @@ const urlsTramite = (s) => {
 const documentoEntregable = urlsTramite
 
 const adjuntosVisibles = (s) => {
-  if (enTransito(s)) {
-    const tramite = urlsTramite(s)
+  const tramite = urlsTramite(s)
+  // Si la solicitud está en tránsito (conductor) o en trámite (admin), los
+  // documentos relevantes son las facturas/remisiones de cada paso por «En Trámite».
+  if (enTransito(s) || (s.estado || '') === 'En Trámite') {
     if (tramite.length) return tramite
     if (s.nuevaFacturaUrls?.length) return s.nuevaFacturaUrls
     if (s.adjuntosTramite?.length) return s.adjuntosTramite
   }
+  // Estados finales o de creación: se muestran los adjuntos originales.
   return s.adjuntos
 }
 

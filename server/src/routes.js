@@ -14,6 +14,7 @@ const multer = require('multer')
 const { pool } = require('./db')
 const P = require('./permisos')
 const archivos = require('./archivos')
+const config = require('./config')
 
 const router = express.Router()
 
@@ -1004,14 +1005,30 @@ publico.get('/archivos/ver', (req, res) => {
   const destino = archivos.rutaSegura(ruta)
   if (!destino || !archivos.existe(ruta)) return res.status(404).send('No encontrado')
 
-  // Permitir que el PDF se vea en iframe desde el frontend (diferente subdominio).
-  // Sin esto, el navegador bloquea la carga en <iframe> por X-Frame-Options.
-  // Se incluye localhost:5173 para el desarrollo local contra la API de producción.
-  res.setHeader('X-Frame-Options', 'ALLOWALL')
-  res.setHeader(
-    'Content-Security-Policy',
-    "frame-ancestors 'self' https://pedro-ctpmedica.com http://localhost:5173"
-  )
+  // Permitir que el archivo se vea en un <iframe> desde el frontend, que vive en
+  // otro subdominio. Lo decide la CSP «frame-ancestors»: si el origen que abre el
+  // visor no está en la lista, Chrome responde «ha bloqueado esta página» en
+  // lugar de mostrar el documento.
+  //
+  // La lista sale de CORS_ORIGENES, la misma variable que ya admite las
+  // peticiones a la API, más el dev server de Vite. Antes estaba escrita a mano y
+  // se quedó sin el origen con «www», que es el que usa el sitio: por eso el PDF
+  // salía bloqueado dentro del visor.
+  //
+  // No se manda X-Frame-Options: sus únicos valores válidos son DENY y SAMEORIGIN
+  // (ALLOWALL no existe y Chrome lo ignora) y, si estuviera presente junto a la
+  // CSP, mandaría sobre ella.
+  const frameAncestors = [
+    "'self'",
+    'http://localhost:5173',
+    // Solo orígenes http(s): un '*' o un valor suelto haría la cabecera inválida
+    // y el navegador la descartaría entera, que es justo lo que hay que evitar.
+    ...config.cors.origenes.filter((o) => /^https?:\/\//i.test(o)),
+  ]
+    .filter((o, i, lista) => lista.indexOf(o) === i)
+    .join(' ')
+
+  res.setHeader('Content-Security-Policy', `frame-ancestors ${frameAncestors}`)
 
   res.sendFile(destino)
 })

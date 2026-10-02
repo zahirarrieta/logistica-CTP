@@ -2,7 +2,7 @@ import { getActiveAccount } from '../auth/sesion.js'
 import { shortName } from '../auth/user.js'
 import { backendActivo, iniciarSesion, datosUsuario, apiGet, apiPost } from '../services/apiClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../services/solicitudesApi.js'
-import { soloAdjuntosSolicitud } from '../utils/pdfUtils.js'
+import { soloAdjuntosSolicitud, MAXE_PDFS_TRAMITE, pdfsTramite } from '../utils/pdfUtils.js'
 import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada, asignacionRecibida, entregaRealizada, almacenamientoLleno, solicitudNoGuardada } from '../services/notificaciones.jsx'
 import { esConductorDe, esAsignadoA } from '../auth/roles.js'
 
@@ -675,7 +675,7 @@ export function updateSolicitud(id, updates) {
   const next = list.map((s) => {
     if (s.id !== id) return s
     const historial = Array.isArray(s.historial) ? s.historial : []
-    const pdfUrls = Array.isArray(updates.nuevaFacturaUrls) ? updates.nuevaFacturaUrls : []
+    let pdfUrls = Array.isArray(updates.nuevaFacturaUrls) ? updates.nuevaFacturaUrls : []
     const adjuntoTramite = Array.isArray(updates.adjuntosTramite) ? updates.adjuntosTramite.join(', ') : ''
     const campos = []
     if (updates.estado && updates.estado !== (s.estado || 'Abierto')) {
@@ -710,31 +710,35 @@ export function updateSolicitud(id, updates) {
     delete adicionales.nuevaFacturaUrls
     delete adicionales.adjuntosTramite
 
+    // Tope de 3 PDFs de factura/remisión por solicitud, entre todas las tandas.
+    const todasTandasPrevias = pdfsTramite(historial)
+    const cupoTanda = Math.max(MAXE_PDFS_TRAMITE - todasTandasPrevias.length, 0)
+    pdfUrls = pdfUrls.slice(0, cupoTanda)
+
     let historialFinal = historial
     if (campos.length === 0 && pdfUrls.length > 0) {
-      // Sin cambio de estado: se actualiza el adjunto del trámite en el historial
-      historialFinal = [...historial]
-      const idx = historialFinal.findIndex((h) => h.campo === 'estado' && h.nuevo === 'En Trámite')
-      if (idx >= 0) {
-        historialFinal[idx] = { ...historialFinal[idx], adjunto: pdfUrls.join(', ') }
-      } else {
-        const { fecha, hora } = nowStamp()
-        historialFinal = [
-          {
-            id: generarId(),
-            campo: 'estado',
-            anterior: s.estado || 'Abierto',
-            nuevo: s.estado || 'Abierto',
-            nota: '',
-            referencia: updates.numeroReferencia || s.numeroReferencia || '',
-            adjunto: pdfUrls.join(', '),
-            persona: currentPersona(),
-            fecha,
-            hora,
-          },
-          ...historialFinal,
-        ].slice(0, 30)
-      }
+      // Se reimprime «En Trámite» sobre una solicitud que ya está en ese estado.
+      // Es una tanda nueva de factura/remisión, no una corrección de la anterior:
+      // se crea una entrada propia para no pisar los PDFs ni el comentario del paso previo.
+      const { fecha, hora } = nowStamp()
+      historialFinal = [
+        {
+          id: generarId(),
+          campo: 'estado',
+          anterior: s.estado || 'Abierto',
+          nuevo: 'En Trámite',
+          nota: updates.notaEstado || '',
+          referencia: updates.numeroReferencia || s.numeroReferencia || '',
+          adjunto: pdfUrls.join(', '),
+          conductor: s.conductor || '',
+          vehiculo: s.vehiculo || '',
+          placa: s.placa || '',
+          persona: currentPersona(),
+          fecha,
+          hora,
+        },
+        ...historial,
+      ].slice(0, 30)
     }
 
     if (campos.length === 0) return { ...s, ...adicionales, historial: historialFinal }

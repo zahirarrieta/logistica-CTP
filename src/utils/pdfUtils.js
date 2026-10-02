@@ -1,25 +1,14 @@
+import { extensionDe } from './tipoArchivo.js'
+
 export function esPdfUrl(url) {
   if (!url) return false
-  const s = String(url)
-  // PDF incrustado: el tipo va en la cabecera data:, no en el nombre. Sin esto un
-  // PDF en base 64 se tomaba por una imagen y salía el icono de imagen rota.
-  if (/^data:application\/pdf/i.test(s)) return true
-  // PDF directo. Ojo con el carácter después del .pdf: en la URL firmada del
-  // backend la extensión va seguida de «&» (ver?ruta=...pdf&exp=...), así que si
-  // el patrón solo admite ? # o el final NO la reconoce.
-  if (/\.pdf([?&#]|$)/i.test(s)) return true
+  // La extensión se lee del archivo real, tanto si viene en una URL normal como
+  // dentro del query de la URL firmada del backend (…ver?ruta=…pdf&exp=…) o en un
+  // data URL. Antes el patrón exigía ? # o el final detrás del .pdf, y con la
+  // firma —que pone &— el PDF no coincidía y se tomaba por una imagen.
+  if (extensionDe(url) === 'pdf') return true
   // Carpeta de facturas/remisiones
-  if (s.includes('FacturasoRemisiones')) return true
-  // URL firmada del backend: /api/archivos/ver?ruta=...pdf&exp=... -> extraer ruta y
-  // mirar la extensión. Se mantiene aunque el caso anterior ya lo cubra, por si el
-  // nombre llega codificado.
-  try {
-    const u = new URL(s, 'http://x')
-    const ruta = u.searchParams.get('ruta') || ''
-    if (/\.pdf([?&#]|$)/i.test(ruta)) return true
-  } catch {
-    // ignorar
-  }
+  if (String(url).includes('FacturasoRemisiones')) return true
   return false
 }
 
@@ -33,6 +22,31 @@ export function esUrlFactura(url) {
 // remisiones del trámite viven en el historial, no en la lista de adjuntos.
 export function soloAdjuntosSolicitud(lista) {
   return (Array.isArray(lista) ? lista : []).filter((u) => typeof u === 'string' && !esUrlFactura(u))
+}
+
+// Tope de PDFs de factura/remisión por SOLICITUD, no por tanda. Una solicitud
+// puede pasar varias veces por «En Trámite» y el total nunca pasa de 3.
+export const MAXE_PDFS_TRAMITE = 3
+
+// PDFs de todas las tandas de «En Trámite», de la más antigua a la más reciente.
+// Cada vez que se reimprime «En Trámite» el historial guarda una entrada propia
+// con sus PDFs y su comentario, así que aquí se concatenan todas. Antes se leía
+// solo la última tanda y las anteriores quedaban ocultas.
+export function pdfsTramite(historial) {
+  const lista = Array.isArray(historial) ? historial : []
+  const urls = []
+  // El historial se guarda del más nuevo al más viejo: se recorre al revés para
+  // devolver las tandas en orden cronológico.
+  for (let i = lista.length - 1; i >= 0; i -= 1) {
+    const h = lista[i]
+    if (!h || h.campo !== 'estado' || h.nuevo !== 'En Trámite') continue
+    String(h.adjunto || '')
+      .split(',')
+      .map((u) => u.trim())
+      .filter(Boolean)
+      .forEach((u) => urls.push(u))
+  }
+  return urls
 }
 
 export function nombrePdfFromUrl(url, fallback) {

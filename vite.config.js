@@ -48,6 +48,12 @@ export default defineConfig(() => ({
           if (id.includes('@azure') || id.includes('msal')) return 'msal'
           if (id.includes('react-icons')) return 'icons'
           if (id.includes('jspdf') || id.includes('html2canvas')) return 'pdf'
+          // La librería de hojas de cálculo también entra por import() dinámico,
+          // solo al abrir una. Sin esta línea se iría al bloque final de abajo y
+          // acabaría en 'vendor', que sí se descarga siempre: manualChunks tiene
+          // prioridad sobre el corte del import dinámico, así que el trozo se
+          // cargaría con la app en vez de cuando haga falta.
+          if (id.includes('xlsx')) return 'xlsx'
           if (id.includes('react-router')) return 'router'
           if (
             id.includes('node_modules/react/')

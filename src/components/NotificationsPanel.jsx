@@ -20,6 +20,7 @@ import {
 import { getBadgeColor, getDotColor } from '../utils/estadoColors.js'
 import { safeText } from '../store/solicitudesStore.js'
 import { esPdfUrl } from '../utils/pdfUtils.js'
+import { esImagenUrl, esExcelUrl } from '../utils/tipoArchivo.js'
 import AdjuntoFileCard from './AdjuntoFileCard.jsx'
 import VisorPdfModal from './VisorPdfModal.jsx'
 
@@ -137,24 +138,36 @@ function ItemBody({ c, interactivo = false, onVerPdf }) {
       )}
       {c.campo === 'estado' && changeText(c.adjunto) && (
         <div className="mt-2 space-y-2">
-          {String(c.adjunto)
-            .split(',')
-            .map((u) => u.trim())
-            .filter(Boolean)
-            .map((u, i) =>
-              esPdfUrl(u) ? (
-                <AdjuntoFileCard
-                  key={i}
-                  url={u}
-                  index={i}
-                  onVerPdf={interactivo ? onVerPdf : undefined}
-                />
-              ) : (
-                <p key={i} className="text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-cyan px-2.5 py-1.5 break-all">
-                  Adjunto: {u}
-                </p>
-              )
-            )}
+          {(() => {
+            // Las fotos de un mismo cambio se ven juntas en el visor, así que la
+            // tarjeta necesita la lista completa además de su propia foto.
+            const enlaces = String(c.adjunto)
+              .split(',')
+              .map((u) => u.trim())
+              .filter(Boolean)
+            const imagenes = enlaces.filter(esImagenUrl)
+            return (
+              <>
+                {enlaces.map((u, i) =>
+                  // PDF, imagen y hoja con la tarjeta: cada uno con su visualizador. Una foto o
+                  // una hoja solo llegaba como texto de la ruta, sin poder verse.
+                  esPdfUrl(u) || esImagenUrl(u) || esExcelUrl(u) ? (
+                    <AdjuntoFileCard
+                      key={i}
+                      url={u}
+                      index={i}
+                      onVerPdf={interactivo ? onVerPdf : undefined}
+                      urlsImagenes={imagenes}
+                    />
+                  ) : (
+                    <p key={i} className="text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-cyan px-2.5 py-1.5 break-all">
+                      Adjunto: {u}
+                    </p>
+                  )
+                )}
+              </>
+            )
+          })()}
         </div>
       )}
       {c.campo === 'conductor' && (changeText(c.vehiculo) || changeText(c.placa)) && (

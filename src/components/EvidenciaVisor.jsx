@@ -92,19 +92,51 @@ export default function EvidenciaVisor({ urls }) {
 
   const actual = estados[indice] || { src: '', abrir: lista[indice], cargando: true }
 
-  const enlacePdfCard = (estado, urlBase) => (
-    <button
-      type="button"
-      onClick={() => setVerPdf(estado.abrir || urlBase)}
-      className="flex items-center gap-3 rounded-xl border border-brand-ink/10 bg-brand-mist/40 px-4 py-3.5 hover:bg-brand-cyan/10 hover:border-brand-cyan transition-colors cursor-pointer"
-    >
-      <MdPictureAsPdf className="text-3xl text-red-600 shrink-0" />
-      <span className="min-w-0">
-        <span className="block text-sm font-extrabold text-brand-deep">Documento PDF de la entrega</span>
-        <span className="block text-xs text-brand-ink/60">Clic para ver en el visor</span>
-      </span>
-    </button>
-  )
+  // Tarjeta del PDF. NO se embebe el documento con un <iframe>: el visor PDF
+  // integrado del navegador dentro de un iframe es frágil —Chrome lo bloquea si
+  // el origen que lo abre no está permitido, y en Android y en algunos equipos no
+  // dibuja nada—, y cuando falla se queda el mensaje «Chrome ha bloqueado esta
+  // página» dentro de la entrega. Aquí no hay nada que pueda fallar a medias: se
+  // ofrece el botón y el documento se abre en el visor, que avisa si no se puede
+  // cargar.
+  const tarjetaPdf = (estado, urlBase) => {
+    const destino = estado.abrir || urlBase
+    return (
+      <div className="w-[min(26rem,88vw)] rounded-xl border border-brand-ink/10 bg-brand-mist/40 overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3.5">
+          <MdPictureAsPdf className="text-3xl text-red-600 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-extrabold text-brand-deep">
+              Documento PDF de la entrega
+            </span>
+            <span className="block text-xs text-brand-ink/60">
+              Se abre en el visor del documento
+            </span>
+          </span>
+          {estado.abrir && (
+            <a
+              href={estado.abrir}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Abrir en otra pestaña"
+              aria-label="Abrir en otra pestaña"
+              className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-brand-deep ring-1 ring-brand-ink/10 transition hover:bg-brand-cyan/20"
+            >
+              <MdOpenInNew className="text-sm" />
+            </a>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setVerPdf(destino)}
+          className="flex w-full items-center justify-center gap-2 border-t border-brand-ink/10 bg-brand-mist/60 px-4 py-2.5 text-xs font-extrabold text-brand-deep transition-colors hover:bg-brand-cyan/15"
+        >
+          <MdVisibility className="text-base" />
+          VER PDF
+        </button>
+      </div>
+    )
+  }
 
   const tarjetaCarga = () => (
     <div className="flex items-center justify-center gap-2 rounded-xl border border-brand-ink/10 bg-brand-mist/40 px-4 py-8 text-sm font-bold text-brand-deep">
@@ -137,63 +169,7 @@ export default function EvidenciaVisor({ urls }) {
       {/* Carrusel: se muestra UNA foto a la vez con flechas y contador */}
       <div className="relative mx-auto w-fit max-w-full">
         {actual.esPdf ? (
-          actual.cargando ? (
-            tarjetaCarga()
-          ) : actual.src ? (
-            // Vista previa del PDF en línea: como no hay foto que mostrar, se
-            // renderiza el documento aquí mismo en vez de dejar solo un enlace.
-            <div className="w-[min(26rem,88vw)] overflow-hidden rounded-xl border border-brand-ink/10 bg-white shadow-sm">
-              <div className="flex items-center justify-between gap-2 bg-brand-mist/70 px-3 py-2">
-                <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-extrabold text-red-600">
-                  <MdPictureAsPdf className="shrink-0 text-base" />
-                  <span className="truncate">Documento PDF de la entrega</span>
-                </span>
-                <span className="inline-flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setAmpliado(true)}
-                    title="Ver en grande"
-                    aria-label="Ver en grande"
-                    className="grid size-7 place-items-center rounded-full bg-white text-brand-deep ring-1 ring-brand-ink/10 transition hover:bg-brand-cyan/20"
-                  >
-                    <MdZoomIn className="text-sm" />
-                  </button>
-                  {actual.abrir && (
-                    <a
-                      href={actual.abrir}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Abrir en otra pestaña"
-                      aria-label="Abrir en otra pestaña"
-                      className="grid size-7 place-items-center rounded-full bg-white text-brand-deep ring-1 ring-brand-ink/10 transition hover:bg-brand-cyan/20"
-                    >
-                      <MdOpenInNew className="text-sm" />
-                    </a>
-                  )}
-                </span>
-              </div>
-              <iframe
-                src={actual.src}
-                title={`Evidencia PDF de la entrega ${indice + 1}`}
-                className="block h-[24rem] w-full bg-white"
-                sandbox="allow-scripts allow-same-origin"
-              />
-              {/* El <iframe> de arriba es la vista rápida, pero hay navegadores y
-                  celulares donde el visor PDF integrado no dibuja nada y sale en
-                  blanco. Este botón es el camino fiable: abre el visor de la app,
-                  que además avisa con un mensaje si el archivo no se puede cargar. */}
-              <button
-                type="button"
-                onClick={() => setVerPdf(actual.abrir || lista[indice])}
-                className="flex w-full items-center justify-center gap-2 border-t border-brand-ink/10 bg-brand-mist/60 px-4 py-2.5 text-xs font-extrabold text-brand-deep transition-colors hover:bg-brand-cyan/15"
-              >
-                <MdVisibility className="text-base" />
-                VER PDF
-              </button>
-            </div>
-          ) : (
-            enlacePdfCard(actual, lista[indice])
-          )
+          actual.cargando ? tarjetaCarga() : tarjetaPdf(actual, lista[indice])
         ) : actual.cargando ? (
           tarjetaCarga()
         ) : actual.error || !actual.src ? (
@@ -368,19 +344,23 @@ export default function EvidenciaVisor({ urls }) {
                 </>
               )}
               {actual.esPdf ? (
-                <div className="flex flex-col h-full w-full min-h-[400px]">
-                  <div className="flex items-center justify-between gap-2 mb-2 rounded-xl bg-brand-ink/10 px-3 py-2 text-xs font-bold text-brand-ink">
-                    <span className="inline-flex items-center gap-1.5 text-red-600">
-                      <MdPictureAsPdf className="text-sm" />
-                      Documento PDF de la evidencia
-                    </span>
-                  </div>
-                  <iframe
-                    src={actual.src}
-                    title={`Evidencia de la entrega ${indice + 1}`}
-                    className="flex-1 w-full rounded-xl border border-brand-ink/10 bg-white"
-                    sandbox="allow-scripts allow-same-origin"
-                  />
+                // Tampoco aquí se embebe el PDF: mismo motivo que en la tarjeta.
+                <div className="flex flex-col items-center justify-center gap-4 h-full min-h-[40vh] rounded-xl bg-white/5 px-6 text-center">
+                  <span className="inline-flex items-center gap-2 text-sm font-extrabold text-white/80">
+                    <MdPictureAsPdf className="text-2xl text-red-400" />
+                    Documento PDF de la evidencia
+                  </span>
+                  <p className="max-w-sm text-xs font-semibold leading-relaxed text-white/60">
+                    El documento se abre en el visor para que se vea completo.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setVerPdf(actual.abrir || lista[indice])}
+                    className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-5 py-2.5 text-sm font-extrabold text-brand-ink shadow-cyanGlow transition hover:shadow-[0_0_28px_rgba(0,229,255,0.55)]"
+                  >
+                    <MdVisibility className="text-lg" />
+                    VER PDF
+                  </button>
                 </div>
               ) : actual.src ? (
                 <img

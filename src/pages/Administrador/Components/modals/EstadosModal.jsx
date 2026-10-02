@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers, MdCloudUpload, MdInfoOutline, MdPictureAsPdf, MdVisibility, MdDeleteOutline } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../../utils/estadoColors.js'
+import { MAXE_PDFS_TRAMITE, pdfsTramite } from '../../../../utils/pdfUtils.js'
 import { subirFacturasRemisiones } from '../../../../services/archivosApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida, solicitudDevuelta } from '../../../../services/notificaciones.jsx'
 import { CAMPOS_DEVOLUCION, componerMotivoDevolucion } from '../../../../store/solicitudesStore.js'
@@ -71,6 +72,11 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   if (!open || !solicitud) return null
 
   const claveArchivo = (f) => `${f.name}|${f.size}|${f.lastModified}`
+  // Los PDFs ya guardados en los pasos anteriores por «En Trámite» siguen contando:
+  // el tope de 3 es por solicitud, así que cada reimpresión solo admite lo que falte.
+  const pdfsPrevios = pdfsTramite(solicitud.historial)
+  const cupoRestante = Math.max(MAXE_PDFS_TRAMITE - pdfsPrevios.length - adjuntoTramite.length, 0)
+  const totalElegidos = pdfsPrevios.length + adjuntoTramite.length
   const urlPara = (file) => {
     if (!urlsRef.current.has(file)) urlsRef.current.set(file, URL.createObjectURL(file))
     return urlsRef.current.get(file)
@@ -78,16 +84,19 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const agregarArchivos = (nuevos) => {
     const lista = Array.from(nuevos || [])
     if (lista.length === 0) return
-    // Solo se permite UN adjunto: el nuevo reemplaza al anterior.
-    const archivo = lista[0]
-    adjuntoTramite.forEach((f) => {
-      const url = urlsRef.current.get(f)
-      if (url) {
-        URL.revokeObjectURL(url)
-        urlsRef.current.delete(f)
-      }
-    })
-    setAdjuntoTramite([archivo])
+    // Se acumulan los PDFs elegidos en vez de reemplazarlos: se pueden seleccionar
+    // varios de una vez y los que ya estaban en la tanda se conservan.
+    const yaElegidos = new Set(adjuntoTramite.map(claveArchivo))
+    const nuevosValidos = lista.filter((f) => f && !yaElegidos.has(claveArchivo(f)))
+    const aceptados = nuevosValidos.slice(0, cupoRestante)
+    if (aceptados.length < nuevosValidos.length) {
+      setErrorSubida(
+        `Solo caben ${MAXE_PDFS_TRAMITE - totalElegidos} PDF(s) más: esta solicitud admite ${MAXE_PDFS_TRAMITE} en total entre todas sus tandas de «En Trámite».`
+      )
+    } else {
+      setErrorSubida('')
+    }
+    if (aceptados.length > 0) setAdjuntoTramite((prev) => [...prev, ...aceptados])
     setPreviewAbierto(null)
     if (inputRef.current) inputRef.current.value = ''
   }
@@ -394,21 +403,30 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                           <div>
                             <label className="flex items-center gap-2 text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-2">
                               <MdCloudUpload className="text-base text-brand-cyan" />
-                              Adjuntar factura o remisión
+                              Adjuntar factura o remisión <span className="text-red-500">*</span>
                             </label>
                             <label className="flex flex-col items-center justify-center gap-1.5 w-full px-3 py-4 border-2 border-dashed border-brand-ink/25 rounded-xl bg-white text-brand-ink/70 cursor-pointer hover:border-brand-cyan hover:bg-brand-mist/50 transition-colors">
                               <MdCloudUpload className="text-2xl text-brand-cyan" />
-                              <span className="text-xs font-medium">
-                                {adjuntoTramite.length > 0
-                                  ? 'Reemplazar el PDF adjunto'
-                                  : 'Haz clic para adjuntar un PDF'}
-                              </span>
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="text-xs font-medium">
+                                  {cupoRestante > 0
+                                    ? adjuntoTramite.length > 0
+                                      ? 'Añadir más PDFs'
+                                      : 'Haz clic para adjuntar PDFs'
+                                    : 'Límite de 3 PDFs alcanzado'}
+                                </span>
+                                <span className="text-[11px] font-bold text-brand-ink/50">
+                                  {totalElegidos}/{MAXE_PDFS_TRAMITE} en total
+                                </span>
+                              </div>
                               <input
                                 ref={inputRef}
                                 type="file"
+                                multiple
                                 accept=".pdf,application/pdf"
                                 onChange={(ev) => agregarArchivos(ev.target.files)}
                                 className="hidden"
+                                disabled={cupoRestante === 0}
                               />
                             </label>
 
