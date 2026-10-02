@@ -15,9 +15,9 @@ import {
   MdDeleteOutline,
   MdTimer,
 } from 'react-icons/md'
-import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../../../../utils/estadoColors.js'
 import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteEliminar } from '../../../../store/solicitudesStore.js'
+import { useAuth } from '../../../../auth/AuthContext.jsx'
 import CuentaRegresivaDevolucion from '../../../../components/CuentaRegresivaDevolucion.jsx'
 import NotificationsPanel from '../../../../components/NotificationsPanel.jsx'
 import EntregaInfo from '../../../../components/EntregaInfo.jsx'
@@ -56,7 +56,10 @@ const ICONOS_POR_ESTADO = {
   Entregado: MdVerified,
 }
 
-export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir, onEliminar, correoUsuario }) {
+export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir, onEliminar }) {
+  const { account } = useAuth()
+  const correoActual = (account?.username || '').trim().toLowerCase()
+
   if (!open || !solicitud) return null
 
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
@@ -69,7 +72,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const entrega = buscarEntrega(solicitud)
 
   // Calcular tiempo restante para eliminar (solo si es del solicitante actual)
-  const tiempoEliminar = restanteEliminar(solicitud, correoUsuario)
+  const tiempoEliminar = restanteEliminar(solicitud, correoActual)
   const esDev = estado === 'Devolución a Solicitante'
   const devolucion = esDev ? buscarDevolucion(solicitud) : null
   const { campos: camposCorregir, texto: textoMotivo } = parsearMotivoDevolucion(devolucion?.nota)

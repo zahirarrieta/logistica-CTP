@@ -1,9 +1,9 @@
 {
-  "version": "2026.10.02-17",
+  "version": "2026.10.02-18",
   "fecha": "2026-10-02",
   "cambios": [
+    "SeguimientoModal: botón eliminar con contador de 3 minutos en el header (usa auth context directamente)",
     "Solicitante: botón eliminar con cuenta regresiva de 3 minutos visible en tabla, tarjetas y modal Seguimiento",
-    "SeguimientoModal: botón eliminar con contador de 3 minutos en el header",
     "SolicitudesTable: pasa `restanteEliminar` para mostrar countdown en botón eliminar"
   ]
 }
