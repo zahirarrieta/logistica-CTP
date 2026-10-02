@@ -6,7 +6,7 @@ import SolicitudModal from './Components/modals/SolicitudModal.jsx'
 import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
-import { loadSolicitudes, saveSolicitud, corregirSolicitud, suscribir, removeSolicitud, puedeEliminarSolicitud } from '../../store/solicitudesStore.js'
+import { loadSolicitudes, saveSolicitud, corregirSolicitud, suscribir, removeSolicitud, puedeEliminarSolicitud, restanteEliminar } from '../../store/solicitudesStore.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { solicitudCreada, solicitudCorregida } from '../../services/notificaciones.jsx'
 
@@ -141,6 +141,7 @@ export default function Solicitudes() {
             onCorregirClick={handleCorregir}
             onEliminarClick={handleEliminar}
             puedeEliminar={(s) => puedeEliminarSolicitud(s, correoActual)}
+            restanteEliminar={(s) => restanteEliminar(s, correoActual)}
             empty={
               hasFilters
                 ? {
@@ -184,6 +185,7 @@ export default function Solicitudes() {
         onClose={() => setDetalleSolicitud(null)}
         solicitudes={mias}
         onCorregir={handleCorregir}
+        onEliminar={handleEliminar}
       />
     </div>
   )

@@ -12,10 +12,12 @@ import {
   MdVerified,
   MdMap,
   MdCheck,
+  MdDeleteOutline,
+  MdTimer,
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../../../../utils/estadoColors.js'
-import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION } from '../../../../store/solicitudesStore.js'
+import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteEliminar } from '../../../../store/solicitudesStore.js'
 import CuentaRegresivaDevolucion from '../../../../components/CuentaRegresivaDevolucion.jsx'
 import NotificationsPanel from '../../../../components/NotificationsPanel.jsx'
 import EntregaInfo from '../../../../components/EntregaInfo.jsx'
@@ -54,7 +56,7 @@ const ICONOS_POR_ESTADO = {
   Entregado: MdVerified,
 }
 
-export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir }) {
+export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir, onEliminar }) {
   if (!open || !solicitud) return null
 
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
@@ -65,6 +67,9 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const esCarroBogota = solicitud.vehiculo === 'KWL-381' || solicitud.placa === 'KWL-381'
   const estado = solicitud.estado || 'Abierto'
   const entrega = buscarEntrega(solicitud)
+
+  // Calcular tiempo restante para eliminar (solo si es del solicitante actual)
+  const tiempoEliminar = restanteEliminar(solicitud, '')
   const esDev = estado === 'Devolución a Solicitante'
   const devolucion = esDev ? buscarDevolucion(solicitud) : null
   const { campos: camposCorregir, texto: textoMotivo } = parsearMotivoDevolucion(devolucion?.nota)
@@ -110,6 +115,19 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
                 {solicitud.id}
               </span>
             </div>
+            {tiempoEliminar !== null && tiempoEliminar > 0 && onEliminar && (
+              <button
+                type="button"
+                onClick={() => onEliminar(solicitud)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 text-red-600 hover:bg-red-500/20 px-2.5 py-1.5 text-xs font-bold transition-colors"
+                title="Eliminar solicitud"
+                aria-label="Eliminar solicitud"
+              >
+                <MdDeleteOutline className="text-lg" />
+                <MdTimer className="text-lg" />
+                <span className="ml-1 font-mono">{tiempoEliminar}</span>
+              </button>
+            )}
             <button
               aria-label="Cerrar"
               onClick={onClose}
