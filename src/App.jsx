@@ -7,6 +7,7 @@ import { puedeVer, rutaInicial, RUTA_INICIO } from './auth/roles.js'
 import { sincronizarInicial, iniciarTiempoReal, detenerTiempoReal } from './store/solicitudesStore.js'
 import useInactividadSesion from './hooks/useInactividadSesion.js'
 import AvisoCierreSesion from './components/AvisoCierreSesion.jsx'
+import AvisoNuevaVersion from './components/AvisoNuevaVersion.jsx'
 
 // Marca guardada en sessionStorage: la primera vez que esta pestaña abre una
 // sesión (login nuevo o recarga desde cero) se va al Home; después de ese primer
@@ -116,6 +117,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Root />
+      <AvisoNuevaVersion />
       <Toaster position="top-right" offset={{ top: '5.5rem', right: '0.75rem' }} />
     </AuthProvider>
   )

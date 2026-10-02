@@ -1,4 +1,4 @@
-const CACHE = 'ctp-logistica-v5'
+const CACHE = 'ctp-logistica-v6'
 
 // Shell mínimo para que la app abra sin conexión mientras llegan los assets.
 // Incluye /inicio porque es el start_url del manifest (lo usan los lanzamientos
@@ -77,6 +77,12 @@ self.addEventListener('fetch', (event) => {
   // guardia no hace falta, pero si algún día se sirve en el mismo dominio
   // (dominio/api), evita que el service worker devuelva datos viejos.
   if (url.pathname.startsWith('/api/')) return
+
+  // version.json se consulta para detectar una versión nueva: SIEMPRE a la red,
+  // nunca a la caché (si no, el aviso de actualización no llegaría). Se deja pasar
+  // sin interceptar para que el navegador lo pida fresco (la app además manda
+  // cache: 'no-store').
+  if (url.pathname === '/version.json') return
 
   if (request.mode === 'navigate') {
     // Navegaciones: primero la red (siempre el HTML más nuevo); si falla, la

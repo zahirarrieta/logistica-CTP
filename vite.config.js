@@ -1,10 +1,24 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// Versión única de verdad: public/version.json. Se sirve en vivo (la app la
+// sondea para detectar una versión nueva) y a la vez se inyecta en el bundle con
+// `define`, para que el código cargado sepa qué versión ES y la compare con la
+// que hay en el servidor. Cambiar solo el JSON en el próximo deploy ya dispara el
+// aviso de actualización en todos los clientes.
+const versionJson = JSON.parse(
+  readFileSync(fileURLToPath(new URL('./public/version.json', import.meta.url)), 'utf-8')
+)
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [react()],
   base: '/',
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(versionJson.version),
+  },
   server: {
     port: 5173,
     // Proxy SOLO del dev server: reenvía /api a la API real para que el navegador

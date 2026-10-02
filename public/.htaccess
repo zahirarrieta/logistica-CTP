@@ -40,4 +40,11 @@
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # version.json nunca se cachea: la app lo sondea para detectar una versión
+  # nueva y el aviso de actualización debe llegar siempre fresco.
+  <Files "version.json">
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header always set Pragma "no-cache"
+  </Files>
 </IfModule>

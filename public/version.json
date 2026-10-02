@@ -1,0 +1,11 @@
+{
+  "version": "2026.10.02-1",
+  "fecha": "2026-10-02",
+  "cambios": [
+    "Corregida la subida de la evidencia de entrega del conductor: ahora las fotos y el PDF se guardan en el servidor en vez de quedar en el equipo.",
+    "Nuevo aviso de cierre de sesión por inactividad para proteger las sesiones abiertas.",
+    "Super administrador: se quitó el botón 'Eliminar información' y el próximo código ahora es solo de lectura.",
+    "El visor de PDF firma las rutas bajo demanda, así los documentos se abren sin quedarse cargando.",
+    "Aviso de nueva versión: cuando publicamos una actualización, la app te avisa con la fecha y los cambios para actualizar sin recargar a mano."
+  ]
+}
