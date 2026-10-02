@@ -1,11 +1,14 @@
 {
-  "version": "2026.10.02-9",
+  "version": "2026.10.02-11",
   "fecha": "2026-10-02",
   "cambios": [
-    "Estado «En Trámite» admite hasta 3 PDFs de factura/remisión por SOLICITUD (no por tanda). Al volver a entrar a «En Trámite» se crea una tanda nueva que se suma a las anteriores, y el tope de 3 cuenta el total de todas las tandas.",
-    "Cada tanda de «En Trámite» guarda su propia entrada en el historial con sus PDFs y su comentario. Las rondas anteriores no se sobrescriben ni se pierden.",
-    "La tabla muestra en la columna «Documento» todos los PDFs de todas las tandas de «En Trámite», no solo la más reciente.",
-    "Las notificaciones de cambio de estado y el modal de historial muestran los PDFs y el comentario de cada tanda por separado.",
-    "El selector de factura/remisión en el modal de estados permite `multiple`, muestra el contador (N/3 totales) y avisa si se supera el tope."
+    "Dashboard: tarjetas clickeables por estado (conteo en vivo) que filtran la tabla al pulsar y cambian a la pestaña Solicitudes.",
+    "Dashboard: filtros por mes y año para administrador y superadmin, aplicables a gráficos y tabla.",
+    "Inactividad: cierre de sesión por 5 min de inactividad SOLO para solicitantes; administrador, superadmin y conductor exentos.",
+    "Solicitante: botón «Eliminar» en sus solicitudes, visible solo durante 3 minutos tras la subida; pasado ese tiempo desaparece.",
+    "SolicitudesTable: nuevo prop `puedeEliminar` para controlar visibilidad del botón eliminar por fila.",
+    "Filtros de estado movidos al tab Solicitudes/Asignaciones: panel interactivo pequeño junto al contador, botones por estado con contador y botón limpiar.",
+    "VisorExcel: corregido error «intermediate value is not iterable» al abrir hojas vacías; botones Descargar y Abrir en otra pestaña ya funcionan.",
+    "VisorExcel: botones de descarga y abrir en nueva pestaña ya visibles cuando la hoja carga correctamente."
   ]
 }

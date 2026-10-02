@@ -155,8 +155,11 @@ export default function VisorExcel({ open, url, onClose, titulo = 'VISTA PREVIA 
   if (!open || !url) return null
 
   const visibles = rejilla ? rejilla.filas.slice(0, MAX_FILAS) : []
+  const maxLongFilaVisibles = visibles.length > 0
+    ? Math.max(...visibles.map((f) => f.length))
+    : 0
   const columnas = Math.min(
-    Math.max(rejilla ? rejilla.cabeceras.length : 0, ...visibles.map((f) => f.length), 0),
+    Math.max(rejilla ? rejilla.cabeceras.length : 0, maxLongFilaVisibles, 0),
     MAX_COLUMNAS
   )
   const truncada = rejilla ? rejilla.filas.length > MAX_FILAS || columnas >= MAX_COLUMNAS : false

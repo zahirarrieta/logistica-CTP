@@ -28,13 +28,13 @@ function Protegida({ path, children }) {
 }
 
 function Root() {
-  const { account, loading, rolListo, logout } = useAuth()
+  const { account, loading, rolListo, logout, rol } = useAuth()
   const [datosListos, setDatosListos] = useState(false)
   const navigate = useNavigate()
 
   // Cierre por inactividad. Solo cuenta con la sesión abierta: en el login no hay
   // nada que cerrar y el contador se detendría en el mismo estado al volver a
-  // entrar.
+  // entrar. Solo aplica a SOLICITANTES (admin, superadmin, conductor exentos).
   const cerrarPorInactividad = useCallback(
     () => logout('Tu sesión se cerró por inactividad. Vuelve a iniciar sesión para continuar.'),
     [logout]
@@ -42,6 +42,7 @@ function Root() {
   const { aviso, restante, seguirTrabajando } = useInactividadSesion({
     activo: Boolean(account),
     alCerrar: cerrarPorInactividad,
+    rol,
   })
 
   // Al abrir una sesión nueva (login reciente o pestaña sin marca de sesión) el

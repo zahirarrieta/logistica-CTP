@@ -164,7 +164,7 @@ function DocEntregaIcono({ count, onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, ahora }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, ahora, puedeEliminar }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const vencidaDev = devolucionVencida(s, ahora)
@@ -366,7 +366,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Seguimiento
                 </button>
               )}
-              {onEliminarClick && (
+              {onEliminarClick && (!puedeEliminar || puedeEliminar(s)) && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -400,6 +400,7 @@ export default function SolicitudesTable({
   onEntregaDetallesClick,
   onEliminarClick,
   onCorregirClick,
+  puedeEliminar,
   cardActions,
   empty,
   colorRowsPorEstado,
@@ -438,7 +439,7 @@ export default function SolicitudesTable({
         (onCambiarEstadoClick && !esEntregado(s) && !devolucionVencida(s, ahora)) ||
         (onEntregaDetallesClick && esEntregado(s)) ||
         onEstadoClick ||
-        onEliminarClick
+        (onEliminarClick && (!puedeEliminar || puedeEliminar(s)))
     )
 
   const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1
@@ -496,6 +497,7 @@ export default function SolicitudesTable({
             colorRow={colorRowsPorEstado}
             mostrarDocEntrega={mostrarDocEntrega}
             ahora={ahora}
+            puedeEliminar={puedeEliminar}
           />
         ))}
       </div>
@@ -706,7 +708,7 @@ export default function SolicitudesTable({
                             <MdDescription className="text-xl" />
                           </button>
                         )}
-                        {onEliminarClick && (
+                        {onEliminarClick && (!puedeEliminar || puedeEliminar(s)) && (
                           <button
                             type="button"
                             onClick={(e) => {

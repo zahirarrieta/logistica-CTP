@@ -14,6 +14,9 @@
 // servir para cancelarlo: la única forma de seguir es el botón. Si no, bastaría con
 // mover el mouse un poco y el contador desaparecería sin avisar de nada, que es
 // justo lo contrario de lo que se busca.
+//
+// IMPORTANTE: Solo se aplica a SOLICITANTES. Los roles administrador, superadmin
+// y conductor NO tienen cierre por inactividad.
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -40,7 +43,11 @@ const LIMITE_ESPERA_MS = 3000
 const EVENTOS = ['pointerdown', 'keydown', 'touchstart', 'wheel', 'pointermove']
 const INTERVALO_PUNTERO_MS = 1000
 
-export default function useInactividadSesion({ activo, alCerrar }) {
+export default function useInactividadSesion({ activo, alCerrar, rol }) {
+  // No aplicar a admin, superadmin ni conductor
+  const exento = rol === 'administrador' || rol === 'superadmin' || rol === 'conductor'
+  const realmenteActivo = activo && !exento
+
   const [aviso, setAviso] = useState(false)
   const [restante, setRestante] = useState(SEGUNDOS_AVISO)
   const ultimoUsoRef = useRef(Date.now())
@@ -64,7 +71,7 @@ export default function useInactividadSesion({ activo, alCerrar }) {
   // Marca de tiempo. No lleva estado: si no, cada pulsación y cada movimiento de
   // mouse provocarían un render de toda la app.
   useEffect(() => {
-    if (!activo) {
+    if (!realmenteActivo) {
       setAviso(false)
       return undefined
     }
@@ -89,13 +96,13 @@ export default function useInactividadSesion({ activo, alCerrar }) {
 
     EVENTOS.forEach((ev) => window.addEventListener(ev, registrar, { passive: true }))
     return () => EVENTOS.forEach((ev) => window.removeEventListener(ev, registrar))
-  }, [activo])
+  }, [realmenteActivo])
 
   // Un solo reloj de un segundo hace todo: mira cuándo se cumplirán los minutos
   // y, si el aviso ya está abierto, baja el contador. Un temporizador en vez de
   // dos evita tener que coordinarlos.
   useEffect(() => {
-    if (!activo) return undefined
+    if (!realmenteActivo) return undefined
     const id = setInterval(() => {
       if (!aviso && Date.now() - ultimoUsoRef.current >= MS_INACTIVIDAD) {
         setAviso(true)
@@ -105,7 +112,7 @@ export default function useInactividadSesion({ activo, alCerrar }) {
       if (aviso) setRestante((s) => (s > 0 ? s - 1 : 0))
     }, 1000)
     return () => clearInterval(id)
-  }, [activo, aviso])
+  }, [realmenteActivo, aviso])
 
   // Al llegar a cero se cierra la sesión.
   useEffect(() => {

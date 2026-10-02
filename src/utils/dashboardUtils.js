@@ -76,6 +76,28 @@ export function formatHoras(horas) {
   return `${dias} d ${horasRestantes} h`
 }
 
+// Helper: cuenta solicitudes por estado para los cards del dashboard
+export function porEstadoContador(solicitudes) {
+  return ESTADOS.map((estado) => ({
+    estado,
+    count: solicitudes.filter((s) => (s.estado || 'Abierto') === estado).length,
+    color: HEX_ESTADO[estado] || '#94A3B8',
+  })).filter((e) => e.count > 0)
+}
+
+// Helper: filtra solicitudes por mes y año
+export function filtrarPorMesAno(solicitudes, mes, ano) {
+  if (!mes && !ano) return solicitudes
+  return solicitudes.filter((s) => {
+    const ts = parseStamp(s.fechaSubida, s.horaSubida)
+    if (!ts) return false
+    const d = new Date(ts)
+    if (mes && d.getMonth() + 1 !== mes) return false
+    if (ano && d.getFullYear() !== ano) return false
+    return true
+  })
+}
+
 export function resumen(solicitudes) {
   const porEstado = ESTADOS.map((estado) => ({
     estado,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MdAdd, MdInbox, MdFilterList } from 'react-icons/md'
+import { MdAdd, MdInbox, MdFilterList, MdDeleteOutline } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
@@ -7,7 +7,7 @@ import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
-import { loadSolicitudes, saveSolicitud, corregirSolicitud, suscribir } from '../../store/solicitudesStore.js'
+import { loadSolicitudes, saveSolicitud, corregirSolicitud, suscribir, removeSolicitud, puedeEliminarSolicitud } from '../../store/solicitudesStore.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { solicitudCreada, solicitudCorregida } from '../../services/notificaciones.jsx'
 
@@ -89,6 +89,13 @@ export default function Solicitudes() {
     setModalOpen(true)
   }
 
+  const handleEliminar = (s) => {
+    if (!esMia(s)) return
+    if (!puedeEliminarSolicitud(s, correoActual)) return
+    const siguiente = removeSolicitud(s.id)
+    setSolicitudes(siguiente)
+  }
+
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white text-brand-ink">
       <Header />
@@ -137,6 +144,8 @@ export default function Solicitudes() {
             onRowClick={(s) => setDetalleSolicitud(s)}
             onSeguimientoClick={(s) => setDetalleSolicitud(s)}
             onCorregirClick={handleCorregir}
+            onEliminarClick={handleEliminar}
+            puedeEliminar={(s) => puedeEliminarSolicitud(s, correoActual)}
             empty={
               hasFilters
                 ? {

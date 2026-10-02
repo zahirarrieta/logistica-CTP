@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MdApartment, MdInbox, MdFilterList, MdInsights, MdDescription, MdAssignmentInd, MdTag } from 'react-icons/md'
+import { MdApartment, MdInbox, MdFilterList, MdInsights, MdDescription, MdAssignmentInd, MdTag, MdFilterAlt } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
@@ -20,6 +20,7 @@ import { loadSolicitudes, updateSolicitud, removeSolicitud, suscribir, peekNextI
 import { estadoActualizado, solicitudAsignada, conductorAsignado } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { esSuperAdmin, esAsignadoA } from '../../auth/roles.js'
+import { porEstadoContador, HEX_ESTADO } from '../../utils/dashboardUtils.js'
 
 // Pestañas comunes a administrador y super admin. El contenido de cada una se
 // ajusta por rol (ver baseDelTab / Dashboard / Planillas).
@@ -52,6 +53,9 @@ export default function Administrador() {
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
   const [filtroId, setFiltroId] = useState('')
+  // Filtros mes/año para el dashboard (admin y superadmin)
+  const [filtroMes, setFiltroMes] = useState(null)
+  const [filtroAno, setFiltroAno] = useState(null)
   // La pestaña «Clientes» no cambia el contenido de la página: abre el modal
   // encima. Se lleva un estado aparte para poder cerrarlo sin tener que adivinar
   // a qué pestaña volver.
@@ -93,6 +97,13 @@ export default function Administrador() {
     [solicitudes, misDatos]
   )
 
+  // Contadores por estado para el panel interactivo (todas las solicitudes del usuario).
+  // Se usa en el tab «Solicitudes» y «Asignaciones» para filtrar rápido.
+  const contadoresEstado = useMemo(
+    () => porEstadoContador(esSuper ? solicitudes : [...sinAsignar, ...misAsignaciones]),
+    [solicitudes, esSuper, sinAsignar, misAsignaciones]
+  )
+
   // El super admin ya ve todas las solicitudes en la pestaña "Solicitudes",
   // así que no necesita "Mis solicitudes".
   const TABS = esSuper
@@ -104,11 +115,28 @@ export default function Administrador() {
     ? (tab === 'asignaciones' ? misAsignaciones : solicitudes)
     : (tab === 'asignaciones' ? misAsignaciones : sinAsignar)
 
+  // Aplica filtro mes/año si está activo (para dashboard y tabla)
+  const baseConFiltroFecha = useMemo(() => {
+    if (!filtroMes && !filtroAno) return baseDelTab
+    return baseDelTab.filter((s) => {
+      const partes = String(s.fechaSubida || '').split(/[/\-.]/)
+      if (partes.length !== 3) return false
+      const d = Number(partes[0])
+      const m = Number(partes[1])
+      let y = Number(partes[2])
+      if (!d || !m || !y) return false
+      if (y < 100) y = y >= 50 ? 1900 + y : 2000 + y
+      if (filtroMes && m !== filtroMes) return false
+      if (filtroAno && y !== filtroAno) return false
+      return true
+    })
+  }, [baseDelTab, filtroMes, filtroAno])
+
   const filtered = useMemo(() => {
     const cliente = filtroCliente.toLowerCase()
     const zona = filtroZona.toLowerCase()
     const idBuscado = filtroId.trim().toLowerCase()
-    return baseDelTab.filter((s) => {
+    return baseConFiltroFecha.filter((s) => {
       const e = s.estado || 'Abierto'
       if (filterEstado && e !== filterEstado) return false
       if (filtroAsignado && (s.asignadoA || '') !== filtroAsignado) return false
@@ -117,7 +145,7 @@ export default function Administrador() {
       if (idBuscado && !(s.id || '').toLowerCase().includes(idBuscado)) return false
       return true
     })
-  }, [baseDelTab, filterEstado, filtroAsignado, filtroCliente, filtroZona, filtroId])
+  }, [baseConFiltroFecha, filterEstado, filtroAsignado, filtroCliente, filtroZona, filtroId])
 
   const hasFilters = Boolean(filterEstado || filtroAsignado || filtroCliente || filtroZona || filtroId.trim())
 
@@ -127,7 +155,7 @@ export default function Administrador() {
     return 0
   }
 
-const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
+  const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
 
   const handleEliminar = (solicitud) => {
     setEliminarSolicitud(solicitud)
@@ -266,8 +294,51 @@ const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregad
             </div>
           </div>
 
+          {/* Panel interactivo de filtros por estado (pequeños, al lado del contador) */}
+          {(tab === 'solicitudes' || tab === 'asignaciones') && baseDelTab.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-1.5 p-2 sm:p-3 rounded-xl bg-brand-mist/60 ring-1 ring-brand-ink/10">
+              <span className="text-[10px] font-extrabold uppercase tracking-wide text-brand-ink/50 mr-1">Estado:</span>
+              {contadoresEstado.map((c) => (
+                <button
+                  key={c.estado}
+                  type="button"
+                  onClick={() => { setFilterEstado(c.estado); if (tab === 'asignaciones') setTab('solicitudes'); }}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold transition-all ${
+                    filterEstado === c.estado
+                      ? 'bg-brand-navy text-white shadow-sm'
+                      : 'bg-white text-brand-ink/70 ring-1 ring-brand-ink/10 hover:bg-brand-cyan/15 hover:ring-brand-cyan/40'
+                  }`}
+                  title={`Filtrar por ${c.estado} (${c.count})`}
+                >
+                  <span className="grid place-items-center size-4 rounded-full text-white text-[9px]" style={{ backgroundColor: c.color }}>
+                    <MdFilterAlt className="text-[8px]" />
+                  </span>
+                  <span className="min-w-0">{c.estado}</span>
+                  <span className={`min-w-4 h-4 px-1 grid place-items-center rounded-full text-[9px] font-extrabold ${filterEstado === c.estado ? 'bg-white/20 text-white' : 'bg-brand-deep/10 text-brand-deep'}`}>
+                    {c.count}
+                  </span>
+                </button>
+              ))}
+              {filterEstado && (
+                <button
+                  type="button"
+                  onClick={() => setFilterEstado(null)}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold bg-white text-brand-ink/70 ring-1 ring-brand-ink/10 hover:bg-brand-cyan/15 hover:ring-brand-cyan/40 transition-all"
+                  title="Limpiar filtro de estado"
+                >
+                  <MdFilterAlt className="text-[9px]" />
+                  Limpiar
+                </button>
+              )}
+            </div>
+          )}
+
           {tab === 'dashboard' ? (
-            <DashboardTab solicitudes={esSuper ? solicitudes : misAsignaciones} />
+            <DashboardTab
+              solicitudes={esSuper ? solicitudes : misAsignaciones}
+              onFilterMes={setFiltroMes}
+              onFilterAno={setFiltroAno}
+            />
           ) : tab === 'planillas' ? (
             <PlanillasTab solicitudes={solicitudes} />
           ) : tab === 'clientes' ? (

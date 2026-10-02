@@ -3,6 +3,7 @@ import { shortName } from '../auth/user.js'
 import { backendActivo, iniciarSesion, datosUsuario, apiGet, apiPost } from '../services/apiClient.js'
 import { descargarSolicitudes, empujarSolicitud, borrarSolicitud, borrarTodasSolicitudes } from '../services/solicitudesApi.js'
 import { soloAdjuntosSolicitud, MAXE_PDFS_TRAMITE, pdfsTramite } from '../utils/pdfUtils.js'
+import { parseStamp } from '../utils/dashboardUtils.js'
 import { solicitudNueva, estadoActualizado, solicitudAsignada, conductorAsignado, solicitudDevuelta, entregaAsignada, asignacionRecibida, entregaRealizada, almacenamientoLleno, solicitudNoGuardada } from '../services/notificaciones.jsx'
 import { esConductorDe, esAsignadoA } from '../auth/roles.js'
 
@@ -412,6 +413,22 @@ export function restanteDevolucion(solicitud, ahora = Date.now()) {
   const inicio = devolucionInicio(solicitud)
   if (inicio == null) return null
   return Math.max(0, TIEMPO_DEVOLUCION_MS - (ahora - inicio))
+}
+
+// Ventana de 3 minutos (180000 ms) tras la subida para que el solicitante
+// pueda eliminar su propia solicitud.
+export const VENTANA_ELIMINAR_MS = 3 * 60 * 1000
+
+// Verifica si la solicitud fue creada hace menos de VENTANA_ELIMINAR_MS
+// y pertenece al correo indicado. Útil para mostrar botón de eliminar
+// solo al solicitante dentro de la ventana permitida.
+export function puedeEliminarSolicitud(solicitud, correo, ahora = Date.now()) {
+  if (!correo || (solicitud?.correo || '').trim().toLowerCase() !== correo.trim().toLowerCase()) {
+    return false
+  }
+  const ts = parseStamp(solicitud?.fechaSubida, solicitud?.horaSubida)
+  if (!ts) return false
+  return ahora - ts < VENTANA_ELIMINAR_MS
 }
 
 function currentPersona() {

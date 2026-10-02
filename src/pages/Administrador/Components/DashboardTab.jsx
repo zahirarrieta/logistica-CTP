@@ -26,6 +26,8 @@ import {
   MdStarHalf,
   MdThumbUp,
   MdPoll,
+  MdCalendarMonth,
+  MdFilterAlt,
 } from 'react-icons/md'
 import StarRating from '../../../components/StarRating.jsx'
 import {
@@ -48,6 +50,7 @@ import {
   nivelEstrella,
   formatHoras,
   HEX_ESTADO,
+  parseStamp,
 } from '../../../utils/dashboardUtils.js'
 import { getBadgeColor } from '../../../utils/estadoColors.js'
 import { nombreDeAsignado } from '../../../store/solicitudesStore.js'
@@ -55,6 +58,7 @@ import PedidoDetalleModal from './modals/PedidoDetalleModal.jsx'
 import EtapaPedidosModal from './modals/EtapaPedidosModal.jsx'
 import PedidosListaModal from './modals/PedidosListaModal.jsx'
 import { exportarExcel, exportarPdf } from '../../../services/exportarInforme.js'
+import { ESTADOS } from '../../../utils/estadoColors.js'
 
 const CARD_ICON = 'grid place-items-center size-10 rounded-xl text-white text-xl shadow-md'
 
@@ -394,11 +398,18 @@ export function EstadoMargen() {
   )
 }
 
-export default function DashboardTab({ solicitudes }) {
+export default function DashboardTab({
+  solicitudes,
+  onFilterMes,
+  onFilterAno,
+}) {
   const informeRef = useRef(null)
   const [detalle, setDetalle] = useState(null)
   const [etapaModal, setEtapaModal] = useState(null)
   const [pedidosModal, setPedidosModal] = useState(null)
+  const [mesFiltro, setMesFiltro] = useState('')
+  const [anoFiltro, setAnoFiltro] = useState('')
+  
   const r = useMemo(() => resumen(solicitudes), [solicitudes])
   const porA = useMemo(() => porAsignado(solicitudes), [solicitudes])
   const tiempos = useMemo(() => histogramaTiempos(solicitudes), [solicitudes])
@@ -414,6 +425,16 @@ export default function DashboardTab({ solicitudes }) {
   const encuestas = useMemo(() => resumenEncuestas(solicitudes), [solicitudes])
   const encConductores = useMemo(() => promedioPorConductorEncuesta(solicitudes), [solicitudes])
   const encClientes = useMemo(() => topClientesSatisfaccion(solicitudes, 8), [solicitudes])
+
+  // Años disponibles para el filtro
+  const anosDisponibles = useMemo(() => {
+    const anos = new Set()
+    for (const s of solicitudes) {
+      const ts = parseStamp(s.fechaSubida, s.horaSubida)
+      if (ts) anos.add(new Date(ts).getFullYear())
+    }
+    return [...anos].sort((a, b) => b - a)
+  }, [solicitudes])
 
   const filaEncuesta = (e) => ({
     id: e.id,
@@ -457,15 +478,55 @@ export default function DashboardTab({ solicitudes }) {
 
   const cumplimiento = r.total ? Math.round((r.entregados / r.total) * 100) : 0
 
+  const handleMesChange = (e) => {
+    const val = e.target.value
+    setMesFiltro(val)
+    onFilterMes?.(val ? Number(val) : null)
+  }
+  const handleAnoChange = (e) => {
+    const val = e.target.value
+    setAnoFiltro(val)
+    onFilterAno?.(val ? Number(val) : null)
+  }
+
   return (
     <>
     <div ref={informeRef} className="space-y-4 sm:space-y-6">
-      {/* Exportar informe */}
+      {/* Header con exportar y filtros mes/año */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep">
           <MdInsights className="text-brand-cyan" /> Panel de control
         </h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Filtro mes */}
+          <select
+            value={mesFiltro}
+            onChange={handleMesChange}
+            className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
+            title="Filtrar por mes"
+          >
+            <option value="">Todos los meses</option>
+            {[
+              { v: 1, n: 'Enero' }, { v: 2, n: 'Febrero' }, { v: 3, n: 'Marzo' },
+              { v: 4, n: 'Abril' }, { v: 5, n: 'Mayo' }, { v: 6, n: 'Junio' },
+              { v: 7, n: 'Julio' }, { v: 8, n: 'Agosto' }, { v: 9, n: 'Septiembre' },
+              { v: 10, n: 'Octubre' }, { v: 11, n: 'Noviembre' }, { v: 12, n: 'Diciembre' }
+            ].map((m) => (
+              <option key={m.v} value={m.v}>{m.n}</option>
+            ))}
+          </select>
+          {/* Filtro año */}
+          <select
+            value={anoFiltro}
+            onChange={handleAnoChange}
+            className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
+            title="Filtrar por año"
+          >
+            <option value="">Todos los años</option>
+            {anosDisponibles.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={descargarPdf}
