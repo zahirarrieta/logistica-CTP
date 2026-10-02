@@ -154,14 +154,37 @@ export default function AdjuntoFileCard({ url, index, onVerPdf, urlsImagenes, on
               </button>
             )}
             {esHoja && (
-              <button
-                type="button"
-                onClick={() => setVerHoja(true)}
-                className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 hover:bg-green-600 hover:text-white transition-colors px-3 py-1.5 text-xs font-bold"
-              >
-                <MdVisibility className="text-sm" />
-                Ver hoja
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setVerHoja(true)}
+                  className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 hover:bg-green-600 hover:text-white transition-colors px-3 py-1.5 text-xs font-bold"
+                >
+                  <MdVisibility className="text-sm" />
+                  Ver hoja
+                </button>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full bg-green-600 text-white hover:bg-green-700 transition-colors px-3 py-1.5 text-xs font-bold"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MdOpenInNew className="text-sm" />
+                  Abrir
+                </a>
+                <a
+                  href={url}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full bg-green-500/15 text-green-700 hover:bg-green-500 hover:text-white transition-colors px-3 py-1.5 text-xs font-bold"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MdDownload className="text-sm" />
+                  Descargar
+                </a>
+              </>
             )}
             {/* Para imágenes y hojas no sale el enlace «Abrir»: los visualizadores ya
                 traen «Abrir en otra pestaña» y «Descargar» en su cabecera, así que

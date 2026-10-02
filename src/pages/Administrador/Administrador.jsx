@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MdApartment, MdInbox, MdFilterList, MdInsights, MdDescription, MdAssignmentInd, MdTag, MdFilterAlt } from 'react-icons/md'
+import { MdApartment, MdInbox, MdFilterList, MdInsights, MdDescription, MdAssignmentInd, MdTag, MdFilterAlt, MdLocalShipping } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
+import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import AsignadoFilter from '../../components/AsignadoFilter.jsx'
+import ConductorFilter from '../../components/ConductorFilter.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import EstadosModal from './Components/modals/EstadosModal.jsx'
 import { ESTADOS } from '../../utils/estadoColors.js'
@@ -19,7 +21,7 @@ import { loadSolicitudes, updateSolicitud, removeSolicitud, suscribir, peekNextI
 import { estadoActualizado, solicitudAsignada, conductorAsignado } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { esSuperAdmin, esAsignadoA } from '../../auth/roles.js'
-import { porEstadoContador, HEX_ESTADO } from '../../utils/dashboardUtils.js'
+import { HEX_ESTADO } from '../../utils/dashboardUtils.js'
 
 // Pestañas comunes a administrador y super admin. El contenido de cada una se
 // ajusta por rol (ver baseDelTab / Dashboard / Planillas).
@@ -49,6 +51,7 @@ export default function Administrador() {
   const [proximo, setProximo] = useState(peekNextId())
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroAsignado, setFiltroAsignado] = useState(null)
+  const [filtroConductor, setFiltroConductor] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
   const [filtroId, setFiltroId] = useState('')
@@ -96,13 +99,6 @@ export default function Administrador() {
     [solicitudes, misDatos]
   )
 
-  // Contadores por estado para el panel interactivo (todas las solicitudes del usuario).
-  // Se usa en el tab «Solicitudes» y «Asignaciones» para filtrar rápido.
-  const contadoresEstado = useMemo(
-    () => porEstadoContador(esSuper ? solicitudes : [...sinAsignar, ...misAsignaciones]),
-    [solicitudes, esSuper, sinAsignar, misAsignaciones]
-  )
-
   // El super admin ya ve todas las solicitudes en la pestaña "Solicitudes",
   // así que no necesita "Mis solicitudes".
   const TABS = esSuper
@@ -139,14 +135,15 @@ export default function Administrador() {
       const e = s.estado || 'Abierto'
       if (filterEstado && e !== filterEstado) return false
       if (filtroAsignado && (s.asignadoA || '') !== filtroAsignado) return false
+      if (filtroConductor && (s.conductor || '') !== filtroConductor) return false
       if (cliente && !(s.cliente || '').toLowerCase().includes(cliente)) return false
       if (zona && !(s.zona || '').toLowerCase().includes(zona)) return false
       if (idBuscado && !(s.id || '').toLowerCase().includes(idBuscado)) return false
       return true
     })
-  }, [baseConFiltroFecha, filterEstado, filtroAsignado, filtroCliente, filtroZona, filtroId])
+  }, [baseConFiltroFecha, filterEstado, filtroAsignado, filtroConductor, filtroCliente, filtroZona, filtroId])
 
-  const hasFilters = Boolean(filterEstado || filtroAsignado || filtroCliente || filtroZona || filtroId.trim())
+  const hasFilters = Boolean(filterEstado || filtroAsignado || filtroConductor || filtroCliente || filtroZona || filtroId.trim())
 
   const contadorTab = (id) => {
     if (id === 'solicitudes') return esSuper ? solicitudes.length : sinAsignar.length
@@ -293,45 +290,6 @@ export default function Administrador() {
             </div>
           </div>
 
-          {/* Panel interactivo de filtros por estado (pequeños, al lado del contador) */}
-          {(tab === 'solicitudes' || tab === 'asignaciones') && baseDelTab.length > 0 && (
-            <div className="mb-4 flex flex-wrap items-center gap-1.5 p-2 sm:p-3 rounded-xl bg-brand-mist/60 ring-1 ring-brand-ink/10">
-              <span className="text-[10px] font-extrabold uppercase tracking-wide text-brand-ink/50 mr-1">Estado:</span>
-              {contadoresEstado.map((c) => (
-                <button
-                  key={c.estado}
-                  type="button"
-                  onClick={() => { setFilterEstado(c.estado); if (tab === 'asignaciones') setTab('solicitudes'); }}
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold transition-all ${
-                    filterEstado === c.estado
-                      ? 'bg-brand-navy text-white shadow-sm'
-                      : 'bg-white text-brand-ink/70 ring-1 ring-brand-ink/10 hover:bg-brand-cyan/15 hover:ring-brand-cyan/40'
-                  }`}
-                  title={`Filtrar por ${c.estado} (${c.count})`}
-                >
-                  <span className="grid place-items-center size-4 rounded-full text-white text-[9px]" style={{ backgroundColor: c.color }}>
-                    <MdFilterAlt className="text-[8px]" />
-                  </span>
-                  <span className="min-w-0">{c.estado}</span>
-                  <span className={`min-w-4 h-4 px-1 grid place-items-center rounded-full text-[9px] font-extrabold ${filterEstado === c.estado ? 'bg-white/20 text-white' : 'bg-brand-deep/10 text-brand-deep'}`}>
-                    {c.count}
-                  </span>
-                </button>
-              ))}
-              {filterEstado && (
-                <button
-                  type="button"
-                  onClick={() => setFilterEstado(null)}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold bg-white text-brand-ink/70 ring-1 ring-brand-ink/10 hover:bg-brand-cyan/15 hover:ring-brand-cyan/40 transition-all"
-                  title="Limpiar filtro de estado"
-                >
-                  <MdFilterAlt className="text-[9px]" />
-                  Limpiar
-                </button>
-              )}
-            </div>
-          )}
-
           {tab === 'dashboard' ? (
             <DashboardTab
               solicitudes={esSuper ? solicitudes : misAsignaciones}
@@ -351,7 +309,9 @@ export default function Administrador() {
             <>
               {baseDelTab.length > 0 && (
                 <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
+                  <EstadoFilter solicitudes={baseDelTab} value={filterEstado} onChange={setFilterEstado} />
                   <AsignadoFilter solicitudes={baseDelTab} value={filtroAsignado} onChange={setFiltroAsignado} />
+                  <ConductorFilter solicitudes={baseDelTab} value={filtroConductor} onChange={setFiltroConductor} />
                   <SearchFilters
                     cliente={filtroCliente}
                     zona={filtroZona}

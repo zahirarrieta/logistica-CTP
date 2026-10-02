@@ -1,10 +1,11 @@
 {
-  "version": "2026.10.02-14",
+  "version": "2026.10.02-16",
   "fecha": "2026-10-02",
   "cambios": [
-    "Solicitante: botón eliminar con cuenta regresiva de 3 minutos en sus solicitudes; pasado el tiempo desaparece y solo superadmin puede borrar.",
-    "Eliminado filtro Estado del módulo Solicitante (solo queda búsqueda por cliente/zona).",
-    "Filtro Asignado vuelto a habilitar para Admin y SuperAdmin (dropdown lista con contadores).",
-    "VisorExcel: botones Descargar, Abrir en otra pestaña y Visualizar (toggle) funcionando; error 'intermediate value is not iterable' corregido."
+    "Admin/SuperAdmin tab Solicitudes: filtro Estado (lista desplegable) junto a Asignado y nuevo filtro Conductor",
+    "Filtro Conductor nuevo: lista desplegable con contadores igual que Asignado",
+    "Adjuntos Excel: botones Descargar y Abrir en otra pestaña junto a Ver hoja",
+    "Eliminados badges de estado en tabla (para eso está el filtro)",
+    "Eliminado panel de badges de estado bajo los tabs (para eso está el filtro)"
   ]
 }
