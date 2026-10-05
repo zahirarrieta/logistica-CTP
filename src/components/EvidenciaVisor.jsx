@@ -13,7 +13,7 @@ import {
   MdVisibility,
   MdBrokenImage,
 } from 'react-icons/md'
-import { esDireccionLista, resolverArchivo } from '../services/visorArchivos.js'
+import { sePuedeMostrarDirecto, resolverArchivo } from '../services/visorArchivos.js'
 import { esPdfUrl } from '../utils/pdfUtils.js'
 import VisorPdfModal from './VisorPdfModal.jsx'
 
@@ -41,11 +41,13 @@ export default function EvidenciaVisor({ urls }) {
   // firmadas y el <img> las carga directamente.
   useEffect(() => {
     setEstados(lista.map((u) => ({ src: '', abrir: u, cargando: true, esPdf: esPdfUrl(u), error: '' })))
-    // Camino rápido: si TODO ya son direcciones listas (http firmadas, blob o
-    // data), no hay nada que resolver. Las rutas crudas del backend y los enlaces
-    // heredados de OneDrive sí pasan por resolverArchivo, que firma las primeras
-    // bajo demanda y lanza un aviso claro en las segundas.
-    if (lista.every((u) => esDireccionLista(u))) {
+    // Camino rápido: si TODO se puede mostrar directo (http firmadas vigentes,
+    // blob o data), no hay nada que resolver. Las rutas crudas del backend, los
+    // enlaces heredados de OneDrive y las URLs firmadas YA CADUCADAS pasan por
+    // resolverArchivo: firma bajo demanda las primeras, lanza un aviso claro en las
+    // de OneDrive y re-firma las caducadas para que no salga «Enlace inválido o
+    // vencido».
+    if (lista.every((u) => sePuedeMostrarDirecto(u))) {
       setEstados(
         lista.map((u) => ({ src: u, abrir: u, cargando: false, esPdf: esPdfUrl(u), error: '' }))
       )

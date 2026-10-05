@@ -1,9 +1,7 @@
 {
-  "version": "2026.10.02-18",
-  "fecha": "2026-10-02",
+  "version": "2026.10.05-1",
+  "fecha": "2026-10-05",
   "cambios": [
-    "SeguimientoModal: botón eliminar con contador de 3 minutos en el header (usa auth context directamente)",
-    "Solicitante: botón eliminar con cuenta regresiva de 3 minutos visible en tabla, tarjetas y modal Seguimiento",
-    "SolicitudesTable: pasa `restanteEliminar` para mostrar countdown en botón eliminar"
+    "Los documentos (imagen, PDF o Excel) ya no muestran «Enlace inválido o vencido» cuando pasan los días: el visor re-firma el enlace en el momento de abrirlo, así que el archivo se ve aunque siga guardado desde hace tiempo."
   ]
 }
