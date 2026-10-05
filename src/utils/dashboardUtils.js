@@ -15,6 +15,15 @@ export const HEX_ESTADO = {
   'Entregado': '#22C55E',
 }
 
+// Formatea milisegundos como «4:32» (min:seg). Lo usan las cuentas regresivas
+// (ventana de corrección y de eliminación) para no mostrar los ms crudos.
+export function formatearMs(ms) {
+  const total = Math.max(0, Math.floor((ms || 0) / 1000))
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 export function parseStamp(fecha, hora) {
   if (!fecha) return null
   const partes = String(fecha).split(/[/\-.]/)

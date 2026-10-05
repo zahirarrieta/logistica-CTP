@@ -32,6 +32,7 @@ import {
 import { getBadgeColor, getDotColor, getEstadoBg } from '../utils/estadoColors.js'
 import { pdfsTramite } from '../utils/pdfUtils.js'
 import { nombreDeAsignado, restanteDevolucion, restanteEliminar } from '../store/solicitudesStore.js'
+import { formatearMs } from '../utils/dashboardUtils.js'
 import CuentaRegresivaDevolucion from './CuentaRegresivaDevolucion.jsx'
 import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'
@@ -381,7 +382,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   {restanteEliminar && (
                     <>
                       <MdTimer className="text-lg" />
-                      <span className="ml-1 font-mono">{restanteEliminar}</span>
+                      <span className="ml-1 font-mono">{formatearMs(restanteEliminar)}</span>
                     </>
                   )}
                 </button>
@@ -726,9 +727,17 @@ export default function SolicitudesTable({
                             }}
                             title="Eliminar solicitud"
                             aria-label="Eliminar solicitud"
-                            className="grid place-items-center size-9 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors"
+                            className={`inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors ${
+                              restanteEliminar ? 'px-3 py-2 text-xs font-bold' : 'size-9'
+                            }`}
                           >
                             <MdDeleteOutline className="text-xl" />
+                            {restanteEliminar && restanteEliminar(s) > 0 && (
+                              <>
+                                <MdTimer className="text-lg" />
+                                <span className="font-mono">{formatearMs(restanteEliminar(s))}</span>
+                              </>
+                            )}
                           </button>
                         )}
                       </div>

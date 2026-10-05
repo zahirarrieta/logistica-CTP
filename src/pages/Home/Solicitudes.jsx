@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MdAdd, MdInbox, MdFilterList } from 'react-icons/md'
+import { MdAdd, MdInbox, MdFilterList, MdDelete } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
@@ -19,6 +19,7 @@ export default function Solicitudes() {
   const [plantilla, setPlantilla] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
+  const [porEliminar, setPorEliminar] = useState(null)
 
   useEffect(() => suscribir(setSolicitudes), [])
 
@@ -85,11 +86,22 @@ export default function Solicitudes() {
     setModalOpen(true)
   }
 
+  // No borra de una vez: abre la confirmación «¿Seguro de eliminar…?». El borrado
+  // real ocurre en confirmarEliminar, que vuelve a validar la ventana de 3 min por
+  // si expiró mientras el diálogo estaba abierto.
   const handleEliminar = (s) => {
     if (!esMia(s)) return
     if (!puedeEliminarSolicitud(s, correoActual)) return
-    const siguiente = removeSolicitud(s.id)
-    setSolicitudes(siguiente)
+    setPorEliminar(s)
+  }
+
+  const confirmarEliminar = () => {
+    const s = porEliminar
+    setPorEliminar(null)
+    if (!s || !esMia(s)) return
+    if (!puedeEliminarSolicitud(s, correoActual)) return
+    setSolicitudes(removeSolicitud(s.id))
+    setDetalleSolicitud((prev) => (prev?.id === s.id ? null : prev))
   }
 
   return (
@@ -187,6 +199,56 @@ export default function Solicitudes() {
         onCorregir={handleCorregir}
         onEliminar={handleEliminar}
       />
+
+      {porEliminar && (
+        <div
+          onClick={() => setPorEliminar(null)}
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="titulo-eliminar-solicitud"
+          className="fixed inset-0 z-[100] grid place-items-center bg-brand-ink/70 backdrop-blur-sm p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl animate-scaleIn"
+          >
+            <h4
+              id="titulo-eliminar-solicitud"
+              className="font-extrabold text-base text-brand-ink inline-flex items-center gap-2"
+            >
+              <span className="grid place-items-center size-8 rounded-xl bg-red-50 text-red-600">
+                <MdDelete className="text-lg" />
+              </span>
+              ELIMINAR SOLICITUD
+            </h4>
+            <p className="mt-3 text-sm leading-relaxed text-brand-ink/75">
+              ¿Seguro de eliminar la solicitud{' '}
+              <span className="font-extrabold text-brand-ink">{porEliminar.id}</span>?
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-brand-ink/55">
+              Esta acción no se puede deshacer. Solo puedes eliminarla durante los
+              3 minutos siguientes a la subida; después únicamente un superadmin.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPorEliminar(null)}
+                className="rounded-full px-4 py-2 text-xs font-bold text-brand-ink/70 bg-brand-ink/10 hover:bg-brand-ink/20 transition-colors"
+              >
+                CANCELAR
+              </button>
+              <button
+                type="button"
+                onClick={confirmarEliminar}
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors"
+              >
+                <MdDelete className="text-base" />
+                ELIMINAR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

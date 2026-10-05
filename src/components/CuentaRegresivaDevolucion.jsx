@@ -1,14 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MdTimer, MdTimerOff } from 'react-icons/md'
 import { restanteDevolucion } from '../store/solicitudesStore.js'
-
-// Formatea milisegundos como «4:32» (min:seg).
-function formatearMs(ms) {
-  const total = Math.max(0, Math.floor((ms || 0) / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-}
+import { formatearMs } from '../utils/dashboardUtils.js'
 
 // Cuenta regresiva de la ventana de corrección (5 minutos). Si se pasa «ahora»
 // (ms), el conteo lo controla el padre; si no, la pestaña hace su propio tick.

@@ -1,8 +1,10 @@
 {
-  "version": "2026.10.05-2",
+  "version": "2026.10.05-3",
   "fecha": "2026-10-05",
   "cambios": [
-    "El botón de eliminar solicitud ya aparece durante los 3 minutos tras subirla, también en la tarde: las horas «p. m.» se leían como «a. m.» y la ventana de 3 minutos figuraba vencida apenas se subía.",
-    "Los documentos (imagen, PDF o Excel) ya no muestran «Enlace inválido o vencido» cuando pasan los días: el visor re-firma el enlace en el momento de abrirlo, así que el archivo se ve aunque lleve tiempo guardado."
+    "El botón de eliminar solicitud muestra ahora un contador de 3 minutos (min:seg) en la columna de la tabla y en el seguimiento; al vencer, el botón desaparece solo.",
+    "Antes de eliminar aparece un mensaje de confirmación «¿Seguro de eliminar la solicitud?» con CANCELAR / ELIMINAR.",
+    "El botón de eliminar ya aparece también en la tarde (las horas «p. m.» se leían como «a. m.»).",
+    "Los documentos (imagen, PDF o Excel) ya no muestran «Enlace inválido o vencido» cuando pasan los días: el visor re-firma el enlace al abrirlo."
   ]
 }

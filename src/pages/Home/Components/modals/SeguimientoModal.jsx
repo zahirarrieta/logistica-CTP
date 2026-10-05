@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import {
   MdClose,
   MdTag,
@@ -16,6 +17,7 @@ import {
   MdTimer,
 } from 'react-icons/md'
 import { getBadgeColor } from '../../../../utils/estadoColors.js'
+import { formatearMs } from '../../../../utils/dashboardUtils.js'
 import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteEliminar } from '../../../../store/solicitudesStore.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import CuentaRegresivaDevolucion from '../../../../components/CuentaRegresivaDevolucion.jsx'
@@ -60,6 +62,15 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const { account } = useAuth()
   const correoActual = (account?.username || '').trim().toLowerCase()
 
+  // Tick de 1 s solo con el modal abierto: hace que la cuenta de 3 min para
+  // eliminar baje en pantalla y que el botón desaparezca al vencer la ventana.
+  const [ahora, setAhora] = useState(() => Date.now())
+  useEffect(() => {
+    if (!open) return undefined
+    const id = setInterval(() => setAhora(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [open])
+
   if (!open || !solicitud) return null
 
   const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
@@ -72,7 +83,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const entrega = buscarEntrega(solicitud)
 
   // Calcular tiempo restante para eliminar (solo si es del solicitante actual)
-  const tiempoEliminar = restanteEliminar(solicitud, correoActual)
+  const tiempoEliminar = restanteEliminar(solicitud, correoActual, ahora)
   const esDev = estado === 'Devolución a Solicitante'
   const devolucion = esDev ? buscarDevolucion(solicitud) : null
   const { campos: camposCorregir, texto: textoMotivo } = parsearMotivoDevolucion(devolucion?.nota)
@@ -128,7 +139,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
               >
                 <MdDeleteOutline className="text-lg" />
                 <MdTimer className="text-lg" />
-                <span className="ml-1 font-mono">{tiempoEliminar}</span>
+                <span className="ml-1 font-mono">{formatearMs(tiempoEliminar)}</span>
               </button>
             )}
             <button
