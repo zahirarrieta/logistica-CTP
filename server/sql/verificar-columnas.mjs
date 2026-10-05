@@ -51,6 +51,12 @@ const esperadas = {
   // tiene que tener estas columnas: es donde se reserva cada aviso para no
   // mandarlo dos veces.
   correos_enviados: ['clave', 'tipo', 'solicitud', 'destinatario', 'asunto', 'enviado_en'],
+  // También la crea la API sola (push.js). Es una fila por dispositivo con las
+  // claves con las que el servicio de push cifra cada aviso para ese equipo.
+  push_suscripciones: [
+    'id', 'correo', 'endpoint', 'clave_publica', 'clave_privada', 'agente',
+    'creado_en', 'visto_en',
+  ],
 }
 
 let problemas = 0

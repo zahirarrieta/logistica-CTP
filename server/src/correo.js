@@ -47,18 +47,14 @@ const ESTADO_RETENIDO = 'Retenido por Cartera'
 // rechaza el mensaje entero con «550 No such user» y el solicitante se queda sin
 // su aviso. Por eso el despacho va en dos envíos separados (ver despacharUno).
 const CORREOS_ALERTA_CALIDAD = [
-  'operaciones@pedro-ctpmedica.com',
-  'almacen@pedro-ctpmedica.com',
-  'servicioalcliente2@pedro-ctpmedica.com',
-  'cotizacionesylicitaciones@pedro-ctpmedica.com',
-  'gestiondecalidad@pedro-ctpmedica.com',
+  'almacen@ctpmedica.com',
+  'operaciones@ctpmedica.com',
+  'gestiondecalidad@ctpmedica.com',
+  'cotizacionesylicitaciones@ctpmedica.com',
+  'servicioalcliente2@ctpmedica.com',
 ]
 
-const CORREOS_REENCION_CARTERA = [
-  'operaciones@pedro-ctpmedica.com',
-  'cotizacionesylicitaciones@pedro-ctpmedica.com',
-  'servicioalcliente2@pedro-ctpmedica.com',
-]
+const CORREOS_REENCION_CARTERA = []
 
 const CALIFICACIONES = ['Malo', 'Regular', 'Bueno']
 
@@ -120,14 +116,15 @@ function fechaLegible() {
 // ---------------------------------------------------------------------------
 // Configuración efectiva
 // ---------------------------------------------------------------------------
+// Mala calificación: copia a las 5 áreas internas (dominio @ctpmedica.com).
+// Retención por cartera: sin copia (solo al solicitante).
 function copiaCalidad() {
   const deEntorno = normalizarCorreos(config.correo.copiaCalidad)
   return deEntorno.length > 0 ? deEntorno : normalizarCorreos(CORREOS_ALERTA_CALIDAD)
 }
 
 function copiaCartera() {
-  const deEntorno = normalizarCorreos(config.correo.copiaCartera)
-  return deEntorno.length > 0 ? deEntorno : normalizarCorreos(CORREOS_REENCION_CARTERA)
+  return []
 }
 
 // Casilla que SIEMPRE recibe, aunque el resto de la lista interna no exista. Es
@@ -638,17 +635,12 @@ function textoRetencionCartera(solicitud, entrada) {
 // llama ya guardó el cambio en la base, y perder un guardado por un SMTP caído
 // sería mucho peor que perder el aviso.
 //
-// Cada aviso sale en DOS envíos y no en uno, y es deliberado:
+// Cada aviso sale en UN solo envío:
+//   TO  → el solicitante
+//   CC  → solo operaciones@pedro-ctpmedica.com (la casilla operativa)
 //
-//   1. al solicitante, copiando a la casilla operativa;
-//   2. a la casilla operativa, copiando al resto de áreas internas.
-//
-// El motivo es que el servidor de correo rechaza el mensaje ENTERO con
-// «550 No such user» si una sola dirección no existe. Como la lista interna
-// incluye casillas que el hosting todavía no tiene creadas, mandarlo todo junto
-// dejaría al solicitante sin su aviso por culpa de un buzón ajeno. Así el
-// solicitante y la operación se enteran siempre, y las demás áreas se enteran en
-// cuanto su buzón exista.
+// Las demás áreas internas (almacén, calidad, cotizaciones, etc.) NO reciben
+// copia: el usuario indicó que no les llegan o les llegan duplicados.
 // ---------------------------------------------------------------------------
 
 // Remitente con nombre, listo para nodemailer.
@@ -698,27 +690,15 @@ async function despacharUno(aviso) {
     return false
   }
 
-  const operativa = casillaOperativa()
-  // El resto de la lista interna, sin repetir la operativa. Si `operativa` no está
-  // en la lista (porque alguien la cambió por entorno), sigue saliendo en la copia
-  // del primer envío: es la que nunca falla.
-  const resto = aviso.copia.filter((c) => c !== operativa)
-
-  const alSolicitante = await remitir(aviso, {
+  // Un solo envío por aviso:
+  //   - calificacion: TO=solicitante, CC=lista de 5 áreas internas
+  //   - cartera:    TO=solicitante, CC=vacía
+  const ok = await remitir(aviso, {
     para: aviso.para,
-    copia: operativa && operativa !== aviso.para ? [operativa] : [],
+    copia: aviso.copia,
   })
 
-  // A las áreas internas les llega aunque el solicitante no tuviera correo válido.
-  // No puede haber un segundo envío cuando no quedan áreas aparte de la operativa:
-  // en ese caso la operativa ya la recibió en copia del primero y no hay nada
-  // pendiente que reintentar después.
-  const aLasAreas = resto.length > 0 ? await remitir(aviso, { para: operativa, copia: resto }) : true
-
-  // Si no salió ninguno de los dos, se libera la clave para que el siguiente
-  // guardado reintente. Si salió al menos uno, el aviso se dio por entregado: lo
-  // que falló se registra en el log y no se repite en cada guardado.
-  if (!alSolicitante && !aLasAreas) {
+  if (!ok) {
     await liberar(aviso.clave)
     console.error(
       `[Correo] ningún envío salió del aviso (${aviso.tipo}) «${aviso.asunto}»: se reintentará en el siguiente guardado`
@@ -726,16 +706,6 @@ async function despacharUno(aviso) {
     return false
   }
 
-  if (!alSolicitante) {
-    console.error(
-      `[Correo] el solicitante ${aviso.para} no recibió el aviso (${aviso.tipo}); las áreas internas sí`
-    )
-  }
-  if (!aLasAreas) {
-    console.warn(
-      `[Correo] el aviso (${aviso.tipo}) no llegó a ${resto.join(', ')}: revisa que esas casillas existan`
-    )
-  }
   return true
 }
 

@@ -223,7 +223,46 @@ CREATE TABLE IF NOT EXISTS correos_enviados (
 --   DELETE FROM correos_enviados WHERE clave = 'cartera:<id-del-registro>';
 
 -- ----------------------------------------------------------------------------
--- 6. ROLES INICIALES
+-- 6. SUSCRIPCIONES PUSH (notificaciones con la app cerrada)
+--     Una fila por dispositivo: el "endpoint" es el identificador que da el
+--     navegador al suscribirse, y las claves con las que el servicio de push
+--     (Mozilla, Google o Apple) cifra el mensaje para ese dispositivo y solo
+--     para él.
+--
+--     El servidor NUNCA ve el contenido del aviso: va cifrado de extremo a
+--     extremo. Aquí solo se guarda a quién mandárselo.
+--
+--     No hace falta crearla a mano: server/src/push.js la crea sola la primera
+--     vez que alguien activa las notificaciones. Está aquí para documentarla y
+--     por si se prefiere crearla desde phpMyAdmin.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS push_suscripciones (
+  id            INT AUTO_INCREMENT NOT NULL,
+  correo        VARCHAR(190) NOT NULL,
+  endpoint      VARCHAR(500) NOT NULL,
+  clave_publica VARCHAR(255) NOT NULL,
+  clave_privada VARCHAR(255) NOT NULL,
+  agente        VARCHAR(255) NOT NULL DEFAULT '',
+  creado_en     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  visto_en      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  -- endpoint(191) y no endpoint entero: MySQL no indexa VARCHAR(500) completo
+  -- con utf8mb4 (pasaría de los 3072 bytes de límite de clave).
+  UNIQUE KEY push_endpoint_uq (endpoint(191)),
+  KEY push_correo_idx (correo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Para ver quién tiene notificaciones activas y en cuántos equipos:
+--   SELECT correo, COUNT(*) AS equipos, MAX(visto_en) AS ultimo
+--     FROM push_suscripciones GROUP BY correo ORDER BY ultimo DESC;
+--
+-- Las suscripciones que el navegador ya no reconoce (404/410) se borran solas al
+-- intentar enviar; esta consulta es para limpiar a mano las de cuentas dadas de
+-- baja:
+--   DELETE FROM push_suscripciones WHERE correo = 'correo@dominio.com';
+
+-- ----------------------------------------------------------------------------
+-- 7. ROLES INICIALES
 --     El alta ya no se hace por SQL: la pantalla de registro crea las cuentas y
 --     les asigna el rol 'solicitante'. Para la PRIMERA cuenta con permisos de
 --     administración usa el script que genera el hash, y pega el INSERT de abajo

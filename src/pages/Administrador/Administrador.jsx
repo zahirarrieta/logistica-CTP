@@ -5,6 +5,7 @@ import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import AsignadoFilter from '../../components/AsignadoFilter.jsx'
+import { SIN_ASIGNAR } from '../../components/filtrosConstants.js'
 import ConductorFilter from '../../components/ConductorFilter.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import EstadosModal from './Components/modals/EstadosModal.jsx'
@@ -134,7 +135,11 @@ export default function Administrador() {
     return baseConFiltroFecha.filter((s) => {
       const e = s.estado || 'Abierto'
       if (filterEstado && e !== filterEstado) return false
-      if (filtroAsignado && (s.asignadoA || '') !== filtroAsignado) return false
+      if (filtroAsignado) {
+        if (filtroAsignado === SIN_ASIGNAR) {
+          if (String(s.asignadoA || '').trim()) return false
+        } else if ((s.asignadoA || '') !== filtroAsignado) return false
+      }
       if (filtroConductor && (s.conductor || '') !== filtroConductor) return false
       if (cliente && !(s.cliente || '').toLowerCase().includes(cliente)) return false
       if (zona && !(s.zona || '').toLowerCase().includes(zona)) return false

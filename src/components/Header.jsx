@@ -1,11 +1,12 @@
 import { useRef, useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { MdHome, MdFolderOpen, MdSettings, MdLogout, MdLockReset, MdExpandMore } from 'react-icons/md'
+import { MdHome, MdFolderOpen, MdSettings, MdLogout, MdLockReset, MdExpandMore, MdTune } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { shortName } from '../auth/user.js'
 import { puedeVer } from '../auth/roles.js'
 import CambiarClaveModal from './CambiarClaveModal.jsx'
+import ConfiguracionModal from './ConfiguracionModal.jsx'
 import { createPortal } from 'react-dom'
 
 const MENU = [
@@ -20,6 +21,7 @@ export default function Header() {
   const { logout, account, rol, usuario } = useAuth()
   const [abrirMenu, setAbrirMenu] = useState(false)
   const [cambiarClave, setCambiarClave] = useState(false)
+  const [configuracion, setConfiguracion] = useState(false)
   const menuRef = useRef(null)
 
   useEffect(() => {
@@ -36,6 +38,9 @@ export default function Header() {
 
   const modal = cambiarClave ? createPortal(
     <CambiarClaveModal onClose={() => setCambiarClave(false)} />,
+    document.body
+  ) : configuracion ? createPortal(
+    <ConfiguracionModal onClose={() => setConfiguracion(false)} />,
     document.body
   ) : null
 
@@ -75,15 +80,24 @@ export default function Header() {
             <MdExpandMore className={`size-4 transition-transform ${abrirMenu ? 'rotate-180' : ''}`} />
           </button>
 
-          {abrirMenu && (
+{abrirMenu && (
             <div
-              className="absolute right-0 top-full mt-3 w-40 origin-top-right rounded-xl bg-brand-ink ring-1 ring-brand-cyan/25 shadow-[0_24px_60px_rgba(0,0,0,0.6)] animate-scaleIn py-2 z-[200]"
+              className="absolute right-0 top-full mt-3 w-52 origin-top-right rounded-xl bg-brand-ink ring-1 ring-brand-cyan/25 shadow-[0_24px_60px_rgba(0,0,0,0.6)] animate-scaleIn py-2 z-[200]"
               role="menu"
             >
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => { setCambiarClave(true); setAbrirMenu(false); }}
+                onClick={() => { setConfiguracion(true); setAbrirMenu(false) }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-brand-mist hover:bg-brand-navy hover:text-brand-cyan transition-colors"
+              >
+                <MdTune className="size-5" />
+                Configuración
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setCambiarClave(true); setAbrirMenu(false) }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-brand-mist hover:bg-brand-navy hover:text-brand-cyan transition-colors"
               >
                 <MdLockReset className="size-5" />

@@ -16,6 +16,7 @@ const P = require('./permisos')
 const archivos = require('./archivos')
 const config = require('./config')
 const correo = require('./correo')
+const push = require('./push')
 
 const router = express.Router()
 
@@ -462,6 +463,97 @@ router.get(
   })
 )
 
+// ---------------------------------------------------------------------------
+// Notificaciones push (con la app cerrada)
+//
+// La clave pública no es un secreto —va incrustada en el bundle del navegador
+// que la necesita para suscribirse— pero sí exige sesión: sin ella, cualquiera
+// que conozca la URL podría suscribir un dispositivo ajeno y usarlo para medir
+// cuántas cuentas hay o simply para no enterarse de nada. Va dentro del router
+// protegido por una razón práctica: el frontend la pide justo al arrancar, y
+// pedirla antes de tener token devolvería 401 y rompería el arranque.
+// ---------------------------------------------------------------------------
+
+// Clave pública VAPID. El frontend la llama antes de preguntar permiso: sin ella
+// no tiene con qué firmarse y la suscripción siempre fallaría.
+router.get(
+  '/notificaciones/push',
+  ruta(async (req, res) => {
+    res.json({
+      // Sin claves el frontend lo sabe y muestra el interruptor apagado con la
+      // explicación, en vez de fallar en silencio al activar.
+      activo: push.hayClaves,
+      clavePublica: push.hayClaves ? config.push.publica : '',
+      // Cierra el circuito con el diagnóstico del log de arranque: si alguien
+      // pregunta "por qué no me llega", la respuesta está en este objeto.
+      detalle: push.hayClaves
+        ? 'Las notificaciones push están configuradas en el servidor.'
+        : 'El servidor no tiene claves VAPID (faltan VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY).',
+    })
+  })
+)
+
+// Registrar este dispositivo para recibir avisos aunque la app no esté abierta.
+// Idempotente por endpoint: volver a activar en el mismo equipo actualiza la fila
+// en vez de crear un duplicado.
+router.post(
+  '/notificaciones/suscripcion',
+  ruta(async (req, res) => {
+    const resultado = await push.suscribir(
+      req.correo,
+      req.body?.subscription || req.body?.suscripcion,
+      req.get('user-agent') || ''
+    )
+    if (!resultado.ok) {
+      return res.status(400).json({ error: 'No se pudo registrar la suscripción', motivo: resultado.motivo })
+    }
+    res.json({ ok: true })
+  })
+)
+
+// Quitar la suscripción. Con ?equipo=<endpoint> se apaga solo en este navegador;
+// sin él, en todos los equipos de la cuenta (es lo que se usa al cerrar sesión).
+router.delete(
+  '/notificaciones/suscripcion',
+  ruta(async (req, res) => {
+    const soloEste = String(req.query?.equipo || '').trim()
+    await push.desuscribir(req.correo, soloEste)
+    res.json({ ok: true })
+  })
+)
+
+// Prueba de humo: manda un aviso solo a los equipos del propio usuario.
+//
+// Existe porque configurar VAPID es un ejercicio de fe —no hay forma de saber si
+// las claves están bien hasta que llega un push— y el camino de depuración
+// ("¿llegará al navegador?") necesita un paso intermedio entre "la API arrancó
+// bien" y "a ver si el conductor recibe algo". Sin esto habría que crear una
+// solicitud de prueba cada vez.
+//
+// Deliberadamente NO acepta destinatario: solo puede escribirse en los equipos de
+// quien llama. Con destinatario libre sería una vía para que cualquier cuenta
+// mandara avisos en nombre de la empresa, que es justo lo que se impidió con el
+// correo.
+router.post(
+  '/notificaciones/prueba',
+  ruta(async (req, res) => {
+    if (!push.hayClaves) {
+      return res.status(503).json({
+        error: 'El servidor no tiene claves VAPID configuradas',
+        detalle: 'Genera el par con: npx web-push generate-vapid-keys',
+      })
+    }
+    const resultado = await push.enviar([req.correo], {
+      titulo: 'PEDRO-CTP · prueba',
+      cuerpo: 'Las notificacionespush funcionan en este equipo. Si la ves, ya está todo listo.',
+      tag: 'ctp-prueba',
+      url: '/inicio',
+      datos: { tipo: 'prueba' },
+    })
+    res.json({ ok: true, ...resultado })
+  })
+)
+
 router.put(
   '/usuarios/:correo',
   ruta(async (req, res) => {
@@ -708,7 +800,9 @@ router.post(
       await conexion.beginTransaction()
 
       const [existentes] = await conexion.execute(
-        'SELECT codigo, solicitante_correo, estado FROM solicitudes WHERE codigo = ? FOR UPDATE',
+        `SELECT codigo, solicitante_correo, estado, asignado_a, asignado_correo,
+                conductor, conductor_correo
+           FROM solicitudes WHERE codigo = ? FOR UPDATE`,
         [fila.codigo]
       )
       const actual = existentes[0]
@@ -838,6 +932,14 @@ router.post(
           )
         }
       }
+
+      // Avisos push: los mismos eventos, pero para cuando la app está CERRADA.
+      //
+      // Se comparan contra la fila leída con FOR UPDATE (no contra lo que vino
+      // del cliente) porque esta es la foto fiable de lo que había antes. Por lo
+      // mismo que el correo, va después del commit y no puede tumbar el guardado.
+      const actor = { correo: ctx.correo, rol: ctx.rol }
+      await push.despachar(null, { anterior: actual || null, fila, actor, historial })
 
       return res.json({ ok: true, codigo: fila.codigo, avisosCorreo: avisos.length })
     } catch (error) {

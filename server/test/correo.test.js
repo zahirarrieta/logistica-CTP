@@ -118,27 +118,28 @@ probar('una encuesta en texto JSON también se reconoce', () => {
 
 // ---------------------------------------------------- planCorreos: destinatario
 
-probar('el aviso de calidad va al solicitante con las áreas internas en copia', () => {
+probar('el aviso de calidad va al solicitante con 5 áreas en copia', () => {
   const [aviso] = correo.planCorreos({
     fila: FILA,
     historial: [entradaEstado({ encuesta: encuestaMala(2) })],
   })
   // El correo del solicitante llega normalizado a minúsculas y sin espacios.
   assert.equal(aviso.para, 'solicitante@cliente.com')
-  assert.ok(aviso.copia.length > 0)
+  // Mala calificación: 5 áreas internas en copia (dominio @ctpmedica.com)
+  assert.equal(aviso.copia.length, 5)
   for (const destinatario of aviso.copia) {
-    assert.match(destinatario, /@pedro-ctpmedica\.com$/)
+    assert.match(destinatario, /@ctpmedica\.com$/)
     assert.notEqual(destinatario, aviso.para)
   }
 })
 
-probar('el aviso de cartera va al solicitante', () => {
+probar('el aviso de cartera va al solicitante (sin copia)', () => {
   const [aviso] = correo.planCorreos({
     fila: FILA,
     historial: [entradaEstado({ nuevo: 'Retenido por Cartera' })],
   })
   assert.equal(aviso.para, 'solicitante@cliente.com')
-  assert.ok(aviso.copia.length > 0)
+  assert.deepEqual(aviso.copia, [])
 })
 
 // --------------------------------------------------- planCorreos: cartera

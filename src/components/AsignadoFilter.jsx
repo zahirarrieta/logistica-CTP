@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { MdAssignmentInd, MdExpandMore } from 'react-icons/md'
+import { MdAssignmentInd, MdExpandMore, MdPersonOff } from 'react-icons/md'
 import { nombreDeAsignado } from '../store/solicitudesStore.js'
+import { SIN_ASIGNAR } from './filtrosConstants.js'
 
 function initials(name) {
   if (!name) return ''
@@ -19,16 +20,20 @@ export default function AsignadoFilter({ solicitudes, value, onChange }) {
 
   const counts = solicitudes.reduce((acc, s) => {
     const a = nombreDeAsignado(s.asignadoA)
-    if (!a) return acc
+    if (!a) {
+      acc[SIN_ASIGNAR] = (acc[SIN_ASIGNAR] || 0) + 1
+      return acc
+    }
     acc[a] = (acc[a] || 0) + 1
     return acc
   }, {})
 
   const total = solicitudes.length
-  const present = Object.keys(counts).sort((a, b) => a.localeCompare(b))
+  const hasUnassigned = counts[SIN_ASIGNAR] > 0
+  const present = Object.keys(counts).filter((k) => k !== SIN_ASIGNAR).sort((a, b) => a.localeCompare(b))
 
   const select = (a) => {
-    onChange(a)
+    onChange(a === SIN_ASIGNAR ? SIN_ASIGNAR : a)
     setOpen(false)
   }
 
@@ -40,7 +45,13 @@ export default function AsignadoFilter({ solicitudes, value, onChange }) {
         className="inline-flex items-center gap-2 rounded-full bg-brand-navy text-white px-4 py-2 text-sm font-bold shadow-sm hover:bg-brand-deep transition-colors"
       >
         <MdAssignmentInd className="text-lg text-brand-cyan" />
-        {value ? (
+        {value === SIN_ASIGNAR ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-deep/90 text-white px-2.5 py-0.5 text-xs font-bold">
+            <MdPersonOff className="text-lg" />
+            <span>Sin asignar</span>
+            <span className="px-1 rounded-full bg-white/15">{counts[SIN_ASIGNAR] || 0}</span>
+          </span>
+        ) : value ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-deep/90 text-white px-2.5 py-0.5 text-xs font-bold">
             <span className="grid place-items-center size-4 rounded-full bg-white text-brand-deep text-[9px]">{initials(value)}</span>
             {value}
@@ -49,7 +60,7 @@ export default function AsignadoFilter({ solicitudes, value, onChange }) {
         ) : (
           <span className="inline-flex items-center gap-1.5">
             Asignado
-            <span className="px-1.5 rounded-full bg-white/15">{present.length}</span>
+            <span className="px-1.5 rounded-full bg-white/15">{present.length + (hasUnassigned ? 1 : 0)}</span>
           </span>
         )}
         <MdExpandMore className={`text-lg transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
@@ -70,6 +81,19 @@ export default function AsignadoFilter({ solicitudes, value, onChange }) {
               </span>
               <span className="rounded-full bg-brand-ink/10 px-2 py-0.5 text-xs font-bold">{total}</span>
             </button>
+            {hasUnassigned && (
+              <button
+                type="button"
+                onClick={() => select(SIN_ASIGNAR)}
+                className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${value === SIN_ASIGNAR ? 'bg-brand-cyan/20' : 'hover:bg-brand-ink/5'}`}
+              >
+                <span className="inline-flex items-center gap-2 min-w-0">
+                  <MdPersonOff className="text-brand-cyan text-lg" />
+                  <span>Sin asignar</span>
+                </span>
+                <span className="rounded-full bg-brand-ink/10 px-2 py-0.5 text-xs font-bold">{counts[SIN_ASIGNAR]}</span>
+              </button>
+            )}
             {present.length > 0 ? (
               present.map((a) => (
                 <button
@@ -87,11 +111,11 @@ export default function AsignadoFilter({ solicitudes, value, onChange }) {
                   <span className="rounded-full bg-brand-ink/10 px-2 py-0.5 text-xs font-bold">{counts[a]}</span>
                 </button>
               ))
-            ) : (
+            ) : !hasUnassigned ? (
               <p className="px-3 py-3 text-sm text-brand-ink/50 text-center">
                 Aún no hay solicitudes asignadas
               </p>
-            )}
+            ) : null}
           </div>
         </>
       )}

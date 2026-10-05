@@ -96,22 +96,22 @@ function Root() {
     )
   }
 
-  return (
-    <Suspense fallback={<Loader />}>
-      <Routes>
-        <Route path="/" element={<Protegida path="/inicio"><Home /></Protegida>} />
-        <Route path="/inicio" element={<Protegida path="/inicio"><Home /></Protegida>} />
-        <Route path="/solicitudes" element={<Protegida path="/solicitudes"><Solicitudes /></Protegida>} />
-        <Route path="/administrador" element={<Protegida path="/administrador"><Administrador /></Protegida>} />
-        <Route path="/conductor" element={<Protegida path="/conductor"><Conductor /></Protegida>} />
-      </Routes>
-      <AvisoCierreSesion
-        abierto={aviso}
-        restante={restante}
-        onContinuar={seguirTrabajando}
-      />
-    </Suspense>
-  )
+return (
+      <Suspense fallback={<Loader />}>
+        <Routes>
+          <Route path="/" element={<Protegida path="/inicio"><Home /></Protegida>} />
+          <Route path="/inicio" element={<Protegida path="/inicio"><Home /></Protegida>} />
+          <Route path="/solicitudes" element={<Protegida path="/solicitudes"><Solicitudes /></Protegida>} />
+          <Route path="/administrador" element={<Protegida path="/administrador"><Administrador /></Protegida>} />
+          <Route path="/conductor" element={<Protegida path="/conductor"><Conductor /></Protegida>} />
+        </Routes>
+        <AvisoCierreSesion
+          abierto={aviso}
+          restante={restante}
+          onContinuar={seguirTrabajando}
+        />
+      </Suspense>
+    )
 }
 
 export default function App() {

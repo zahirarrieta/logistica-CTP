@@ -5,10 +5,12 @@ import {
   guardarSesion,
   getActiveAccount,
   haySesion,
+  tokenSesion,
 } from './sesion.js'
 import { API_URL, apiFetch } from '../services/apiClient.js'
 import { setRolActual, setUsuarioActual } from '../store/solicitudesStore.js'
 import { sesionCerrada } from '../services/notificaciones.jsx'
+import { limpiarAlCerrarSesion } from '../services/push.js'
 
 const AuthContext = createContext(null)
 
@@ -254,7 +256,18 @@ export function AuthProvider({ children }) {
 // Header hace onClick={logout}, así que sin este chequeo el evento de React
 // acabaría impreso en la pantalla de login.
 const logout = useCallback((motivo = '') => {
+  // El token se copia ANTES de cerrar la sesión local: es lo que permite
+  // después decirle al servidor que este equipo ya no debe recibir avisos. Si se
+  // leyera después, ya no habría token y la fila quedaría viva.
+  const tokenParaPush = tokenSesion()
   cerrarSesionLocal()
+  // La suscripción push es de ESTE equipo y de ESTA sesión. Si no se retira al
+  // cerrar sesión, el equipo sigue recibiendo avisos de las solicitudes de quien
+  // lo usó por última vez, que es como se cuelan los datos de un cliente a otro.
+  // Va sin await a propósito: el cierre de sesión no puede depender de que la red
+  // conteste, y si la llamada falla la fila caduca sola cuando el navegador deja
+  // de reconocerla (404/410) y el servidor la borra.
+  void limpiarAlCerrarSesion(tokenParaPush).catch(() => {})
   setAccount(null)
   setUsuario(null)
   setRolListo(true)

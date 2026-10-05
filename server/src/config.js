@@ -118,6 +118,24 @@ const config = {
     copiaCalidad: leer('CORREOS_ALERTA_CALIDAD'),
     copiaCartera: leer('CORREOS_REENCION_CARTERA'),
   },
+
+  // ------------------------------------------------------------------- push
+  // Notificaciones cuando la app está CERRADA (otra pestaña, navegador cerrado,
+  // celular bloqueado). Es lo único que funciona en ese escenario: la API de
+  // notificaciones del navegador solo existe mientras hay una pestaña viva.
+  //
+  // VAPID es el par de claves que identifica al servidor ante el navegador. Se
+  // genera UNA vez con el comando que indica el aviso de arranque y no se cambia
+  // nunca: si se regenera, todos los dispositivos suscritos dejan de recibir y
+  // hay que volver a activarlos uno por uno.
+  push: {
+    publica: leer('VAPID_PUBLIC_KEY'),
+    privada: leer('VAPID_PRIVATE_KEY'),
+    // Contacto del responsable del envío. Los navegadores lo usan para avisar
+    // si un servidor empieza a mandar push de más. Un correo real (no una
+    // dirección inventada) es lo que evita que Firefox/push services lo rechace.
+    contacto: leer('VAPID_SUBJECT', 'mailto:operaciones@pedro-ctpmedica.com'),
+  },
 }
 
 // --------------------------------------------------------------- validación
@@ -177,6 +195,17 @@ if (!config.correo.host) {
   }
 }
 
+// El push, igual que el correo, es accesorio: si faltan las claves VAPID la app
+// arranca igual y solo se pierden las notificaciones con la app cerrada. Se avisa
+// porque es muy fácil confundir "no tengo clave" con "el navegador no soporta".
+if (!config.push.publica || !config.push.privada) {
+  avisos.push(
+    'push sin configurar (VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY): las notificaciones solo '
+    + 'llegarán con la app abierta. Genera el par de claves con el comando que sale '
+    + 'en el log de arranque.'
+  )
+}
+
 if (faltantes.length > 0) {
   const bloque = [
     '',
@@ -221,7 +250,34 @@ const resumen = {
     ? `${config.correo.usuario ? 'autenticado' : 'anónimo'} en ${config.correo.host}:${config.correo.puerto}`
       + ` (${config.correo.secure ? 'SMTPS' : 'STARTTLS'}) desde ${config.correo.remitente || 'SIN REMITENTE'}`
     : 'sin configurar (los avisos solo quedan en el log)',
+  push: config.push.publica && config.push.privada
+    ? `claves VAPID listas (público ${config.push.publica.slice(0, 8)}…)`
+    : 'sin claves VAPID (las notificaciones solo llegan con la app abierta)',
   cors: config.cors.origenes.length > 0 ? config.cors.origenes.join(', ') : 'cualquiera',
+}
+
+// El comando para generar las claves VAPID se imprime solo cuando faltan, que es
+// justo cuando el usuario lo necesita: si las define, este bloque no aparece en
+// los logs. No se puede escribir un comando de una línea con comillas simples y
+// dobles mezcladas sin líos, así que va en un array unido por saltos de línea.
+if (!(config.push.publica && config.push.privada)) {
+  const comando = [
+    '',
+    '  Para activar las notificaciones con la app cerrada falta generar las claves',
+    '  VAPID. Se hace UNA VEZ y el resultado se copia en Setup Node.js App >',
+    '  Environment variables:',
+    '',
+    '    npx web-push generate-vapid-keys',
+    '',
+    "    VAPID_PUBLIC_KEY=<la que imprimir>",
+    '    VAPID_PRIVATE_KEY=<la que imprima>',
+    '    VAPID_SUBJECT=mailto:tu-correo-real@tu-dominio.com',
+    '',
+    '  Después, Restart. Sin estas claves la app funciona igual, pero los avisos',
+    '  solo se ven con la pestaña abierta.',
+    '',
+  ].join('\n')
+  console.warn(`[Config]${comando}`)
 }
 console.log('[Config] listo:', JSON.stringify(resumen))
 

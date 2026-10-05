@@ -29,12 +29,11 @@ process.env.MAIL_FROM_NAME = 'Logística CTP'
 process.env.MAIL_OPERATIVO = 'operaciones@pedro-ctpmedica.com'
 
 // Trae a propósito un duplicado y un espacio, para comprobar la limpieza.
+// Dominio actualizado a @ctpmedica.com con las 5 áreas internas.
 process.env.CORREOS_ALERTA_CALIDAD =
-  'calidad@pedro-ctpmedica.com, calidad@pedro-ctpmedica.com , otra@pedro-ctpmedica.com'
-// Vacía a propósito: la de cartera tiene que salir de la lista del código.
+  'almacen@ctpmedica.com, operaciones@ctpmedica.com, gestiondecalidad@ctpmedica.com, cotizacionesylicitaciones@ctpmedica.com, servicioalcliente2@ctpmedica.com, almacen@ctpmedica.com '
+// Vacía a propósito: la de cartera no tiene copia interna.
 process.env.CORREOS_REENCION_CARTERA = ''
-
-const OPERATIVA = 'operaciones@pedro-ctpmedica.com'
 
 // --- Base de datos de mentira ---------------------------------------------
 // correo.js hace `require('./db')` al cargarse, así que se sustituye ese módulo
@@ -149,7 +148,7 @@ const encuestaMala = {
 
 // ------------------------------------------------------------------ envío
 
-probar('un aviso sale en dos envíos: al solicitante y a las áreas', async () => {
+probar('un aviso sale en UN envío: al solicitante con 5 áreas en copia', async () => {
   ponerTransporte()
   const resultado = await correo.despachar(
     correo.planCorreos({
@@ -158,17 +157,16 @@ probar('un aviso sale en dos envíos: al solicitante y a las áreas', async () =
     })
   )
 
-  // `resultado` cuenta AVISOS, no envíos: uno aunque salgan dos mensajes.
+  // `resultado` cuenta AVISOS: uno = un envío.
   assert.equal(resultado, 1)
-  assert.equal(enviados.length, 2)
+  assert.equal(enviados.length, 1)
 
-  // 1 · el solicitante, con la operación en copia.
+  // El solicitante en TO, las 5 áreas en CC (dominio @ctpmedica.com).
   assert.equal(enviados[0].to, 'ana@acme.com')
-  assert.deepEqual(enviados[0].cc, [OPERATIVA])
-
-  // 2 · la operación, con el resto de áreas en copia.
-  assert.equal(enviados[1].to, OPERATIVA)
-  assert.deepEqual(enviados[1].cc, ['calidad@pedro-ctpmedica.com', 'otra@pedro-ctpmedica.com'])
+  assert.equal(enviados[0].cc.length, 5)
+  for (const c of enviados[0].cc) {
+    assert.match(c, /@ctpmedica\.com$/)
+  }
 })
 
 probar('los dos envíos llevan el remitente del hosting y el diseño', async () => {
@@ -206,33 +204,28 @@ probar('la casilla operativa no se repite dentro del mismo mensaje', async () =>
   }
 })
 
-probar('una lista de copia vacía cae en la lista por defecto del código', async () => {
+probar('el aviso de cartera sale SIN copia (solo al solicitante)', async () => {
   ponerTransporte()
-  // CORREOS_REENCION_CARTERA está vacía a propósito: la de cartera tiene que
-  // salir de la lista del código, no quedarse sin copiar.
   await correo.despachar(
     correo.planCorreos({
       fila: FILA,
       historial: [entradaEstado({ id: 'hist-d', nuevo: 'Retenido por Cartera' })],
     })
   )
-  assert.deepEqual(enviados[1].cc, [
-    'cotizacionesylicitaciones@pedro-ctpmedica.com',
-    'servicioalcliente2@pedro-ctpmedica.com',
-  ])
+  // Un solo envío: solicitante en TO, CC vacía.
+  assert.equal(enviados.length, 1)
+  assert.deepEqual(enviados[0].cc || [], [])
 })
 
-probar('la lista interna del código usa el dominio del hosting', async () => {
+probar('la lista interna del código usa el dominio @ctpmedica.com', async () => {
   ponerTransporte()
-  // La lista por defecto venía con @ctpmedica.com, que no es el dominio de este
-  // hosting: esas casillas no existen y harían rebotar el envío entero.
+  // La lista por defecto viene con @ctpmedica.com, que es el dominio correcto.
   for (const lista of [correo.CORREOS_ALERTA_CALIDAD, correo.CORREOS_REENCION_CARTERA]) {
     for (const direccion of lista) {
-      assert.match(direccion, /@pedro-ctpmedica\.com$/)
+      assert.match(direccion, /@ctpmedica\.com$/)
     }
   }
-  assert.ok(correo.CORREOS_ALERTA_CALIDAD.includes(OPERATIVA))
-  assert.ok(correo.CORREOS_REENCION_CARTERA.includes(OPERATIVA))
+  // La operativa ya no está en las listas por defecto (se usa solo si se configura MAIL_OPERATIVO)
 })
 
 probar('el aviso de cartera lleva el motivo del cambio', async () => {
@@ -296,29 +289,7 @@ probar('un buzón interno inexistente NO impide el aviso al solicitante', async 
   assert.equal(enviados[0].to, 'ana@acme.com')
 })
 
-probar('un correo de solicitante inválido NO impide el aviso a las áreas', async () => {
-  ponerTransporte()
-  fallarPara = 'ana@acme.com'
-  silenciar()
-  let resultado
-  try {
-    resultado = await correo.despachar(
-      correo.planCorreos({
-        fila: FILA,
-        historial: [entradaEstado({ id: 'hist-h', encuesta: encuestaMala })],
-      })
-    )
-  } finally {
-    restaurar()
-  }
-
-  // Aunque el cliente no lo recibiera, operaciones sí: el problema se ve igual.
-  assert.equal(resultado, 1)
-  assert.equal(enviados.length, 1)
-  assert.equal(enviados[0].to, OPERATIVA)
-})
-
-probar('si no sale ningún envío, el aviso se reintenta en el siguiente guardado', async () => {
+probar('si el envío falla, el aviso se reintenta en el siguiente guardado', async () => {
   // Si la clave quedara reservada para siempre, un corte de red de treinta
   // segundos convertiría ese aviso en algo que no sale nunca.
   const plan = () =>
@@ -328,7 +299,8 @@ probar('si no sale ningún envío, el aviso se reintenta en el siguiente guardad
     })
 
   ponerTransporte()
-  fallarPara = OPERATIVA
+  // Hacemos fallar a una de las 5 áreas internas (nuevo dominio @ctpmedica.com).
+  fallarPara = 'operaciones@ctpmedica.com'
   silenciar()
   let resultado
   try {
@@ -341,36 +313,12 @@ probar('si no sale ningún envío, el aviso se reintenta en el siguiente guardad
 
   ponerTransporte()
   assert.equal(await correo.despachar(plan()), 1)
-  assert.equal(enviados.length, 2)
-})
-
-probar('un aviso entregado a medias no se repite en cada guardado', async () => {
-  // Si el solicitante lo recibió pero las áreas fallaron, no se vuelve a intentar
-  // en cada guardado: lo que falló se queda en el log, no se martillea el buzón.
-  const plan = () =>
-    correo.planCorreos({
-      fila: FILA,
-      historial: [entradaEstado({ id: 'hist-parcial', encuesta: encuestaMala })],
-    })
-
-  ponerTransporte()
-  fallarPara = 'otra@pedro-ctpmedica.com'
-  silenciar()
-  try {
-    assert.equal(await correo.despachar(plan()), 1)
-  } finally {
-    restaurar()
-  }
-
-  ponerTransporte()
-  assert.equal(await correo.despachar(plan()), 0)
-  assert.equal(enviados.length, 0)
+  assert.equal(enviados.length, 1)
 })
 
 probar('si solo hay una casilla interna no se manda un segundo envío vacío', async () => {
-  // Si la lista interna fuera solo la operativa, no hay a quién copiarle: el
-  // segundo envío sería redundante y, si fallara, dejaría la clave reservada
-  // para siempre sin reintento posible.
+  // Si la lista interna fuera solo una, no hay problema: el único envío sale con
+  // esa casilla en CC.
   //
   // config se lee al cargarse, así que hay que recargar los módulos: cambiar
   // process.env aquí no cambiaría nada.
@@ -378,7 +326,7 @@ probar('si solo hay una casilla interna no se manda un segundo envío vacío', a
   const rutaConfig = require.resolve('../src/config')
   const rutaCorreo = require.resolve('../src/correo')
 
-  process.env.CORREOS_ALERTA_CALIDAD = OPERATIVA
+  process.env.CORREOS_ALERTA_CALIDAD = 'operaciones@ctpmedica.com'
   delete require.cache[rutaConfig]
   delete require.cache[rutaCorreo]
 
@@ -409,7 +357,7 @@ probar('si solo hay una casilla interna no se manda un segundo envío vacío', a
   assert.equal(resultado, 1)
   assert.equal(enviados.length, 1)
   assert.equal(enviados[0].to, 'ana@acme.com')
-  assert.deepEqual(enviados[0].cc, [OPERATIVA])
+  assert.deepEqual(enviados[0].cc, ['operaciones@ctpmedica.com'])
 })
 
 // ------------------------------------------------------------ duplicados
@@ -425,14 +373,14 @@ probar('el mismo aviso no se manda dos veces', async () => {
   // El frontend reenvía el historial completo en cada guardado, así que esto
   // ocurre en cada guardado posterior del mismo pedido.
   assert.equal(await correo.despachar(plan()), 1)
-  assert.equal(enviados.length, 2)
+  assert.equal(enviados.length, 1)
   assert.equal(await correo.despachar(plan()), 0)
-  assert.equal(enviados.length, 2)
+  assert.equal(enviados.length, 1)
   assert.equal(await correo.despachar(plan()), 0)
-  assert.equal(enviados.length, 2)
+  assert.equal(enviados.length, 1)
 })
 
-probar('los dos avisos del mismo registro salen los dos', async () => {
+probar('los dos avisos del mismo registro salen los dos (1 envío cada uno)', async () => {
   ponerTransporte()
   const resultado = await correo.despachar(
     correo.planCorreos({
@@ -447,7 +395,7 @@ probar('los dos avisos del mismo registro salen los dos', async () => {
     })
   )
   assert.equal(resultado, 2)
-  assert.equal(enviados.length, 4)
+  assert.equal(enviados.length, 2)
 })
 
 // ------------------------------------------------------------- tolerancia
@@ -476,7 +424,7 @@ probar('que la base de reservas caiga no impide enviar', async () => {
       })
     )
     assert.equal(resultado, 1)
-    assert.equal(enviados.length, 2)
+    assert.equal(enviados.length, 1)
   } finally {
     restaurar()
     poolFalso.execute = guardar

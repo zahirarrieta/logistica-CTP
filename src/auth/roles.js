@@ -20,6 +20,10 @@ export const RUTA_INICIO = '/inicio'
 export const RUTA_SOLICITUDES = '/solicitudes'
 export const RUTA_CONDUCTOR = '/conductor'
 export const RUTA_ADMIN = '/administrador'
+// Configuración es para todo el mundo: cada rol tiene algo que activar ahí (el
+// conductor, las notificaciones push) y una pantalla que solo le sirva a un rol
+// sería un callejón sin salida cada vez que aparezca un ajuste nuevo.
+export const RUTA_CONFIGURACION = '/configuracion'
 
 const TODOS = [RUTA_INICIO, RUTA_SOLICITUDES, RUTA_CONDUCTOR, RUTA_ADMIN]
 
@@ -56,8 +60,11 @@ export function modulosPermitidos(rol) {
 }
 
 // ¿Puede el rol visitar la ruta dada? «/» y «/inicio» se tratan como Inicio.
+// Configuración es la excepción: la ven todos los roles, así que se comprueba
+// aparte de la lista de módulos.
 export function puedeVer(rol, path) {
   const ruta = path === '/' ? RUTA_INICIO : path
+  if (ruta === RUTA_CONFIGURACION || ruta.startsWith(`${RUTA_CONFIGURACION}/`)) return true
   return modulosPermitidos(rol).some((m) => ruta === m || ruta.startsWith(`${m}/`))
 }
 
