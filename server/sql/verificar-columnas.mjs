@@ -55,7 +55,7 @@ const esperadas = {
   // claves con las que el servicio de push cifra cada aviso para ese equipo.
   push_suscripciones: [
     'id', 'correo', 'endpoint', 'clave_publica', 'clave_privada', 'agente',
-    'creado_en', 'visto_en',
+    'creado_en', 'actualizado_en', 'ultimo_envio_ok_en',
   ],
 }
 

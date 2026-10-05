@@ -135,9 +135,9 @@ export async function estado() {
     }
   }
 
-// Permiso concedido: ahora toca ver si el servidor tiene las claves VAPID.
-// Sin ellas no hay con qué empujar, y es mejor decirlo que fallar en silencio
-// al activar.
+  // Permiso concedido: ahora toca ver si el servidor tiene las claves VAPID.
+  // Sin ellas no hay con qué empujar, y es mejor decirlo que fallar en silencio
+  // al activar.
   let servidor = { activo: false }
   try {
     servidor = await apiGet('/api/notificaciones/push')
@@ -152,6 +152,28 @@ export async function estado() {
       estado: 'sin-claves',
       detalle: servidor.detalle
         || 'El servidor todavía no tiene claves VAPID. Mientras tanto solo llegarán avisos con la app abierta.',
+    }
+  }
+
+  // Verificar suscripción REAL en el navegador (no solo localStorage).
+  // Si el navegador revocó la suscripción (404/410) pero localStorage la tiene,
+  // limpiamos localStorage y devolvemos 'sin-registrar' para que el usuario
+  // pueda reactivar con un click.
+  const worker = await esperarServiceWorker()
+  if (!worker) {
+    return {
+      estado: 'sin-sw',
+      detalle: 'El service worker no está listo. Recarga la página e inténtalo de nuevo.',
+    }
+  }
+  const suscripcionReal = await worker.pushManager.getSubscription()
+  if (!suscripcionReal) {
+    // El navegador ya no tiene la suscripción (la revocó o expiró).
+    // Limpiamos localStorage para que el estado sea coherente.
+    borrarSuscripcionLocal()
+    return {
+      estado: 'sin-registrar',
+      detalle: 'La suscripción ya no existe en el navegador. Vuelve a activar las notificaciones.',
     }
   }
 
@@ -228,30 +250,39 @@ export async function activar() {
     }
   }
 
-  try {
-    const existente = await worker.pushManager.getSubscription()
-    // Si ya había una, se reutiliza: no hace falta desuscribir y volver a
-    // suscribir, y eso evita el hueco en el que no hay suscripción.
-    const suscripcion = existente || await worker.pushManager.subscribe({
+  // Si ya hay una suscripción en el navegador, verificar que siga viva en el servidor.
+  // Si el servidor ya no la tiene (404/410), la borramos localmente y creamos una nueva.
+  const existente = await worker.pushManager.getSubscription()
+  let suscripcion
+  if (existente) {
+    try {
+      // Verificar si el servidor aún tiene esta suscripción
+      await apiGet(`/api/notificaciones/push?equipo=${encodeURIComponent(existente.endpoint)}`)
+      // El servidor la tiene: la reutilizamos
+      suscripcion = existente
+    } catch {
+      // El servidor ya no la tiene (404/410 u otro error): la borramos y creamos nueva
+      await existente.unsubscribe()
+      borrarSuscripcionLocal()
+      const nueva = await worker.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vadidABase64UrlABytes(servidor.clavePublica),
+      })
+      suscripcion = nueva
+    }
+  } else {
+    suscripcion = await worker.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: vadidABase64UrlABytes(servidor.clavePublica),
     })
+  }
 
-    await registrarEnServidor(suscripcion)
-    guardarSuscripcionLocal(suscripcion)
-    return {
-      ok: true,
-      estado: 'activas',
-      detalle: 'Listo. Recibirás avisos aunque no tengas la app abierta.',
-    }
-  } catch (error) {
-    // Un error aquí puede ser la clave VAPID con formato inválido en el
-    // servidor, o un navegador que rechaza applicationServerKey.
-    return {
-      ok: false,
-      estado: 'error',
-      detalle: `No se pudo completar la suscripción: ${error?.message || 'error desconocido'}`,
-    }
+  await registrarEnServidor(suscripcion)
+  guardarSuscripcionLocal(suscripcion)
+  return {
+    ok: true,
+    estado: 'activas',
+    detalle: 'Listo. Recibirás avisos aunque no tengas la app abierta.',
   }
 }
 

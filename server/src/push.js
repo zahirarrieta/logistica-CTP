@@ -148,7 +148,7 @@ async function suscribir(correo, entrada, agente = '') {
          clave_publica = VALUES(clave_publica),
          clave_privada = VALUES(clave_privada),
          agente = VALUES(agente),
-         visto_en = CURRENT_TIMESTAMP(3)`,
+         actualizado_en = CURRENT_TIMESTAMP(3)`,
       [usuario, sus.endpoint, sus.publica, sus.privada, String(agente || '').slice(0, 255)]
     )
     return { ok: true, endpoint: sus.endpoint }
@@ -218,7 +218,8 @@ const SUSCRIPCION_MUERTA = new Set([404, 410])
 
 // Un envío a una persona no debe retrasar la respuesta HTTP: el usuario ya está
 // esperando confirmación de su guardado. El push se manda sin esperar.
-async function enviarUno(suscripcion, carga) {
+// Reintenta fallos transitorios (red, 5xx) con backoff exponencial.
+async function enviarUno(suscripcion, carga, intento = 1) {
   try {
     await webpush.sendNotification(
       {
@@ -232,6 +233,11 @@ async function enviarUno(suscripcion, carga) {
       // y el service worker lo vuelve a convertir con JSON.parse.
       JSON.stringify(carga),
       { TTL: 60 * 60 * 6, urgency: 'high' }
+    )
+    // Marcar último envío exitoso para la limpieza periódica
+    await pool.execute(
+      'UPDATE push_suscripciones SET ultimo_envio_ok_en = CURRENT_TIMESTAMP(3) WHERE endpoint = ?',
+      [suscripcion.endpoint]
     )
     return true
   } catch (error) {
@@ -248,6 +254,20 @@ async function enviarUno(suscripcion, carga) {
     // 413 = el payload era demasiado grande. Es un fallo de este código, no del
     // dispositivo, así que se avisa: significa que un texto se está yendo de las
     // manos.
+    if (codigo === 413) {
+      console.error(
+        `[Push] envío a ${suscripcion.correo} falló (${codigo}): ${error?.message}`
+      )
+      return false
+    }
+    // Errores transitorios (red, 5xx, timeout): reintentar con backoff
+    const ES_TRANSIENTE = !codigo || codigo >= 500 || codigo === 429 || codigo === 0
+    if (ES_TRANSIENTE && intento < 3) {
+      const espera = Math.min(1000 * Math.pow(2, intento - 1), 5000)
+      console.warn(`[Push] reintento ${intento}/3 en ${espera}ms para ${suscripcion.correo}: ${error?.message}`)
+      await new Promise((r) => setTimeout(r, espera))
+      return enviarUno(suscripcion, carga, intento + 1)
+    }
     console.error(
       `[Push] envío a ${suscripcion.correo} falló${codigo ? ` (${codigo})` : ''}: ${error?.message}`
     )
@@ -546,7 +566,24 @@ module.exports = {
   eventosDe,
   despachar,
   enviar,
+  limpiarSuscripcionesAntiguas,
   ESTADOS_TRANSITO,
   ESTADOS_ENTREGA,
   ROLES_ADMIN,
+}
+
+// Elimina suscripciones que llevan más de X días sin envíos exitosos.
+// Útil para ejecutar vía cron o al arrancar la app.
+async function limpiarSuscripcionesAntiguas({ dias = 30 } = {}) {
+  const limite = new Date(Date.now() - dias * 24 * 60 * 60 * 1000)
+  const [resultado] = await pool.execute(
+    `DELETE FROM push_suscripciones 
+     WHERE actualizado_en < ? 
+       AND (ultimo_envio_ok_en IS NULL OR ultimo_envio_ok_en < ?)`,
+    [limite, limite]
+  )
+  if (resultado.affectedRows > 0) {
+    console.log(`[Push] limpiadas ${resultado.affectedRows} suscripciones antiguas (> ${dias} días sin envío OK)`)
+  }
+  return resultado.affectedRows
 }

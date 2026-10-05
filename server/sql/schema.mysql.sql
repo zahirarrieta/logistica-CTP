@@ -244,10 +244,11 @@ CREATE TABLE IF NOT EXISTS push_suscripciones (
   clave_privada VARCHAR(255) NOT NULL,
   agente        VARCHAR(255) NOT NULL DEFAULT '',
   creado_en     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  visto_en      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  actualizado_en DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  ultimo_envio_ok_en DATETIME(3)  NULL,
   PRIMARY KEY (id),
   -- endpoint(191) y no endpoint entero: MySQL no indexa VARCHAR(500) completo
-  -- con utf8mb4 (pasaría de los 3072 bytes de límite de clave).
+  -- con utf8mb4 (pasará de los 3072 bytes de límite de clave).
   UNIQUE KEY push_endpoint_uq (endpoint(191)),
   KEY push_correo_idx (correo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

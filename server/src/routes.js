@@ -493,6 +493,21 @@ router.get(
   })
 )
 
+// Verificar si una suscripción concreta (por endpoint) sigue viva en el servidor.
+// Lo usa el frontend al activar: si el servidor ya no la tiene, la recrea.
+router.get(
+  '/notificaciones/push',
+  ruta(async (req, res) => {
+    const endpoint = String(req.query?.equipo || '').trim()
+    if (!endpoint) {
+      return res.status(400).json({ error: 'Falta parámetro equipo (endpoint)' })
+    }
+    const filas = await push.suscripcionesDe([req.correo])
+    const existe = filas.some((f) => f.endpoint === endpoint)
+    res.json({ existe })
+  })
+)
+
 // Registrar este dispositivo para recibir avisos aunque la app no esté abierta.
 // Idempotente por endpoint: volver a activar en el mismo equipo actualiza la fila
 // en vez de crear un duplicado.

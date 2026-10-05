@@ -59,6 +59,15 @@ const poolFalso = {
     if (/DELETE FROM push_suscripciones WHERE endpoint/i.test(sql)) {
       return [{ affectedRows: suscripciones.delete(params[0]) ? 1 : 0 }, []]
     }
+    if (/UPDATE push_suscripciones SET ultimo_envio_ok_en = CURRENT_TIMESTAMP\(3\) WHERE endpoint = \?/i.test(sql)) {
+      const endpoint = params[0]
+      const fila = suscripciones.get(endpoint)
+      if (fila) {
+        // Simulamos la actualización
+        return [{ affectedRows: 1 }, []]
+      }
+      return [{ affectedRows: 0 }, []]
+    }
     if (/FROM push_suscripciones/i.test(sql) && /WHERE correo IN/i.test(sql)) {
       const pedidos = params
       return [[...suscripciones.values()].filter((f) => pedidos.includes(f.correo)), []]
