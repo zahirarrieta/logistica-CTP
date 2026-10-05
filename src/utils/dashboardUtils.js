@@ -29,14 +29,18 @@ export function parseStamp(fecha, hora) {
   let mi = 0
   let s = 0
   const texto = String(hora || '').toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim()
-  const match = texto.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?/)
+  // es-CO separa el meridiano («02:30 p. m.» → «02:30 p m»): hay que aceptarlo con
+  // o sin espacio entre la letra y la «m». Si no, las horas de la tarde se leen
+  // como de la mañana (14:30 → 02:30) y la marca queda 12 h desfasada, lo que hacía
+  // que la ventana de 3 min para eliminar pareciera vencida apenas se subía.
+  const match = texto.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\s*m)?/)
   if (match) {
     h = Number(match[1])
     mi = Number(match[2])
     s = Number(match[3] || 0)
     const ap = match[4]
-    if (ap === 'pm' && h < 12) h += 12
-    if (ap === 'am' && h === 12) h = 0
+    if (ap === 'p' && h < 12) h += 12
+    if (ap === 'a' && h === 12) h = 0
   } else {
     const hh = texto.match(/(\d{1,2})\s*(?:h|horas?)/)
     if (hh) h = Number(hh[1]) % 24
