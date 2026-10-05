@@ -26,17 +26,18 @@
  │        solicitudesStore.js  (STORE LOCAL-FIRST + pub/sub)      │  │
  │         localStorage ◄──────┼──────► polling cada 8 s          │  │
  │                              ▼                                 │  │
-  │        services/  solicitudesApi · apiClient ·              │  │
- │                   oneDriveApi · notificaciones · enviarCorreo  │  │
- └──────────────┬───────────────────────────────┬─────────────────┘
-                ▼                               ▼
-      ┌──────────────────┐            ┌─────────────────────────┐
-      │ API propia        │            │  Microsoft Graph        │
-      │ Express+MySQL    │            │  OneDrive/SharePoint    │
-      │ disco+polling    │            │  carpeta «solicitudes»  │
-      │ permisos en      │            │  + Mail.Send (alertas)  │
-      │ cada query        │            └─────────────────────────┘
-      └──────────────────┘
+   │        services/  solicitudesApi · apiClient ·              │  │
+   │                   archivosApi · notificaciones               │  │
+   └──────────────┬───────────────────────────────┬─────────────────┘
+                 ▼                               ▼
+       ┌──────────────────┐            ┌─────────────────────────┐
+       │ API propia        │            │  Microsoft Graph        │
+       │ Express+MySQL    │            │  OneDrive/SharePoint    │
+       │ disco+polling    │            │  carpeta «solicitudes»  │
+       │ permisos en      │            └─────────────────────────┘
+       │ cada query        │
+       │ + SMTP (avisos)  │
+       └──────────────────┘
 ```
 
 ## Patrón

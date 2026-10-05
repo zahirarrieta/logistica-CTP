@@ -1,10 +1,9 @@
 {
-  "version": "2026.10.05-3",
+  "version": "2026.10.05-4",
   "fecha": "2026-10-05",
   "cambios": [
-    "El botón de eliminar solicitud muestra ahora un contador de 3 minutos (min:seg) en la columna de la tabla y en el seguimiento; al vencer, el botón desaparece solo.",
-    "Antes de eliminar aparece un mensaje de confirmación «¿Seguro de eliminar la solicitud?» con CANCELAR / ELIMINAR.",
-    "El botón de eliminar ya aparece también en la tarde (las horas «p. m.» se leían como «a. m.»).",
-    "Los documentos (imagen, PDF o Excel) ya no muestran «Enlace inválido o vencido» cuando pasan los días: el visor re-firma el enlace al abrirlo."
+    "Aviso por correo al solicitante cuando una encuesta de satisfacción queda con promedio 2.5 o menos, con operaciones, almacén, servicio al cliente, cotizaciones y gestión de calidad en copia.",
+    "Aviso por correo al solicitante cuando la solicitud pasa al estado «Retenido por Cartera», con el motivo que registró quien hizo el cambio.",
+    "Los dos avisos los manda el servidor al guardar la entrega, no el navegador: hay una sola identidad remitente y cada envío queda en el log del hosting."
   ]
 }

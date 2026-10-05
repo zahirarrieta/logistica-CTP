@@ -15,6 +15,7 @@ const { pool } = require('./db')
 const P = require('./permisos')
 const archivos = require('./archivos')
 const config = require('./config')
+const correo = require('./correo')
 
 const router = express.Router()
 
@@ -821,7 +822,24 @@ router.post(
         }
       }
 
-      return res.json({ ok: true, codigo: fila.codigo })
+      // Avisos por correo: mala calificación (encuesta ≤ 2.5) y paso a 'Retenido
+      // por Cartera'. Es la ÚNICA vía por la que entra un cambio de estado o una
+      // encuesta, así que se comprueba aquí y no en dos sitios distintos.
+      //
+      // Va después del commit, y por lo mismo que la carpeta: el correo es
+      // accesorio y despachar() nunca lanza. Si el SMTP está caído, la
+      // almacenamiento sigue hecha y solo se pierde el aviso.
+      const avisos = correo.planCorreos({ fila, historial })
+      if (avisos.length > 0) {
+        const enviados = await correo.despachar(avisos)
+        if (enviados < avisos.length) {
+          console.warn(
+            `[Correo] ${avisos.length - enviados} de ${avisos.length} aviso(s) de ${fila.codigo} no salieron`
+          )
+        }
+      }
+
+      return res.json({ ok: true, codigo: fila.codigo, avisosCorreo: avisos.length })
     } catch (error) {
       await conexion.rollback()
       throw error

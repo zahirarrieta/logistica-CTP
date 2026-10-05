@@ -39,7 +39,8 @@ logistica-CTP/
 │
 ├── server/                     ✅ Backend Node.js + MySQL (Node.js Selector de cPanel)
 │   ├── app.js                      Startup file para Passenger (delega en src/index.js)
-│   ├── package.json                ⚙️ express · mysql2 · jose · multer · cors
+│   ├── package.json                ⚙️ express · mysql2 · jose · multer · cors ·
+│   │                               nodemailer
 │   ├── .env.example                ⚙️ Plantilla de variables del servidor
 │   ├── src/
 │   │   ├── index.js                Exporta la app (Passenger) y sirve /api
@@ -47,7 +48,9 @@ logistica-CTP/
 │   │   │                           solicitudes · archivos
 │   │   ├── permisos.js             ⚠️ Permisos por rol = traducción de las RLS.
 │   │   │                           Toda consulta DEBE pasar por un filtro de aquí.
-│   │   ├── auth.js                 Valida el token de Microsoft contra el JWKS
+│   │   ├── correo.js                ⚠️ Avisos por SMTP (mala calificación y
+│   │   │                           Retenido por Cartera) + control de duplicados
+│   │   ├── auth.js                 Verifica el token de sesión que firma la API
 │   │   ├── db.js                   Pool MySQL (sesión en UTC)
 │   │   └── archivos.js             Guardado en disco + URLs firmadas HMAC
 │   ├── sql/
@@ -178,7 +181,6 @@ logistica-CTP/
         │                          subir adjuntos/facturas/evidencias por pedido
         ├── oneDriveVisor.js       Resolver URLs/enlaces/nombres viejos a blob visible
         ├── notificaciones.jsx     Todos los toasts (sileo) + sonidos por tipo de evento
-        ├── enviarCorreo.js        Alerta de calidad por Graph Mail.Send (promedio ≤ 2.5)
         ├── exportarInforme.js     PDF de informe del dashboard (jspdf lazy)
         └── planillaPdf.js         PDF de planilla (jspdf lazy)
 ```

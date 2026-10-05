@@ -249,6 +249,149 @@ El log de arranque dice si quedó bien (`cPanel > Errors`):
 Si en vez de eso sale el bloque `FALTAN VARIABLES DE ENTORNO`, el propio mensaje
 dice cuál falta.
 
+### Avisos por correo (mala calificación y retención por cartera)
+
+La API manda dos avisos automáticos. Los dos salen **desde el servidor**, no desde
+el navegador, por dos razones: hay una sola identidad remitente (si los mandara el
+frontend, cualquier usuario con una sesión abierta podría escribir en nombre de la
+empresa) y queda escrito en el log del hosting quién pidió cada envío.
+
+| Aviso | A quién | Cuándo |
+|---|---|---|
+| Mala calificación | solicitante + 5 áreas internas en copia | la encuesta de satisfacción queda en **2.5 o menos** |
+| Retención por cartera | solicitante + áreas internas en copia | la solicitud **pasa a** `Retenido por Cartera` |
+
+Lo decide `server/src/correo.js` al confirmar el guardado de la entrega, que es la
+única puerta por la que entran el cambio de estado y la encuesta. Por eso también
+funciona sin conexión: si el conductor guardó sin red, el aviso sale solo cuando la
+cola se sincroniza.
+
+**Paso 1 · Crear el buzón.** Si la cuenta de correo ya existe, sáltalo. cPanel >
+**Correo electrónico > Crear buzón de correo**. Un buzón del propio hosting es lo
+normal aquí (`operaciones@pedro-ctpmedica.com` o el de la empresa si el dominio ya
+tiene correo). Se anota la contraseña.
+
+**Paso 2 · Averiguar el servidor SMTP.** cPanel > **Correo electrónico > Conexiones
+de correo electrónico**:
+
+| Campo | Valor |
+|---|---|
+| Servidor SMTP | `mail.pedro-ctpmedica.com` (a veces `mail.DOMINIO.com`) |
+| Puerto SSL/TLS | **465** |
+| Puerto STARTTLS | **587** |
+
+Se usa el 465 por defecto porque el más antiguo va con cifrado directo. Si solo
+tienes el 587, pon `MAIL_PORT=587` y `MAIL_SECURE=false`.
+
+**Paso 3 · Las variables.** En **Setup Node.js App > Environment variables**, agrega:
+
+```
+MAIL_HOST=mail.pedro-ctpmedica.com
+MAIL_PORT=465
+MAIL_USER=operaciones@pedro-ctpmedica.com
+MAIL_PASSWORD=<la del paso 1>
+MAIL_FROM=operaciones@pedro-ctpmedica.com
+MAIL_FROM_NAME=Logística CTP
+```
+
+`MAIL_SECURE` no hace falta: se deduce del puerto (465 = cifrado directo, 587 =
+STARTTLS).
+
+> **Si los correos llegan a spam**, no es la aplicación. Es que el servidor no sabe
+> que `ctpmedica.com` puede enviar desde esa casilla. Opciones, de menos a más
+> trabajo: cambiar `MAIL_FROM` por una dirección del propio hosting, o pedir que
+> agreguen el hosting a los registros **SPF** y **DKIM** del dominio (lo publica el
+> panel de correo del hosting). Con DKIM firmado los clientes llegan directo.
+
+**Paso 4 · Destinatarios internos.** La lista por defecto trae cinco áreas (operaciones,
+almacén, servicio al cliente, cotizaciones y gestión de calidad) y la de cartera
+trae tres. Para cambiarlas sin volver a desplegar, dos variables más, separadas por
+coma:
+
+```
+CORREOS_ALERTA_CALIDAD=operaciones@pedro-ctpmedica.com,almacen@pedro-ctpmedica.com
+CORREOS_REENCION_CARTERA=operaciones@pedro-ctpmedica.com
+```
+
+> **Aviso importante sobre casillas que no existen.** El servidor de correo rechaza el
+> mensaje **entero** con `550 No such user` si una sola dirección de la lista no
+> existe. Como aquí solo está creada `operaciones@pedro-ctpmedica.com`, un envío
+> único dejaría al cliente sin su aviso por culpa de un buzón ajeno.
+>
+> Por eso cada aviso sale en **dos envíos**:
+>
+> | # | Para | En copia |
+> |---|---|---|
+> | 1 | el solicitante | la casilla operativa |
+> | 2 | la casilla operativa | el resto de áreas internas |
+>
+> Así el solicitante y operaciones se enteran **siempre**, y las demás áreas se
+> enteran en cuanto se creen sus buzones. Cada envío va por separado en el log.
+>
+> La casilla operativa es `MAIL_USER` salvo que pongas `MAIL_OPERATIVO`.
+
+**Paso 5 · Reiniciar y comprobar.** *Save* + **Restart**. El log de arranque
+(`cPanel > Errors`) dice si el correo quedó bien configurado:
+
+```
+[Config] listo: {..., "correo":"autenticado en mail.pedro-ctpmedica.com:465 (SMTPS) desde operaciones@pedro-ctpmedica.com"}
+```
+
+Si sale `"correo":"sin configurar"`, falta `MAIL_HOST` o `MAIL_FROM`.
+
+**Paso 6 · Probarlo de verdad.** No hay ningún endpoint para mandar un correo de
+prueba a propósito: sería una vía abierta para que cualquiera con una cuenta
+escribiera en nombre de la empresa. La prueba es la real:
+
+1. Entra como **conductor** y entrega un pedido.
+2. Responde la encuesta de satisfacción con **1 o 2 estrellas** en todo.
+3. El solicitante y las áreas internas reciben el aviso.
+4. Repite con una encuesta de **3 estrellas**: no debe llegar nada.
+
+Y para el segundo aviso: entra como **administrador**, abre un pedido y ponlo en
+**Retenido por Cartera**. El solicitante recibe el correo con el motivo.
+
+Cada envío deja rastro en el log (`cPanel > Errors`). Como cada aviso son dos
+mensajes, aparecen dos líneas:
+
+```
+[Correo] enviado (cartera) · «AVISO · Solicitud CTPLOG-00042 retenida por cartera · Acme» · para ana@acme.com · copia: operaciones@pedro-ctpmedica.com
+[Correo] enviado (cartera) · «AVISO · Solicitud CTPLOG-00042 retenida por cartera · Acme» · para operaciones@pedro-ctpmedica.com · copia: cotizacionesylicitaciones@pedro-ctpmedica.com
+```
+
+Si el aviso no sale, ese mismo log dice por qué:
+
+| Lo que dice el log | Qué pasó |
+|---|---|
+| `[Correo] aviso de <tipo> sin destinatario en CTPLOG-…` | la solicitud no tiene `solicitante_correo` |
+| `[Correo] sin SMTP configurado: se habría enviado…` | faltan `MAIL_HOST` o `MAIL_FROM` |
+| `[Correo] FALLÓ un envío … 535 Authentication failed` | `MAIL_USER`/`MAIL_PASSWORD` no coinciden |
+| `[Correo] FALLÓ un envío … ETIMEDOUT` | el puerto está cerrado: prueba con el 587 y `MAIL_SECURE=false` |
+| `[Correo] FALLÓ un envío … 550 Sender not allowed` | `MAIL_FROM` no es una casilla de ese servidor |
+| `[Correo] el solicitante … no recibió el aviso` | su dirección está mal o el buzón no existe |
+| `[Correo] el aviso … no llegó a <lista>` | esas casillas internas aún no existen (es normal: se crean aparte) |
+
+Un fallo de correo **no** hace perder el guardado: la entrega ya está en la base. Si
+**ningún** envío salió, el aviso se reintenta en el siguiente guardado del pedido; si
+salió al menos uno, se da por entregado y no se repite.
+
+**Tabla de enviados.** Para ver qué ha salido y depurar, en phpMyAdmin > **SQL**:
+
+```sql
+SELECT tipo, solicitud, destinatario, asunto, enviado_en
+  FROM correos_enviados ORDER BY enviado_en DESC LIMIT 50;
+```
+
+La tabla la crea la propia API la primera vez que hace falta, con el mismo usuario
+de MySQL que ya tiene todos los privilegios. Si prefieres crearla antes, está
+definida en `server/sql/schema.mysql.sql` (sección 5) y también se la puedes pegar tal
+cual en phpMyAdmin. Para reenviar un aviso concreto, borra su fila y vuelve a
+guardar la solicitud desde la app:
+
+```sql
+DELETE FROM correos_enviados WHERE clave = 'cartera:<id-del-registro>';
+```
+
 ## 4. Probar la API
 
 ```bash

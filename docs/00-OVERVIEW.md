@@ -54,8 +54,10 @@ de verdad; un admin puede cambiar permisos sin tocar el frontend):
    y conductor (con vehículo/placa); el conductor recibe aviso al entrar en tránsito.
 4. **Entregar**: el conductor registra entrega con 1–3 fotos (evidencia) y encuesta de
    3 estrellas; solicitante/admin/super reciben el toast «Pedido entregado». Una
-   calificación ≤ 2.5 dispara alerta por correo a calidad (`enviarCorreo.js`).
-5. **Consultar y exportar**: tablas filtrables por estado/cliente/zona, seguimiento con
+   calificación ≤ 2.5 dispara aviso por correo al solicitante y a las áreas internas.
+5. **Retener por cartera**: el admin marca `Retenido por Cartera` y el solicitante
+   recibe un aviso por correo con el motivo registrado; también a las áreas internas.
+6. **Consultar y exportar**: tablas filtrables por estado/cliente/zona, seguimiento con
    historial completo, dashboard y exportación a PDF en Administrador.
 
 ## Documentos

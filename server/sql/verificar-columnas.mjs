@@ -46,6 +46,11 @@ const esperadas = {
   usuarios: ['id', 'correo', 'nombre', 'rol', 'vehiculo', 'placa', 'es_conductor', 'activo', 'creado_en'],
   clientes: ['id', 'nit', 'nombre', 'bodega', 'zona'],
   contadores: ['nombre', 'valor'],
+  codigos_reservados: ['codigo', 'correo', 'creado_en'],
+  // La crea la propia API si no existe (correo.js), pero si está en el schema
+  // tiene que tener estas columnas: es donde se reserva cada aviso para no
+  // mandarlo dos veces.
+  correos_enviados: ['clave', 'tipo', 'solicitud', 'destinatario', 'asunto', 'enviado_en'],
 }
 
 let problemas = 0

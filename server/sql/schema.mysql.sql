@@ -184,7 +184,46 @@ CREATE TABLE IF NOT EXISTS historial (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
--- 5. ROLES INICIALES
+-- 5. CORREOS ENVIADOS (control de duplicados de los avisos automáticos)
+--     El frontend manda el historial COMPLETO de la solicitud en cada guardado,
+--     no solo lo nuevo. Sin esta tabla, la misma encuesta de mala calificación
+--     (o el mismo paso por 'Retenido por Cartera') volvería a avisar en cada
+--     guardado posterior de ese pedido.
+--
+--     La clave es el id del registro de historial, que el navegador genera una
+--     sola vez con crypto.randomUUID y reenvía siempre igual. INSERT IGNORE
+--     sobre la clave primaria hace la reserva atómica: dos guardados
+--     simultáneos del mismo pedido compiten por la fila y solo uno manda el aviso.
+--
+--     No hace falta crearla a mano: server/src/correo.js la crea sola la primera
+--     vez que hace falta, con el mismo usuario de MySQL que ya tiene todos los
+--     privilegios sobre esta base. Está aquí para que quede documentada y por si
+--     se prefiere crearla desde phpMyAdmin.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS correos_enviados (
+  clave        VARCHAR(190) NOT NULL,
+  tipo         VARCHAR(40)  NOT NULL DEFAULT '',
+  solicitud    VARCHAR(32)  NOT NULL DEFAULT '',
+  destinatario VARCHAR(190) NOT NULL DEFAULT '',
+  asunto       VARCHAR(255) NOT NULL DEFAULT '',
+  enviado_en   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (clave),
+  KEY correos_enviados_solicitud_idx (solicitud),
+  KEY correos_enviados_fecha_idx (enviado_en)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Para ver qué avisos han salido (útil al depurar en el hosting):
+--   SELECT tipo, solicitud, destinatario, asunto, enviado_en
+--     FROM correos_enviados ORDER BY enviado_en DESC LIMIT 50;
+
+-- Los avisos se reintentan solos en el siguiente guardado del pedido: si el envío
+-- falló, correo.js borra la fila para que la clave vuelva a estar libre. Si lo
+-- que se quiere es reenviar un aviso concreto, se borra su fila y se vuelve a
+-- guardar la solicitud desde la app:
+--   DELETE FROM correos_enviados WHERE clave = 'cartera:<id-del-registro>';
+
+-- ----------------------------------------------------------------------------
+-- 6. ROLES INICIALES
 --     El alta ya no se hace por SQL: la pantalla de registro crea las cuentas y
 --     les asigna el rol 'solicitante'. Para la PRIMERA cuenta con permisos de
 --     administración usa el script que genera el hash, y pega el INSERT de abajo
@@ -199,7 +238,7 @@ CREATE TABLE IF NOT EXISTS historial (
 -- ----------------------------------------------------------------------------
 
 -- ----------------------------------------------------------------------------
--- 6. SINCRONIZAR EL CONTADOR
+-- 7. SINCRONIZAR EL CONTADOR
 --     Deja el contador a la par del código más alto existente (idempotente).
 --     Correrlo UNA VEZ después de importar los datos de Postgres.
 --

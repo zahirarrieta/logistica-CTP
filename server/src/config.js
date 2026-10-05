@@ -42,6 +42,13 @@ function leer(nombre, valorPorDefecto = '') {
   return valor === undefined || valor === null ? valorPorDefecto : String(valor).trim()
 }
 
+// Puerto SMTP y modo de cifrado. 465 es SMTPS directo (TLS implícito) y 587 es
+// STARTTLS sobre texto plano. El modo se deduce del puerto cuando MAIL_SECURE no
+// está definido, que es lo habitual: cPanel deja abiertos uno u otro según el
+// buzón, y el valor por defecto tiene que funcionar en los dos casos.
+const puertoCorreo = Number(leer('MAIL_PORT', '465'))
+const seguroCorreo = leer('MAIL_SECURE', puertoCorreo < 587 ? 'true' : 'false') === 'true'
+
 const config = {
   esProduccion,
 
@@ -78,6 +85,38 @@ const config = {
       .split(',')
       .map((o) => o.trim())
       .filter(Boolean),
+  },
+
+  // ------------------------------------------------------------------ correo
+  // Envío de avisos (mala calificación y retención por cartera). Todo se manda
+  // desde AQUÍ, nunca desde el navegador: así hay una sola identidad remitente
+  // (la del hosting) y queda registrado en el log del servidor quién pidió qué.
+  //
+  // MAIL_SECURE decide el cifrado del puerto: 465 es SMTPS directo (true), y 587
+  // es STARTTLS sobre texto plano (false). Si no se define, se deduce del puerto
+  // para que el valor por defecto funcione en los dos casos habituales.
+  //
+  // Si MAIL_HOST y MAIL_FROM no están, no se manda nada y la app sigue
+  // funcionando: el correo es una función accesoria y no puede tumbar la
+  // logística porque el SMTP del hosting esté caído.
+  correo: {
+    host: leer('MAIL_HOST'),
+    puerto: puertoCorreo,
+    secure: seguroCorreo,
+    usuario: leer('MAIL_USER'),
+    clave: leer('MAIL_PASSWORD'),
+    remitente: leer('MAIL_FROM'),
+    nombreRemitente: leer('MAIL_FROM_NAME', 'Logística CTP'),
+    // Casilla que recibe SIEMPRE, aunque el resto de la lista interna no exista
+    // todavía. Es la que garantiza que solicitante y operación se enteran: una
+    // dirección inexistente hace que el servidor rechace el mensaje entero. Si no
+    // se define, es la misma que emite (MAIL_USER).
+    operativo: leer('MAIL_OPERATIVO'),
+    // Destinatarios internos en copia. Se pueden cambiar por entorno sin tocar el
+    // código, porque estas direcciones cambian con la organización más que el
+    // resto de la configuración.
+    copiaCalidad: leer('CORREOS_ALERTA_CALIDAD'),
+    copiaCartera: leer('CORREOS_REENCION_CARTERA'),
   },
 }
 
@@ -121,6 +160,23 @@ if (config.cors.origenes.length === 0) {
   avisos.push('CORS_ORIGENES vacío: se aceptará cualquier origen (hay token en cada petición, pero conviene acotarlo).')
 }
 
+// El correo NO es imprescindible: si falta su configuración, la app arranca
+// igual y solo se pierden los avisos. Por eso va a `avisos` y nunca a
+// `faltantes` — un SMTP mal puesto no puede dejar sin entregas a la operación.
+if (!config.correo.host) {
+  avisos.push(
+    'correo sin configurar (MAIL_HOST/MAIL_FROM): los avisos de mala calificación '
+    + 'y de retención por cartera se guardarán solo en el log.'
+  )
+} else {
+  if (!config.correo.remitente) avisos.push('MAIL_HOST está definido pero MAIL_FROM no: no se podrá enviar nada.')
+  // Sin clave casi siempre es buzón local de cPanel, que sí autentica. Solo se
+  // avisa si además se puso un usuario: usuario sin clave sí es un descuido.
+  if (config.correo.usuario && !config.correo.clave) {
+    avisos.push('MAIL_USER está definido pero MAIL_PASSWORD no: la autenticación SMTP fallará.')
+  }
+}
+
 if (faltantes.length > 0) {
   const bloque = [
     '',
@@ -161,6 +217,10 @@ const resumen = {
   sesion: config.sesion.secreto ? 'secreta definida' : 'secreto temporal (solo desarrollo)',
   ttlSesion: `${Math.round(config.sesion.ttl / 60)} min`,
   firma: config.firma.secreto ? 'definida' : 'temporal (solo desarrollo)',
+  correo: config.correo.host
+    ? `${config.correo.usuario ? 'autenticado' : 'anónimo'} en ${config.correo.host}:${config.correo.puerto}`
+      + ` (${config.correo.secure ? 'SMTPS' : 'STARTTLS'}) desde ${config.correo.remitente || 'SIN REMITENTE'}`
+    : 'sin configurar (los avisos solo quedan en el log)',
   cors: config.cors.origenes.length > 0 ? config.cors.origenes.join(', ') : 'cualquiera',
 }
 console.log('[Config] listo:', JSON.stringify(resumen))

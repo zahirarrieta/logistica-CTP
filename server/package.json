@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node dev.js",
-    "test": "node test/archivos.test.js && node test/clientes-rutas.test.js",
+    "test": "node test/archivos.test.js && node test/clientes-rutas.test.js && node test/correo.test.js && node test/correo-envio.test.js",
     "verificar:sql": "node sql/verificar-columnas.mjs"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
     "express": "^4.21.2",
     "jose": "^5.9.6",
     "multer": "^1.4.5-lts.1",
-    "mysql2": "^3.11.5"
+    "mysql2": "^3.11.5",
+    "nodemailer": "^6.10.1"
   }
 }

@@ -5,7 +5,6 @@ import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
 import { subirEvidenciaEntrega } from '../../../../services/archivosApi.js'
 import { esPdfUrl } from '../../../../utils/pdfUtils.js'
-import { enviarAlertaMalaCalificacion, UMBRAL_ALERTA_CALIDAD } from '../../../../services/enviarCorreo.js'
 import { evidenciaSubida, subidaPendiente } from '../../../../services/notificaciones.jsx'
 import {
   guardarBorradorEntrega,
@@ -242,14 +241,11 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
       preguntas,
       promedio,
     }
-    // Alerta automática de control de calidad: si el promedio general es ≤ 2.5,
-    // se envía un correo al solicitante (To) con 5 destinatarios internos (CC).
-    // No bloquea el guardado: si falla (sin Mail.Send / sin red) solo se avisa.
-    if (promedio <= UMBRAL_ALERTA_CALIDAD) {
-      enviarAlertaMalaCalificacion(solicitud, encuesta).catch((err) => {
-        console.warn('[Correo alerta] no se pudo enviar la alerta de mala calificación:', err?.message)
-      })
-    }
+    // El aviso de control de calidad por mala calificación NO se manda desde aquí.
+    // El servidor lo decide al guardar (server/src/correo.js): el umbral y los
+    // destinatarios viven en un solo sitio, y mandar correo desde el navegador
+    // haría que cualquiera con una sesión abierta pudiera escribir en nombre de
+    // la empresa. Esta pantalla solo guarda la encuesta.
     setContactos(
       guardarContactoEncuesta({
         nombre: nombreEncuestado.trim().toUpperCase(),
