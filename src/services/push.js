@@ -90,7 +90,7 @@ async function registrarEnServidor(suscripcion) {
   const cuerpo = {
     subscription: suscripcion.toJSON ? suscripcion.toJSON() : suscripcion,
   }
-  await apiPost('/notificaciones/suscripcion', cuerpo)
+  await apiPost('/api/notificaciones/suscripcion', cuerpo)
 }
 
 // Estado de las notificaciones en este dispositivo. La pantalla de Configuración
@@ -135,12 +135,12 @@ export async function estado() {
     }
   }
 
-  // Permiso concedido: ahora toca ver si el servidor tiene las claves VAPID.
-  // Sin ellas no hay con qué empujar, y es mejor decirlo que fallar en silencio
-  // al activar.
+// Permiso concedido: ahora toca ver si el servidor tiene las claves VAPID.
+// Sin ellas no hay con qué empujar, y es mejor decirlo que fallar en silencio
+// al activar.
   let servidor = { activo: false }
   try {
-    servidor = await apiGet('/notificaciones/push')
+    servidor = await apiGet('/api/notificaciones/push')
   } catch {
     return {
       estado: 'sin-servidor',
@@ -216,7 +216,7 @@ export async function activar() {
 
   let servidor
   try {
-    servidor = await apiGet('/notificaciones/push')
+    servidor = await apiGet('/api/notificaciones/push')
   } catch {
     return { ok: false, estado: 'sin-servidor', detalle: 'No se pudo contactar al servidor.' }
   }
@@ -264,7 +264,7 @@ export async function activar() {
 // apiDelete se quedaría sin cabecera y la fila nunca se borraría.
 export async function desactivarEnEsteEquipo({ borrarEnServidor = null } = {}) {
   const borrar = borrarEnServidor || ((endpoint) => (
-    apiDelete(`/notificaciones/suscripcion?equipo=${encodeURIComponent(endpoint)}`)
+    apiDelete(`/api/notificaciones/suscripcion?equipo=${encodeURIComponent(endpoint)}`)
   ))
   if (!soportado()) return { ok: false }
 
@@ -318,7 +318,7 @@ export async function limpiarAlCerrarSesion(token) {
 // Envía un push de prueba a los equipos del usuario actual (endpoint de la API,
 // que no acepta destinatario: ver la nota de seguridad en routes.js).
 export async function enviarPrueba() {
-  const resultado = await apiPost('/notificaciones/prueba', {})
+  const resultado = await apiPost('/api/notificaciones/prueba', {})
   return resultado
 }
 
