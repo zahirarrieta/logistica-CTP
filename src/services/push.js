@@ -32,7 +32,7 @@
 // push_suscripciones del servidor.
 // ============================================================================
 
-import { API_URL, apiDelete, apiGet, apiPost } from './apiClient.js'
+import { apiDelete, apiGet, apiPost } from './apiClient.js'
 
 const CLAVE_SUSCRIPCION = 'ctp-push-suscripcion'
 
@@ -290,13 +290,10 @@ export async function activar() {
 // este navegador; los otros equipos donde la cuenta tenga notificaciones activas
 // siguen funcionando, que es lo que espera alguien con el móvil y el portátil.
 //
-// `borrarEnServidor` permite inyectar cómo se habla con la API. El cierre de
-// sesión lo necesita: para entonces el token ya no está en localStorage, así que
-// apiDelete se quedaría sin cabecera y la fila nunca se borraría.
-export async function desactivarEnEsteEquipo({ borrarEnServidor = null } = {}) {
-  const borrar = borrarEnServidor || ((endpoint) => (
-    apiDelete(`/api/notificaciones/suscripcion?equipo=${encodeURIComponent(endpoint)}`)
-  ))
+// Solo la llama el usuario desde el interruptor: cerrar sesión ya NO desactiva
+// los avisos (ver reasociarSuscripcion), así que aquí siempre hay token y
+// apiDelete puede hablar con la API con normalidad.
+export async function desactivarEnEsteEquipo() {
   if (!soportado()) return { ok: false }
 
   const worker = await esperarServiceWorker()
@@ -307,7 +304,7 @@ export async function desactivarEnEsteEquipo({ borrarEnServidor = null } = {}) {
     if (suscripcion) {
       // Se quita primero del servidor, usando el endpoint exacto de ESTA
       // suscripción: así no se toca la de otros equipos del mismo usuario.
-      await borrar(suscripcion.endpoint)
+      await apiDelete(`/api/notificaciones/suscripcion?equipo=${encodeURIComponent(suscripcion.endpoint)}`)
       await suscripcion.unsubscribe()
     }
   } catch {
@@ -325,25 +322,37 @@ export async function desactivarEnEsteEquipo({ borrarEnServidor = null } = {}) {
   return { ok: true, detalle: 'Desactivadas en este equipo.' }
 }
 
-// Cierra sesión → quita la suscripción de este equipo. Se llama desde
-// AuthContext en el logout para que al iniciar sesión en otro equipo no queden
-// avisos duplicados en el anterior.
+// Re-asocia la suscripción push YA EXISTENTE de este equipo al usuario que acaba
+// de iniciar sesión. El servidor usa el endpoint como clave única, así que volver
+// a registrarlo reasigna la fila al correo del token actual: quien entra en el
+// equipo es quien recibe los avisos, y el usuario anterior deja de recibirlos ahí.
 //
-// Recibe el token que `logout` capturó ANTES de borrar la sesión local. Sin esto
-// la llamada saldría sin cabecera Authorization y el servidor respondería 401:
-// la fila se quedaría viva y este equipo seguiría recibiendo avisos de la
-// cuenta anterior (la suscripción se desuscribe en el navegador, pero hasta que
-// el navegador comunica el 410 el servidor la sigue teniendo).
-export async function limpiarAlCerrarSesion(token) {
-  const borrarEnServidor = token
-    ? (endpoint) => fetch(`${API_URL.replace(/\/+$/, '')}/notificaciones/suscripcion?equipo=${encodeURIComponent(endpoint)}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((r) => {
-      if (!r.ok) throw new Error(`El servidor respondió ${r.status} al cerrar la sesión`)
-    })
-    : null
-  return desactivarEnEsteEquipo({ borrarEnServidor })
+// No pide permiso ni crea una suscripción nueva: si el equipo no tenía los avisos
+// activados, no hace nada. Es lo que permite que CERRAR SESIÓN no apague el
+// interruptor —solo el usuario puede apagarlo (desactivarEnEsteEquipo)— y a la vez
+// evita que en un equipo compartido el siguiente usuario reciba los avisos del
+// anterior: al entrar, la suscripción se reasigna a su propia cuenta.
+export async function reasociarSuscripcion() {
+  if (!soportado()) return
+  // Sin marca local este equipo nunca activó los avisos: no hay nada que reasociar
+  // y no se debe pedir permiso por sorpresa.
+  if (!leerSuscripcionLocal()) return
+  const worker = await esperarServiceWorker()
+  if (!worker) return
+  try {
+    const suscripcion = await worker.pushManager.getSubscription()
+    if (!suscripcion) {
+      // El navegador ya no la tiene (revocada o expirada): se limpia la marca para
+      // que el estado del interruptor sea coherente.
+      borrarSuscripcionLocal()
+      return
+    }
+    await registrarEnServidor(suscripcion)
+    guardarSuscripcionLocal(suscripcion)
+  } catch {
+    // Sin token válido o sin servidor: se reintentará en la próxima carga. No se
+    // borra nada; la suscripción sigue viva en el navegador.
+  }
 }
 
 // Envía un push de prueba a los equipos del usuario actual (endpoint de la API,

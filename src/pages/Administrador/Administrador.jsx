@@ -53,6 +53,7 @@ export default function Administrador() {
   const [filterEstado, setFilterEstado] = useState(null)
   const [filtroAsignado, setFiltroAsignado] = useState(null)
   const [filtroConductor, setFiltroConductor] = useState(null)
+  const [filtroNombre, setFiltroNombre] = useState('')
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
   const [filtroId, setFiltroId] = useState('')
@@ -132,6 +133,7 @@ export default function Administrador() {
     const cliente = filtroCliente.toLowerCase()
     const zona = filtroZona.toLowerCase()
     const idBuscado = filtroId.trim().toLowerCase()
+    const nombreBuscado = filtroNombre.trim().toLowerCase()
     return baseConFiltroFecha.filter((s) => {
       const e = s.estado || 'Abierto'
       if (filterEstado && e !== filterEstado) return false
@@ -141,14 +143,15 @@ export default function Administrador() {
         } else if ((s.asignadoA || '') !== filtroAsignado) return false
       }
       if (filtroConductor && (s.conductor || '') !== filtroConductor) return false
+      if (nombreBuscado && !(s.nombreCompleto || '').toLowerCase().includes(nombreBuscado)) return false
       if (cliente && !(s.cliente || '').toLowerCase().includes(cliente)) return false
       if (zona && !(s.zona || '').toLowerCase().includes(zona)) return false
       if (idBuscado && !(s.id || '').toLowerCase().includes(idBuscado)) return false
       return true
     })
-  }, [baseConFiltroFecha, filterEstado, filtroAsignado, filtroConductor, filtroCliente, filtroZona, filtroId])
+  }, [baseConFiltroFecha, filterEstado, filtroAsignado, filtroConductor, filtroNombre, filtroCliente, filtroZona, filtroId])
 
-  const hasFilters = Boolean(filterEstado || filtroAsignado || filtroConductor || filtroCliente || filtroZona || filtroId.trim())
+  const hasFilters = Boolean(filterEstado || filtroAsignado || filtroConductor || filtroNombre.trim() || filtroCliente || filtroZona || filtroId.trim())
 
   const contadorTab = (id) => {
     if (id === 'solicitudes') return esSuper ? solicitudes.length : sinAsignar.length
@@ -318,6 +321,8 @@ export default function Administrador() {
                   <AsignadoFilter solicitudes={baseDelTab} value={filtroAsignado} onChange={setFiltroAsignado} />
                   <ConductorFilter solicitudes={baseDelTab} value={filtroConductor} onChange={setFiltroConductor} />
                   <SearchFilters
+                    nombre={filtroNombre}
+                    onNombreChange={setFiltroNombre}
                     cliente={filtroCliente}
                     zona={filtroZona}
                     onClienteChange={setFiltroCliente}

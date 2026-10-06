@@ -5,12 +5,11 @@ import {
   guardarSesion,
   getActiveAccount,
   haySesion,
-  tokenSesion,
 } from './sesion.js'
 import { API_URL, apiFetch } from '../services/apiClient.js'
 import { setRolActual, setUsuarioActual } from '../store/solicitudesStore.js'
 import { sesionCerrada } from '../services/notificaciones.jsx'
-import { limpiarAlCerrarSesion } from '../services/push.js'
+import { reasociarSuscripcion } from '../services/push.js'
 
 const AuthContext = createContext(null)
 
@@ -170,6 +169,12 @@ export function AuthProvider({ children }) {
     try {
       const datos = await llamarAuth('/api/auth/login', { correo, contrasena })
       setAccount(guardarSesion(datos))
+      // Si este equipo ya tenía los avisos activados, se reasignan al usuario que
+      // acaba de entrar (el servidor usa el endpoint como clave única). Así cerrar
+      // sesión no apaga el interruptor y en un equipo compartido el siguiente
+      // usuario no recibe los avisos del anterior. Va sin await: el inicio de
+      // sesión no puede depender de que la red conteste.
+      void reasociarSuscripcion().catch(() => {})
       // El backend ya devuelve la fila del usuario en la respuesta del login, así
       // que el rol está disponible de inmediato: sin este set, la pantalla de
       // loading se quedaría esperando a una petición que ya se hizo.
@@ -221,6 +226,9 @@ export function AuthProvider({ children }) {
       // usuario entra directo: no tiene que volver a escribir su contraseña.
       const datos = await llamarAuth('/api/auth/registro', { nombre, correo, contrasena })
       setAccount(guardarSesion(datos))
+      // Mismo motivo que en login: si el equipo ya tenía avisos activos, se
+      // reasignan a esta cuenta para que nadie más los reciba aquí.
+      void reasociarSuscripcion().catch(() => {})
       setUsuario(datos.usuario || null)
       setRolListo(true)
       setSesionCaducada('')
@@ -256,18 +264,11 @@ export function AuthProvider({ children }) {
 // Header hace onClick={logout}, así que sin este chequeo el evento de React
 // acabaría impreso en la pantalla de login.
 const logout = useCallback((motivo = '') => {
-  // El token se copia ANTES de cerrar la sesión local: es lo que permite
-  // después decirle al servidor que este equipo ya no debe recibir avisos. Si se
-  // leyera después, ya no habría token y la fila quedaría viva.
-  const tokenParaPush = tokenSesion()
   cerrarSesionLocal()
-  // La suscripción push es de ESTE equipo y de ESTA sesión. Si no se retira al
-  // cerrar sesión, el equipo sigue recibiendo avisos de las solicitudes de quien
-  // lo usó por última vez, que es como se cuelan los datos de un cliente a otro.
-  // Va sin await a propósito: el cierre de sesión no puede depender de que la red
-  // conteste, y si la llamada falla la fila caduca sola cuando el navegador deja
-  // de reconocerla (404/410) y el servidor la borra.
-  void limpiarAlCerrarSesion(tokenParaPush).catch(() => {})
+  // Cerrar sesión NO desactiva los avisos: el interruptor solo lo apaga el usuario
+  // desde Configuración. La suscripción de este equipo se mantiene viva y, cuando
+  // otra persona inicie sesión aquí, reasociarSuscripcion() la reasigna a su
+  // cuenta para que no reciba los avisos del usuario anterior.
   setAccount(null)
   setUsuario(null)
   setRolListo(true)

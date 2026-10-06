@@ -1,9 +1,9 @@
 {
-  "version": "2026.10.05-4",
-  "fecha": "2026-10-05",
+  "version": "2026.10.06-1",
+  "fecha": "2026-10-06",
   "cambios": [
-    "Aviso por correo al solicitante cuando una encuesta de satisfacción queda con promedio 2.5 o menos, con operaciones, almacén, servicio al cliente, cotizaciones y gestión de calidad en copia.",
-    "Aviso por correo al solicitante cuando la solicitud pasa al estado «Retenido por Cartera», con el motivo que registró quien hizo el cambio.",
-    "Los dos avisos los manda el servidor al guardar la entrega, no el navegador: hay una sola identidad remitente y cada envío queda en el log del hosting."
+    "Cerrar sesión ya no desactiva las notificaciones: el interruptor de avisos solo lo apaga el usuario desde Configuración. Al iniciar sesión de nuevo, los avisos siguen activos.",
+    "En un equipo compartido, cuando otra persona inicia sesión, las notificaciones se reasignan a su cuenta para que no reciba los avisos del usuario anterior.",
+    "Nuevo filtro por nombre en el módulo Administrador (pestaña Solicitudes), junto al filtro de conductor."
   ]
 }

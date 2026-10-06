@@ -1,9 +1,33 @@
-import { MdPerson, MdBusiness, MdClose, MdTag } from 'react-icons/md'
+import { MdPerson, MdBusiness, MdClose, MdTag, MdBadge } from 'react-icons/md'
 
-export default function SearchFilters({ cliente, zona, onClienteChange, onZonaChange, id, onIdChange }) {
+export default function SearchFilters({ nombre, onNombreChange, cliente, zona, onClienteChange, onZonaChange, id, onIdChange }) {
   const mostrarId = typeof onIdChange === 'function'
+  const mostrarNombre = typeof onNombreChange === 'function'
   return (
     <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+      {mostrarNombre && (
+        <div className="relative sm:w-56">
+          <MdBadge className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink/40 text-lg" />
+          <input
+            type="text"
+            value={nombre}
+            onChange={(e) => onNombreChange(e.target.value)}
+            placeholder="Buscar nombre…"
+            className="w-full rounded-full border-2 border-brand-ink/10 bg-white pl-9 pr-8 py-2 text-sm text-brand-ink placeholder:text-brand-ink/35 focus:outline-none focus:border-brand-cyan/60 focus:ring-2 focus:ring-brand-cyan/30 transition"
+          />
+          {nombre && (
+            <button
+              type="button"
+              aria-label="Limpiar nombre"
+              onClick={() => onNombreChange('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center size-6 rounded-full bg-brand-ink/10 text-brand-ink/60 hover:bg-brand-ink/20 transition"
+            >
+              <MdClose className="text-sm" />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="relative sm:w-56">
         <MdPerson className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink/40 text-lg" />
         <input
