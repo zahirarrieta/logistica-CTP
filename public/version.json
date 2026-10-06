@@ -3,7 +3,7 @@
   "fecha": "2026-10-06",
   "cambios": [
     "Nuevo módulo Inventario en el menú: lista los artículos con su lote, vencimiento y bodega, con Estado y días de vigencia calculados al abrir. El administrador puede pegar el reporte de Excel desde «Subir información».",
-    "Al subir el inventario: las instrucciones ahora están en un botón con su propio modal, la tabla de vista previa aparece de una vez al pegar (con scroll propio) y se puede volver al texto para corregirlo.",
+    "Al subir el inventario: las instrucciones ahora están en un botón con su propio modal, la tabla de vista previa aparece de una vez al pegar (con scroll propio) y se puede volver al texto para corregirlo. En la tabla, al hacer clic en cualquier fila se abre el detallado completo (ubicación, lote, vencimiento y estado) sin scroll horizontal.",
     "El módulo Inventario usa ahora los mismos colores por estado en las filas y en las etiquetas, la misma paginación que las demás tablas y muestra en la esquina la fecha de la última actualización.",
     "La tabla de solicitudes muestra el documento original del solicitante; el historial de cambios ahora lista todos los documentos del ciclo (PDF de trámite y evidencia de entrega).",
     "Nuevo estado «En Trámite Parcial» en el modal de cambio de estado, junto a «En Trámite», con su propio color, sonido y factura/remisión.",

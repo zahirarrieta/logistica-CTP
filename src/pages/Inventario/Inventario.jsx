@@ -14,6 +14,7 @@ import { useAuth } from '../../auth/AuthContext.jsx'
 import { esPrivilegiado } from '../../auth/roles.js'
 import { listarInventario } from '../../services/inventarioApi.js'
 import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
+import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../../utils/estadoColors.js'
 import {
   COLUMNAS_ORIGINALES,
@@ -90,6 +91,7 @@ export default function Inventario() {
   const [busqueda, setBusqueda] = useState('')
   const [pagina, setPagina] = useState(1)
   const [subirAbierto, setSubirAbierto] = useState(false)
+  const [filaDetalle, setFilaDetalle] = useState(null)
 
   const cargar = useCallback(async (esValido = () => true) => {
     setCargando(true)
@@ -261,7 +263,18 @@ export default function Inventario() {
                       return (
                         <tr
                           key={f.id ?? `${f.numero_articulo}-${f.lote}-${inicio + i}`}
-                          className={`transition-colors hover:bg-brand-deep/20 ${fondo}`}
+                          onClick={() => setFilaDetalle(f)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              setFilaDetalle(f)
+                            }
+                          }}
+                          tabIndex={0}
+                          role="button"
+                          title="Clic para ver el detalle del artículo"
+                          aria-label={`Ver detalle de ${f.numero_articulo || f.descripcion || 'este artículo'}`}
+                          className={`transition-colors hover:bg-brand-deep/20 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-cyan ${fondo}`}
                         >
                           <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
                             <span className={`inline-flex items-center justify-center size-7 rounded-full text-xs font-extrabold ${i % 2 === 0 ? 'bg-brand-navy text-white' : 'bg-brand-deep text-white'}`}>
@@ -385,6 +398,8 @@ export default function Inventario() {
         onClose={() => setSubirAbierto(false)}
         onSubido={() => cargar()}
       />
+
+      <DetalleFilaModal fila={filaDetalle} onClose={() => setFilaDetalle(null)} />
     </div>
   )
 }
