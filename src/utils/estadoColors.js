@@ -1,3 +1,8 @@
+// Estados de las SOLICITUDES. Es la lista que alimenta el modal de Cambiar
+// Estado, el filtro de la tabla, el tablero y el informe, así que aquí no
+// entran los vencimientos del módulo Inventario: «Vencido», «Próximo a vencer»
+// y «Vigente» son calculados por inventarioUtils.js y solo viven allí (los
+// colores de abajo sí los cubren para las etiquetas del inventario).
 export const ESTADOS = [
   'Abierto',
   'Pendiente por Autorización',
@@ -9,10 +14,6 @@ export const ESTADOS = [
   'En Tránsito Parcial',
   'Entregado Parcial',
   'Entregado',
-  // Vencimientos del módulo Inventario (no aparecen en solicitudes).
-  'Vencido',
-  'Próximo a vencer',
-  'Vigente',
 ]
 
 export const BADGE_COLORS = {

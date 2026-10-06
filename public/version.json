@@ -9,6 +9,7 @@
     "La tabla de solicitudes muestra el documento original del solicitante; el historial de cambios ahora lista todos los documentos del ciclo (PDF de trámite y evidencia de entrega).",
     "Nuevo estado «En Trámite Parcial» en el modal de cambio de estado, junto a «En Trámite», con su propio color, sonido y factura/remisión.",
     "El modal de Cambiar Estado ya no bloquea el botón de cerrar: se puede salir en cualquier momento; los avisos del pie indican solo qué falta para poder guardar.",
-    "En «Cambiar estado», los PDFs guardados de la tanda de trámite se listan con su nombre y un botón para eliminarlos (con confirmación), para poder reemplazar una factura o remisión mal cargada sin desbordar el tope de 3. Solo administrador y superadmin, y solo mientras la solicitud siga «En Trámite» o «En Trámite Parcial»."
+    "En «Cambiar estado», los PDFs guardados de la tanda de trámite se listan con su nombre y un botón para eliminarlos (con confirmación), para poder reemplazar una factura o remisión mal cargada sin desbordar el tope de 3. Solo administrador y superadmin, y solo mientras la solicitud siga «En Trámite» o «En Trámite Parcial».",
+    "Los estados «Vencido», «Próximo a vencer» y «Vigente» ya no aparecen en el modal de Cambiar Estado ni en el filtro de solicitudes: son exclusivos del módulo Inventario."
   ]
 }
