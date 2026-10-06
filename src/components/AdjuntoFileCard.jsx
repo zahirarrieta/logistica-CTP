@@ -42,6 +42,31 @@ function esUrlAbsoluta(url) {
   return /^https?:\/\//i.test(url)
 }
 
+// Resuelve la URL en el momento del clic y navega/descarga. Necesario para
+// Excel: los enlaces «Abrir» y «Descargar» usaban `url` directo, y si la
+// URL firmada caducó (24 h) el navegador muestra «Enlace inválido o vencido».
+// Imágenes y PDFs no tienen este problema porque sus visores llaman a
+// resolverArchivo antes de pintar.
+async function abrirResuelto(url, modo) {
+  try {
+    const res = await resolverArchivo(url)
+    const a = document.createElement('a')
+    a.href = res.src
+    if (modo === 'nueva') {
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+    } else {
+      a.download = res.nombre || true
+    }
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  } catch (err) {
+    console.error('[AdjuntoFileCard] no se pudo abrir el archivo:', err?.message)
+    alert(err?.message || 'No se pudo abrir el archivo')
+  }
+}
+
 function iconoDe(url) {
   if (esImagenUrl(url)) return <MdImage className="text-blue-500 text-xl shrink-0" />
   if (esPdfUrl(url)) return <MdPictureAsPdf className="text-red-500 text-xl shrink-0" />
@@ -163,27 +188,22 @@ export default function AdjuntoFileCard({ url, index, onVerPdf, urlsImagenes, on
                   <MdVisibility className="text-sm" />
                   Ver hoja
                 </button>
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); abrirResuelto(url, 'nueva') }}
                   className="inline-flex items-center gap-1 rounded-full bg-green-600 text-white hover:bg-green-700 transition-colors px-3 py-1.5 text-xs font-bold"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   <MdOpenInNew className="text-sm" />
                   Abrir
-                </a>
-                <a
-                  href={url}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); abrirResuelto(url, 'descarga') }}
                   className="inline-flex items-center gap-1 rounded-full bg-green-500/15 text-green-700 hover:bg-green-500 hover:text-white transition-colors px-3 py-1.5 text-xs font-bold"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   <MdDownload className="text-sm" />
                   Descargar
-                </a>
+                </button>
               </>
             )}
             {/* Para imágenes y hojas no sale el enlace «Abrir»: los visualizadores ya
