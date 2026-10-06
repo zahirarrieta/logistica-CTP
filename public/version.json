@@ -1,9 +1,10 @@
 {
-  "version": "2026.10.06-1",
+  "version": "2026.10.06-2",
   "fecha": "2026-10-06",
   "cambios": [
-    "Cerrar sesión ya no desactiva las notificaciones: el interruptor de avisos solo lo apaga el usuario desde Configuración. Al iniciar sesión de nuevo, los avisos siguen activos.",
-    "En un equipo compartido, cuando otra persona inicia sesión, las notificaciones se reasignan a su cuenta para que no reciba los avisos del usuario anterior.",
-    "Nuevo filtro por nombre en el módulo Administrador (pestaña Solicitudes), junto al filtro de conductor."
+    "Nuevo módulo Inventario en el menú: lista los artículos con su lote, vencimiento y bodega, con Estado y días de vigencia calculados al abrir. El administrador puede pegar el reporte de Excel desde «Subir información».",
+    "La tabla de solicitudes muestra el documento original del solicitante; el historial de cambios ahora lista todos los documentos del ciclo (PDF de trámite y evidencia de entrega).",
+    "Nuevo estado «En Trámite Parcial» en el modal de cambio de estado, junto a «En Trámite», con su propio color, sonido y factura/remisión.",
+    "El modal de Cambiar Estado ya no bloquea el botón de cerrar: se puede salir en cualquier momento; los avisos del pie indican solo qué falta para poder guardar."
   ]
 }
