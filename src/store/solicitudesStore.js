@@ -53,6 +53,23 @@ export function parsearMotivoDevolucion(nota) {
   return { campos, texto: crudo.slice(m[0].length) }
 }
 
+// Devuelve la ruta cruda del backend a partir de lo que haya guardado: la misma
+// sesión de la subida deja la ruta tal cual, pero al re-descargar las
+// solicitudes el store guarda la URL firmada (/api/archivos/ver?ruta=…). Para
+// comparar con lo que hay en la base (y para borrar el archivo) hace falta la
+// ruta, así que se extrae del query en un caso y se devuelve igual en el otro.
+function rutaCruda(valor) {
+  const v = String(valor || '').trim()
+  if (!v) return ''
+  if (!/^https?:\/\//i.test(v)) return v
+  try {
+    const u = new URL(v)
+    return u.searchParams.get('ruta') || u.searchParams.get('id') || ''
+  } catch {
+    return ''
+  }
+}
+
 // Caché en memoria: evita re-parsear y re-normalizar todo el localStorage en
 // cada llamada. Se invalida comparando el crudo guardado (detecta cambios de
 // otras pestañas o escrituras externas).
@@ -784,6 +801,49 @@ export function updateSolicitud(id, updates) {
   // Este cambio es obra de esta sesión: no debe avisarse como cambio remoto.
   marcarEchoLocal(next.filter((s) => s.id === id))
   empujar({ id })
+  notificar()
+  return next
+}
+
+// Quita la referencia a una factura/remisión borrada en el servidor (ver
+// /api/archivos/borrar) de TODAS las entradas del historial que la traigan y de
+// la lista de adjuntos de la solicitud.
+//
+// Es obligatoria en el dispositivo que borra: si el store local se quedara con
+// la ruta, el siguiente empuje de esta solicitud reescribiría el historial con
+// ella (el upsert del backend es por id) y la referencia volvería a la base
+// aunque el archivo ya no existiera. El backend limpia su copia y sube
+// actualizado_en, con lo que el resto de dispositivos se corrige solo en el
+// siguiente tick de 8 s.
+//
+// La ruta puede estar guardada como ruta cruda (misma sesión de la subida) o
+// como URL firmada (tras re-descargar), así que se compara por la ruta cruda.
+export function quitarAdjuntoTramite(id, ruta) {
+  const objetivo = rutaCruda(ruta)
+  if (!id || !objetivo) return loadSolicitudes()
+  const next = loadSolicitudes().map((s) => {
+    if (s.id !== id) return s
+    let cambia = false
+    const historial = (Array.isArray(s.historial) ? s.historial : []).map((h) => {
+      const entradas = String(h.adjunto || '')
+        .split(',')
+        .map((e) => e.trim())
+        .filter(Boolean)
+      if (entradas.length === 0) return h
+      const restantes = entradas.filter((e) => rutaCruda(e) !== objetivo)
+      if (restantes.length === entradas.length) return h
+      cambia = true
+      return { ...h, adjunto: restantes.join(', ') }
+    })
+    const adjuntos = Array.isArray(s.adjuntos) ? s.adjuntos : []
+    const restantesAdj = adjuntos.filter((u) => rutaCruda(u) !== objetivo)
+    if (restantesAdj.length !== adjuntos.length) cambia = true
+    if (!cambia) return s
+    return { ...s, historial, adjuntos: restantesAdj }
+  })
+  escribir(next)
+  // Sin empujar: la base ya la quitó el endpoint y aquí solo se corrige la copia
+  // local para que un empuje posterior no la resucite.
   notificar()
   return next
 }

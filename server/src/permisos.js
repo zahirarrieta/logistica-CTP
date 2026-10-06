@@ -13,6 +13,10 @@
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const ESTADOS_ENTREGADAS = ['Entregado', 'Entregado Parcial']
+// «Trámite» (paso documental: factura/remisión) no es «Tránsito» (la ruta del
+// camión): son estados distintos y solo estos dos admiten adjuntar o borrar una
+// factura, igual que ESTADOS_TRAMITE de src/utils/pdfUtils.js.
+const ESTADOS_TRAMITE = ['En Trámite', 'En Trámite Parcial']
 const PRIVILEGIADOS = ['administrador', 'superadmin']
 const SUPERADMIN = 'superadmin'
 
@@ -186,4 +190,5 @@ module.exports = {
   permiteGuardarSolicitud,
   ESTADOS_TRANSITO,
   ESTADOS_ENTREGADAS,
+  ESTADOS_TRAMITE,
 }

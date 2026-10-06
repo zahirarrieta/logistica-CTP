@@ -160,6 +160,26 @@ function existe(ruta) {
   }
 }
 
+// Borra un archivo de la carpeta de evidencias. Devuelve true si al terminar no
+// quedó el archivo (se borró o ya no estaba), para que quien llama pueda tratar
+// un ENOENT como éxito: borrar dos veces la misma factura no es un error.
+//
+// Un error de disco distinto (permisos, solo lectura) devuelve false en vez de
+// lanzar: quien llama (la ruta de borrado de facturas) decide si eso es fatal.
+// Allí lo es solo a medias, porque primero se limpia la base y el archivo sin
+// referencia deja de ser un enlace roto, solo basura en el disco.
+function borrar(ruta) {
+  const destino = rutaSegura(ruta)
+  if (!destino) return false
+  try {
+    fs.unlinkSync(destino)
+    return true
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return true
+    return false
+  }
+}
+
 module.exports = {
   BASE,
   RAIZ_EVIDENCIAS,
@@ -167,6 +187,7 @@ module.exports = {
   guardar,
   crearCarpeta,
   existe,
+  borrar,
   sanitizar,
   urlFirmada,
   verificarFirma,

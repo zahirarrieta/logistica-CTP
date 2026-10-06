@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers, MdCloudUpload, MdInfoOutline, MdPictureAsPdf, MdVisibility, MdDeleteOutline } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../../utils/estadoColors.js'
-import { MAXE_PDFS_TRAMITE, pdfsTramite } from '../../../../utils/pdfUtils.js'
-import { subirFacturasRemisiones } from '../../../../services/archivosApi.js'
+import { MAXE_PDFS_TRAMITE, pdfsTramite, nombrePdfFromUrl } from '../../../../utils/pdfUtils.js'
+import { subirFacturasRemisiones, borrarArchivo } from '../../../../services/archivosApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida, solicitudDevuelta } from '../../../../services/notificaciones.jsx'
-import { CAMPOS_DEVOLUCION, componerMotivoDevolucion } from '../../../../store/solicitudesStore.js'
+import { CAMPOS_DEVOLUCION, componerMotivoDevolucion, quitarAdjuntoTramite } from '../../../../store/solicitudesStore.js'
 import Modal from '../../../../components/Modal.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
@@ -39,6 +39,11 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const [subiendo, setSubiendo] = useState(false)
   const [errorSubida, setErrorSubida] = useState('')
   const [previewAbierto, setPreviewAbierto] = useState(null)
+  // Borrado de un PDF ya guardado: `borrando` es la ruta que se está eliminando
+  // (deshabilita el resto) y `confirmarBorrar` la que espera confirmación, que
+  // evita un borrado sin querer con un solo clic.
+  const [borrando, setBorrando] = useState('')
+  const [confirmarBorrar, setConfirmarBorrar] = useState('')
   const abiertoRef = useRef(false)
   const urlsRef = useRef(new Map())
   const inputRef = useRef(null)
@@ -49,6 +54,8 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
       urlsRef.current.forEach((u) => URL.revokeObjectURL(u))
       urlsRef.current.clear()
       setPreviewAbierto(null)
+      setBorrando('')
+      setConfirmarBorrar('')
       return
     }
     if (abiertoRef.current || !solicitud) return
@@ -63,6 +70,8 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setSubiendo(false)
     setErrorSubida('')
     setPreviewAbierto(null)
+    setBorrando('')
+    setConfirmarBorrar('')
   }, [open, solicitud])
 
   // Libera las URLs de vista previa al desmontar el modal.
@@ -116,6 +125,40 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     return kb < 1024 ? `${Math.max(1, Math.round(kb))} KB` : `${(kb / 1024).toFixed(1)} MB`
   }
 
+  // Borra un PDF ya guardado (factura/remisión de una tanda anterior) para que
+  // quepa subir el correcto. Primero el servidor —que quita la referencia de la
+  // base y el archivo del disco— y después la copia local del store, que es la
+  // que impediría que un empuje posterior resucitara la ruta.
+  //
+  // Los PDFs elegidos pero aún NO guardados (`adjuntoTramite`) se quitan con
+  // `quitarArchivo`, que es solo local: estos sí tocan el servidor.
+  const borrarPdfGuardado = async (url) => {
+    if (borrando || subiendo) return
+    if (confirmarBorrar !== url) {
+      setConfirmarBorrar(url)
+      return
+    }
+    setConfirmarBorrar('')
+    setBorrando(url)
+    setErrorSubida('')
+    try {
+      const datos = await borrarArchivo(url)
+      quitarAdjuntoTramite(solicitud.id, url)
+      const quitadas = Number(datos?.quitadas || 0)
+      if (quitadas === 0) {
+        setErrorSubida(
+          'La referencia ya no estaba en la base; solo se quitó el archivo si existía.'
+        )
+      }
+    } catch (err) {
+      console.error('[EstadosModal] error borrando factura:', err)
+      setErrorSubida(`No se pudo eliminar el documento: ${err.message}`)
+      notificarErrorSubida(err.message, solicitud.id)
+    } finally {
+      setBorrando('')
+    }
+  }
+
   const listaEstados = permitidos || ESTADOS
 
   const isCurrent = (e) => e === estado
@@ -134,6 +177,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     esTramite(estado) && !esSeleccionado && esTramite(solicitud.estado || 'Abierto')
   const puedeGuardar =
     !subiendo &&
+    !borrando &&
     (esTramite(estado)
       ? asignarFactura
         ? numeroRefValido
@@ -154,6 +198,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setAdjuntoTramite([])
     setAsignarFactura(false)
     setErrorSubida('')
+    setConfirmarBorrar('')
   }
 
   const alternarCampo = (id) => {
@@ -380,6 +425,73 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                               <MdInfoOutline className="text-sm shrink-0 mt-0.5" />
                               Puedes guardar «{e}» con solo observaciones. Cuando tengas la factura o remisión, actívala aquí para adjuntarla.
                             </p>
+                          )}
+                          {pdfsPrevios.length > 0 && (
+                            <div className="rounded-xl border border-brand-deep/15 bg-white p-2.5 space-y-1.5">
+                              <p className="text-[11px] font-extrabold text-brand-deep uppercase tracking-wide inline-flex items-center gap-1.5">
+                                <MdPictureAsPdf className="text-sm text-red-500" />
+                                PDFs guardados ({pdfsPrevios.length}/{MAXE_PDFS_TRAMITE})
+                              </p>
+                              <ul className="space-y-1.5">
+                                {pdfsPrevios.map((url) => {
+                                  const nombre = nombrePdfFromUrl(url, 'Factura o remisión')
+                                  const enCurso = borrando === url
+                                  const pendiente = confirmarBorrar === url
+                                  return (
+                                    <li
+                                      key={url}
+                                      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 border transition ${
+                                        pendiente
+                                          ? 'border-red-400 bg-red-50'
+                                          : 'border-brand-deep/10 bg-brand-mist/30'
+                                      }`}
+                                    >
+                                      <MdPictureAsPdf className="text-lg text-red-500 shrink-0" />
+                                      <span className="min-w-0 flex-1 truncate text-xs font-bold text-brand-ink" title={nombre}>
+                                        {nombre}
+                                      </span>
+                                      {pendiente ? (
+                                        <span className="flex items-center gap-1.5 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => borrarPdfGuardado(url)}
+                                            disabled={Boolean(borrando) || subiendo}
+                                            className="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-extrabold text-white hover:bg-red-700 transition disabled:opacity-40"
+                                          >
+                                            Sí, borrar
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setConfirmarBorrar('')}
+                                            className="rounded-full bg-brand-ink/10 px-2.5 py-1 text-[10px] font-extrabold text-brand-ink/70 hover:bg-brand-ink/20 transition"
+                                          >
+                                            No
+                                          </button>
+                                        </span>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => borrarPdfGuardado(url)}
+                                          disabled={Boolean(borrando) || subiendo}
+                                          title={`Eliminar ${nombre}`}
+                                          className="grid place-items-center size-7 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition shrink-0 disabled:opacity-40"
+                                        >
+                                          {enCurso ? (
+                                            <MdCloudUpload className="text-sm animate-pulse" />
+                                          ) : (
+                                            <MdDeleteOutline className="text-base" />
+                                          )}
+                                        </button>
+                                      )}
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                              <p className="inline-flex items-start gap-1.5 text-[11px] font-semibold text-brand-ink/50">
+                                <MdInfoOutline className="text-sm shrink-0 mt-0.5" />
+                                Se borran del servidor para dejar sitio a la factura o remisión correcta.
+                              </p>
+                            </div>
                           )}
                           {asignarFactura && (
                           <div className="rounded-xl border border-brand-cyan/30 bg-brand-mist/30 p-3 space-y-2 animate-fadeIn">

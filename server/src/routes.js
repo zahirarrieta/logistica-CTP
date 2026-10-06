@@ -1349,6 +1349,164 @@ router.post(
   })
 )
 
+// Extrae la ruta cruda de lo que venga del cliente. El store guarda el
+// `adjunto` como ruta al subirlo, pero al RE-descargar las solicitudes lo guarda
+// ya firmado (/api/archivos/ver?ruta=…), y de ahí hay que volver a la ruta para
+// poder compararla con lo que hay en la base y borrar el archivo de disco.
+function rutaCruda(valor) {
+  const v = String(valor || '').trim()
+  if (!v) return ''
+  if (/^https?:\/\//i.test(v)) {
+    try {
+      const u = new URL(v)
+      return u.searchParams.get('ruta') || u.searchParams.get('id') || ''
+    } catch {
+      return ''
+    }
+  }
+  return v
+}
+
+// Quita una factura o remisión mal cargada mientras la solicitud sigue en
+// «En Trámite» o «En Trámite Parcial», para que quepa subir la correcta sin
+// desbordar el tope de 3 PDFs por solicitud.
+//
+// El orden de la limpieza importa: PRIMERO la base y DESPUÉS el disco. Si el
+// disco llegara a fallar quedaría un archivo sin referencias, que es solo
+// basura; al revés, la base quedaría apuntando a un archivo que ya no existe y
+// el visor abriría un 404 en la lista de documentos.
+//
+// Toca solo `historial.adjunto` (donde viven las facturas del trámite) y
+// `solicitudes.adjuntos` por si una fila antigua la trae; la evidencia de la
+// entrega (evidencia_url) no se toca, que es de otra etapa del ciclo.
+router.post(
+  '/archivos/borrar',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    const objetivo = rutaCruda(req.body?.ruta)
+    if (!objetivo) return res.status(400).json({ error: 'Falta la ruta del archivo' })
+    // Subir y borrar facturas es cosa de administrador/superadmin: el mismo
+    // panel (EstadosModal) que las sube es el que las borra.
+    if (!P.esPrivilegiado(ctx.rol)) {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+    const limpio = String(objetivo).replace(/\\/g, '/').replace(/^\/+/, '')
+    if (/^https?:\/\//i.test(limpio)) {
+      return res.status(400).json({ error: 'Ruta no válida' })
+    }
+    // Sin segmentos '.' ni '..': rutaSegura solo impide salir de la raíz de
+    // evidencias, así que sin este filtro un '../Evidencias/foto.jpg' seguiría
+    // dentro y se colaría por la comprobación de la carpeta de facturas.
+    if (limpio.split('/').some((seg) => seg === '.' || seg === '..')) {
+      return res.status(400).json({ error: 'Ruta no válida' })
+    }
+    // El borrado se limita a la carpeta de facturas/remisiones: los adjuntos de
+    // la creación y la evidencia de la entrega no se pueden tirar por aquí.
+    if (!/(^|\/)FacturasoRemisiones\//i.test(limpio)) {
+      return res.status(400).json({ error: 'Solo se pueden borrar facturas o remisiones del trámite' })
+    }
+    if (!archivos.rutaSegura(limpio)) {
+      return res.status(400).json({ error: 'Ruta no válida' })
+    }
+
+    const codigo = codigoDeRuta(limpio)
+    const visibles = await codigosVisibles(ctx, [codigo])
+    if (!visibles.has(codigo)) {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+
+    const conexion = await pool.getConnection()
+    let quitadas = 0
+    try {
+      await conexion.beginTransaction()
+
+      const [filas] = await conexion.execute(
+        'SELECT estado FROM solicitudes WHERE codigo = ? LIMIT 1',
+        [codigo]
+      )
+      if (!filas[0]) {
+        await conexion.rollback()
+        return res.status(404).json({ error: 'No existe la solicitud' })
+      }
+      // Fuera de los estados de trámite no hay facturas que corregir y borrar
+      // documentos aquí rompería el registro de lo que se entregó.
+      if (!P.ESTADOS_TRAMITE.includes(filas[0].estado)) {
+        await conexion.rollback()
+        return res.status(409).json({ error: 'La solicitud no está en trámite' })
+      }
+
+      // El adjunto es un CSV separado por ', ' con las varias facturas de una
+      // misma tanda, así que se filtra la ruta y se reescribe la celda. Se
+      // normaliza cada entrada porque puede estar guardada como URL firmada.
+      const [registros] = await conexion.execute(
+        'SELECT id, adjunto FROM historial WHERE solicitud = ?',
+        [codigo]
+      )
+      for (const reg of registros) {
+        const entradas = String(reg.adjunto || '')
+          .split(',')
+          .map((e) => e.trim())
+          .filter(Boolean)
+        if (entradas.length === 0) continue
+        const restantes = entradas.filter((e) => rutaCruda(e) !== limpio)
+        if (restantes.length === entradas.length) continue
+        quitadas += entradas.length - restantes.length
+        await conexion.execute('UPDATE historial SET adjunto = ? WHERE id = ?', [
+          restantes.join(', '),
+          reg.id,
+        ])
+      }
+
+      // La lista de adjuntos de la solicitud no guarda facturas en el flujo
+      // normal, pero una fila antigua podría traerla: se limpia también para que
+      // no quede un enlace muerto en el visor de documentos.
+      const [sols] = await conexion.execute(
+        'SELECT adjuntos FROM solicitudes WHERE codigo = ? LIMIT 1',
+        [codigo]
+      )
+      const adjuntos = aArrayJson(sols[0]?.adjuntos)
+      const restantesAdj = adjuntos.filter((u) => rutaCruda(u) !== limpio)
+      if (restantesAdj.length !== adjuntos.length) {
+        quitadas += adjuntos.length - restantesAdj.length
+        await conexion.execute('UPDATE solicitudes SET adjuntos = ? WHERE codigo = ?', [
+          JSON.stringify(restantesAdj),
+          codigo,
+        ])
+      }
+
+      // La marca de agua es lo que hace que los demás dispositivos re-descarguen
+      // el historial de ESTA solicitud en el siguiente tick de 8 s. Sin subirla
+      // seguirían con la referencia vieja en local y, al guardar cualquier cosa
+      // desde allí, la devolverían a la base con el upsert del historial.
+      if (quitadas > 0) {
+        await conexion.execute(
+          'UPDATE solicitudes SET actualizado_en = CURRENT_TIMESTAMP(3) WHERE codigo = ?',
+          [codigo]
+        )
+      }
+
+      await conexion.commit()
+    } catch (error) {
+      await conexion.rollback()
+      throw error
+    } finally {
+      conexion.release()
+    }
+
+    // El disco va después del commit, con try/catch: si falla, la base ya no
+    // apunta al archivo y el error no debe tumbar la operación (queda un
+    // archivo huérfano que se registra en el log).
+    try {
+      archivos.borrar(limpio)
+    } catch (error) {
+      console.warn(`[Archivos] no se pudo borrar ${limpio}:`, error?.message)
+    }
+
+    console.info(`[Archivos] factura ${limpio} quitada de ${codigo} (${quitadas} referencia(s))`)
+    res.json({ ok: true, quitadas })
+  })
+)
+
 // Las URLs firmadas no llevan Authorization (van en un <img src>), así que la
 // firma HMAC es la que autoriza. Por eso esta ruta vive en el router `publico`,
 // montado en index.js antes del middleware autenticar().

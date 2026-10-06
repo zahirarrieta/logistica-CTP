@@ -166,3 +166,17 @@ export async function firmarRuta(ruta) {
   const mapa = await firmarRutas([ruta])
   return mapa[String(ruta).trim()] || null
 }
+
+// ---------------------------------------------------------------------------
+// Borrado de una factura/remisión del trámite
+// ---------------------------------------------------------------------------
+// El store guarda el `adjunto` como ruta al subirlo, pero al re-descargar las
+// solicitudes lo guarda ya firmado; el backend acepta las dos formas, así que
+// aquí no hace falta convertir nada: se manda lo que haya.
+export async function borrarArchivo(ruta) {
+  const valor = String(ruta || '').trim()
+  if (!valor) throw new Error('No hay archivo que borrar')
+  const datos = await apiPost('/api/archivos/borrar', { ruta: valor })
+  console.info(`[Archivos] factura/remisión borrada → ${valor}`)
+  return datos
+}
