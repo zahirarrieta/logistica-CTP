@@ -11,7 +11,7 @@ import {
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
-import { esPrivilegiado, esSuperAdmin, esAdministrador } from '../../auth/roles.js'
+import { esPrivilegiado } from '../../auth/roles.js'
 import { listarInventario } from '../../services/inventarioApi.js'
 import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
@@ -145,20 +145,8 @@ export default function Inventario() {
               <h1 className="text-xl sm:text-3xl font-extrabold text-brand-ink inline-flex items-center gap-3">
                 <span className="grid place-items-center size-10 sm:size-12 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 overflow-hidden">
                   <img
-                    src={
-                      esSuperAdmin(rol)
-                        ? '/ITitulos/Superadmin.png'
-                        : esAdministrador(rol)
-                          ? '/ITitulos/AdminI.png'
-                          : '/ITitulos/IInventario.png'
-                    }
-                    alt={
-                      esSuperAdmin(rol)
-                        ? 'Super administrador'
-                        : esAdministrador(rol)
-                          ? 'Administrador'
-                          : 'Inventario de artículos'
-                    }
+                    src="/ITitulos/IInventario.png"
+                    alt="Inventario de artículos"
                     className="size-full object-contain"
                   />
                 </span>
