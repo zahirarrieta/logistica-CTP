@@ -50,8 +50,9 @@ const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !
 const devolucionVencida = (s, ahora) => esDevolucion(s) && restanteDevolucion(s, ahora) === 0
 
 // Cuando la solicitud está en tránsito, el adjunto relevante son las facturas o
-// remisiones que cargó el administrador en cada paso por «En Trámite». Esas URLs
-// viven en el historial (campo 'estado', nuevo 'En Trámite'); cada tanda queda
+// remisiones que cargó el administrador en cada paso por «En Trámite»/
+// «En Trámite Parcial». Esas URLs viven en el historial (campo 'estado', nuevo
+// 'En Trámite' o 'En Trámite Parcial'); cada tanda queda
 // en su propia entrada del historial y aquí se concatenan todas, de la más
 // antigua a la más reciente. Antes se tomaba solo la última tanda.
 const urlsTramite = (s) => pdfsTramite(Array.isArray(s.historial) ? s.historial : [])
@@ -133,7 +134,7 @@ function HistorialButton({ onClick }) {
   )
 }
 
-// Documento que el conductor debe entregar (adjunto de «En Trámite»/factura):
+// Documento que el conductor debe entregar (adjunto de trámite/factura):
 // ícono que abre el visor del documento, junto al nombre del cliente.
 function DocEntregaIcono({ count, onClick }) {
   return (

@@ -40,6 +40,7 @@ const ESTADO_TIPO = {
   'En Tránsito': 'info',
   'En Tránsito Parcial': 'info',
   'En Trámite': 'info',
+  'En Trámite Parcial': 'info',
   'Abierto': 'info',
 }
 
@@ -119,6 +120,7 @@ function tocar(secuencias, tipo = 'sine') {
 function transito() { tocar([[1200, 0, 0.06, 0.16]], 'square') } // blip corto
 function transitoParcial() { tocar([[1200, 0, 0.06, 0.16], [1200, 0.13, 0.06, 0.16]], 'square') } // dos blips
 function tramite() { tocar([[523, 0, 0.18, 0.2]]) } // nota media suave
+function tramiteParcial() { tocar([[523, 0, 0.14, 0.2], [659, 0.17, 0.16, 0.2]]) } // dos notas ascendentes
 function abierto() { tocar([[330, 0, 0.2, 0.22]]) } // nota baja suave
 function pendiente() { tocar([[587, 0, 0.12, 0.2], [440, 0.16, 0.14, 0.2]]) } // descendente media
 function devolucion() { tocar([[523, 0, 0.14, 0.22], [349, 0.18, 0.2, 0.22]]) } // descendente grave
@@ -138,6 +140,7 @@ const SONIDOS = {
   'En Tránsito': transito,
   'En Tránsito Parcial': transitoParcial,
   'En Trámite': tramite,
+  'En Trámite Parcial': tramiteParcial,
   'Abierto': abierto,
   'Pendiente por Autorización': pendiente,
   'Devolución a Solicitante': devolucion,

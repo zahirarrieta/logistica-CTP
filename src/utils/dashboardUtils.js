@@ -9,6 +9,7 @@ export const HEX_ESTADO = {
   'Devolución a Solicitante': '#D946EF',
   'Retenido por Cartera': '#EF4444',
   'En Trámite': '#3B82F6',
+  'En Trámite Parcial': '#FACC15',
   'En Tránsito': '#A855F7',
   'En Tránsito Parcial': '#D97706',
   'Entregado Parcial': '#EAB308',

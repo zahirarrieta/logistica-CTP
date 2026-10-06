@@ -42,6 +42,7 @@ const IMAGENES_POR_ESTADO = {
   'Devolución a Solicitante': imgDevoSol,
   'Retenido por Cartera': imgCartera,
   'En Trámite': imgRemision,
+  'En Trámite Parcial': imgRemision,
   'En Tránsito': imgTransitoCarro,
   'En Tránsito Parcial': imgTransitoMoto,
 }
@@ -52,6 +53,7 @@ const ICONOS_POR_ESTADO = {
   'Devolución a Solicitante': MdAssignmentReturn,
   'Retenido por Cartera': MdPayments,
   'En Trámite': MdReceipt,
+  'En Trámite Parcial': MdReceipt,
   'En Tránsito': MdDirectionsCar,
   'En Tránsito Parcial': MdTwoWheeler,
   'Entregado Parcial': MdDoneAll,

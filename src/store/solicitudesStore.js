@@ -744,13 +744,13 @@ export function updateSolicitud(id, updates) {
   pdfUrls = pdfUrls.slice(0, cupoTanda)
 
   let historialFinal = historial
-  // Se reimprime «En Trámite» sobre una solicitud que ya está en ese estado.
-  // Ahora se crea entrada propia si hay PDFs NUEVOS O hay observaciones (notaEstado):
-  // así cada vez que el usuario guarda con «En Trámite» y escribe una observación,
-  // queda registrada en el historial como una entrada separada (observación 1, 2, 3...).
+  // Se reimprime «En Trámite»/«En Trámite Parcial» sobre una solicitud que ya
+  // está en ese estado. Ahora se crea entrada propia si hay PDFs NUEVOS O hay
+  // observaciones (notaEstado): así cada vez que el usuario guarda con el mismo
+  // estado de trámite y escribe una observación, queda registrada en el
+  // historial como una entrada separada (observación 1, 2, 3...).
   const hayNuevaObservacion = Boolean(updates.notaEstado?.trim())
   if (campos.length === 0 && (pdfUrls.length > 0 || hayNuevaObservacion)) {
-    // Se reimprime «En Trámite» sobre una solicitud que ya está en ese estado.
     // Es una tanda nueva de factura/remisión, o solo observaciones nuevas,
     // no una corrección de la anterior: se crea una entrada propia para no
     // pisar los PDFs ni el comentario del paso previo.
@@ -760,7 +760,7 @@ export function updateSolicitud(id, updates) {
         id: generarId(),
         campo: 'estado',
         anterior: s.estado || 'Abierto',
-        nuevo: 'En Trámite',
+        nuevo: updates.estado || s.estado || 'En Trámite',
         nota: updates.notaEstado || '',
         referencia: updates.numeroReferencia || s.numeroReferencia || '',
         adjunto: pdfUrls.join(', '),

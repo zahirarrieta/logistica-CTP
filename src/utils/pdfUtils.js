@@ -25,13 +25,18 @@ export function soloAdjuntosSolicitud(lista) {
 }
 
 // Tope de PDFs de factura/remisión por SOLICITUD, no por tanda. Una solicitud
-// puede pasar varias veces por «En Trámite» y el total nunca pasa de 3.
+// puede pasar varias veces por «En Trámite»/«En Trámite Parcial» y el total
+// nunca pasa de 3.
 export const MAXE_PDFS_TRAMITE = 3
 
-// PDFs de todas las tandas de «En Trámite», de la más antigua a la más reciente.
-// Cada vez que se reimprime «En Trámite» el historial guarda una entrada propia
-// con sus PDFs y su comentario, así que aquí se concatenan todas. Antes se leía
-// solo la última tanda y las anteriores quedaban ocultas.
+// Estados cuyo panel admite adjuntar factura/remisión. Se comportan igual.
+export const ESTADOS_TRAMITE = ['En Trámite', 'En Trámite Parcial']
+
+// PDFs de todas las tandas de trámite, de la más antigua a la más reciente.
+// Cada vez que se reimprime «En Trámite»/«En Trámite Parcial» el historial
+// guarda una entrada propia con sus PDFs y su comentario, así que aquí se
+// concatenan todas. Antes se leía solo la última tanda y las anteriores
+// quedaban ocultas.
 export function pdfsTramite(historial) {
   const lista = Array.isArray(historial) ? historial : []
   const urls = []
@@ -39,7 +44,7 @@ export function pdfsTramite(historial) {
   // devolver las tandas en orden cronológico.
   for (let i = lista.length - 1; i >= 0; i -= 1) {
     const h = lista[i]
-    if (!h || h.campo !== 'estado' || h.nuevo !== 'En Trámite') continue
+    if (!h || h.campo !== 'estado' || !ESTADOS_TRAMITE.includes(h.nuevo)) continue
     String(h.adjunto || '')
       .split(',')
       .map((u) => u.trim())

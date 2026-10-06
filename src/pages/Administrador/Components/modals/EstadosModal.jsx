@@ -9,7 +9,11 @@ import { CAMPOS_DEVOLUCION, componerMotivoDevolucion } from '../../../../store/s
 import Modal from '../../../../components/Modal.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
+const ESTADOS_TRAMITE = ['En Trámite', 'En Trámite Parcial']
 const ESTADO_DEVOLUCION = 'Devolución a Solicitante'
+// «En Trámite» y «En Trámite Parcial» se comportan igual: panel de observaciones,
+// factura/remisión opcional y reaplicación sobre el estado actual.
+const esTramite = (e) => ESTADOS_TRAMITE.includes(e)
 
 function Requisito({ listo, label }) {
   return (
@@ -30,7 +34,6 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const [camposCorregir, setCamposCorregir] = useState([])
   const [numeroRef, setNumeroRef] = useState('')
   const [adjuntoTramite, setAdjuntoTramite] = useState([])
-  const [guardado, setGuardado] = useState(false)
   const [asignarFactura, setAsignarFactura] = useState(false)
   const [editarConductor, setEditarConductor] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
@@ -55,7 +58,6 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setCamposCorregir([])
     setNumeroRef(solicitud.numeroReferencia || '')
     setAdjuntoTramite([])
-    setGuardado(false)
     setAsignarFactura(false)
     setEditarConductor(false)
     setSubiendo(false)
@@ -91,7 +93,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     const aceptados = nuevosValidos.slice(0, cupoRestante)
     if (aceptados.length < nuevosValidos.length) {
       setErrorSubida(
-        `Solo caben ${MAXE_PDFS_TRAMITE - totalElegidos} PDF(s) más: esta solicitud admite ${MAXE_PDFS_TRAMITE} en total entre todas sus tandas de «En Trámite».`
+        `Solo caben ${MAXE_PDFS_TRAMITE - totalElegidos} PDF(s) más: esta solicitud admite ${MAXE_PDFS_TRAMITE} en total entre todas sus tandas de trámite.`
       )
     } else {
       setErrorSubida('')
@@ -121,18 +123,18 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const esTransitoSeleccionado = ESTADOS_TRANSITO.includes(estado)
   const esTransitoActual = ESTADOS_TRANSITO.includes(solicitud.estado || 'Abierto') && !esSeleccionado
   const transporteListo = Boolean(solicitud.conductor && solicitud.vehiculo && solicitud.placa)
-  const bloqueadoCerrar = !guardado
   const numeroRefValido = numeroRef.trim().length > 0 && adjuntoTramite.length > 0
   const esDevolucion = estado === ESTADO_DEVOLUCION
   const notaObligatoria = esDevolucion && nota.trim().length > 0
   const camposObligatorios = esDevolucion && camposCorregir.length > 0
-  // «En Trámite» se puede aplicar varias veces: si la solicitud ya está en
-  // trámite, basta abrir el modal y guardar (solo observaciones) sin factura.
+  // «En Trámite»/«En Trámite Parcial» se pueden aplicar varias veces: si la
+  // solicitud ya está en uno de esos estados, basta abrir el modal y guardar
+  // (solo observaciones) sin factura.
   const tramiteReaplicado =
-    estado === 'En Trámite' && !esSeleccionado && (solicitud.estado || 'Abierto') === 'En Trámite'
+    esTramite(estado) && !esSeleccionado && esTramite(solicitud.estado || 'Abierto')
   const puedeGuardar =
     !subiendo &&
-    (estado === 'En Trámite'
+    (esTramite(estado)
       ? asignarFactura
         ? numeroRefValido
         : esSeleccionado || tramiteReaplicado
@@ -143,8 +145,8 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
           : esTransitoActual && transporteListo)
 
   const handleSelect = (e) => {
-    // «En Trámite» se puede volver a aplicar aunque ya sea el estado actual.
-    if (isCurrent(e) && e !== 'En Trámite') return
+    // «En Trámite»/«En Trámite Parcial» se puede volver a aplicar aunque ya sea el estado actual.
+    if (isCurrent(e) && !esTramite(e)) return
     setEstado(e)
     setNota('')
     setCamposCorregir([])
@@ -167,7 +169,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
       estado,
       notaEstado: esDevolucion ? componerMotivoDevolucion(camposCorregir, nota.trim()) : nota.trim(),
     }
-    if (estado === 'En Trámite' && asignarFactura) {
+    if (esTramite(estado) && asignarFactura) {
       if (!numeroRef.trim() || adjuntoTramite.length === 0) return
       setSubiendo(true)
       try {
@@ -198,12 +200,11 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setCamposCorregir([])
     setNumeroRef('')
     setAdjuntoTramite([])
-    setGuardado(true)
     onClose()
   }
 
   return (
-    <Modal onClose={bloqueadoCerrar ? () => {} : onClose}>
+    <Modal onClose={onClose}>
       <div
         className="relative bg-white text-brand-ink w-full max-w-md rounded-2xl shadow-2xl animate-scaleIn max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -227,11 +228,8 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
             <button
               aria-label="Cerrar"
               onClick={onClose}
-              disabled={bloqueadoCerrar}
-              title={bloqueadoCerrar ? 'Debes guardar el cambio de estado para poder cerrar' : 'Cerrar'}
-              className={`grid place-items-center size-8 rounded-full bg-white/10 text-white transition ${
-                bloqueadoCerrar ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/20'
-              }`}
+              title="Cerrar"
+              className="grid place-items-center size-8 rounded-full bg-white/10 text-white transition hover:bg-white/20"
             >
               <MdClose className="text-lg" />
             </button>
@@ -258,10 +256,10 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
             {listaEstados.map((e) => {
               const current = isCurrent(e)
               const esTransitoEstado = ESTADOS_TRANSITO.includes(e)
-              const tramiteActual = (solicitud.estado || 'Abierto') === 'En Trámite'
-              // El panel de «En Trámite» queda abierto aunque sea el estado actual,
+              const tramiteActual = esTramite(solicitud.estado || 'Abierto')
+              // El panel de trámite queda abierto aunque sea el estado actual,
               // para poder reaplicarlo o asignar la factura después.
-              const mostrarPanel = e === estado && (esSeleccionado || (e === 'En Trámite' && tramiteActual))
+              const mostrarPanel = e === estado && (esSeleccionado || (esTramite(e) && tramiteActual))
               const editarConductorActual = esTransitoEstado && current && editarConductor
               const abrirPanel = mostrarPanel || editarConductorActual
               return (
@@ -269,13 +267,13 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                   <button
                     type="button"
                     onClick={() => handleSelect(e)}
-                    disabled={current && e !== 'En Trámite'}
-                    title={current && e !== 'En Trámite' ? 'La solicitud ya está en este estado' : e === 'En Trámite' && current ? 'Reaplicar En Trámite (puede volver a guardarse sin factura)' : `Cambiar a ${e}`}
+                    disabled={current && !esTramite(e)}
+                    title={current && !esTramite(e) ? 'La solicitud ya está en este estado' : esTramite(e) && current ? 'Reaplicar trámite (puede volver a guardarse sin factura)' : `Cambiar a ${e}`}
                     className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-brand-deep transition-all ${
                       current
                         ? 'bg-brand-cyan/15 ring-2 ring-brand-cyan/50 cursor-not-allowed'
                         : 'bg-brand-mist/40 hover:bg-brand-cyan/15 hover:ring-1 hover:ring-brand-cyan/40'
-                    } ${current && e === 'En Trámite' ? 'ring-2 ring-brand-cyan/50' : ''}`}
+                    } ${current && esTramite(e) ? 'ring-2 ring-brand-cyan/50' : ''}`}
                   >
                     <span className="inline-flex items-center gap-2.5 min-w-0">
                       <span className={`size-2.5 rounded-full shrink-0 ${getDotColor(e)}`} />
@@ -363,7 +361,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                           Indica el motivo para poder devolver la solicitud al solicitante.
                         </p>
                       )}
-                      {e === 'En Trámite' && (
+                      {esTramite(e) && (
                         <div className="mt-2 space-y-2">
                           <button
                             type="button"
@@ -380,7 +378,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                           {!asignarFactura && (
                             <p className="inline-flex items-start gap-1.5 text-[11px] font-semibold text-brand-ink/60">
                               <MdInfoOutline className="text-sm shrink-0 mt-0.5" />
-                              Puedes guardar «En Trámite» con solo observaciones. Cuando tengas la factura o remisión, actívala aquí para adjuntarla.
+                              Puedes guardar «{e}» con solo observaciones. Cuando tengas la factura o remisión, actívala aquí para adjuntarla.
                             </p>
                           )}
                           {asignarFactura && (
@@ -536,18 +534,17 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
             </p>
           )}
           <div className="flex items-center justify-between gap-2 sm:gap-3">
-            {bloqueadoCerrar && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
-                <MdInfoOutline className="text-base shrink-0" />
-                {estado === 'En Trámite' && asignarFactura && !numeroRefValido
-                  ? 'Completa número de factura o remisión y adjúntala para poder guardar'
-                  : esDevolucion && !notaObligatoria
-                    ? 'Escribe el motivo de la devolución para poder guardar'
-                    : esDevolucion && !camposObligatorios
-                      ? 'Marca al menos un campo que debe corregir el solicitante'
-                      : 'Debes guardar el cambio de estado para poder cerrar'}
-              </span>
-            )}
+          {((esTramite(estado) && asignarFactura && !numeroRefValido) ||
+            (esDevolucion && (!notaObligatoria || !camposObligatorios))) && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
+              <MdInfoOutline className="text-base shrink-0" />
+              {esDevolucion
+                ? !notaObligatoria
+                  ? 'Escribe el motivo de la devolución para poder guardar'
+                  : 'Marca al menos un campo que debe corregir el solicitante'
+                : 'Completa número de factura o remisión y adjúntala para poder guardar'}
+            </span>
+          )}
             <button
               type="button"
               onClick={handleSave}
