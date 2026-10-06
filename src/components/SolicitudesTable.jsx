@@ -61,18 +61,10 @@ const urlsTramite = (s) => pdfsTramite(Array.isArray(s.historial) ? s.historial 
 // pedido.
 const documentoEntregable = urlsTramite
 
-const adjuntosVisibles = (s) => {
-  const tramite = urlsTramite(s)
-  // Si la solicitud está en tránsito (conductor) o en trámite (admin), los
-  // documentos relevantes son las facturas/remisiones de cada paso por «En Trámite».
-  if (enTransito(s) || (s.estado || '') === 'En Trámite') {
-    if (tramite.length) return tramite
-    if (s.nuevaFacturaUrls?.length) return s.nuevaFacturaUrls
-    if (s.adjuntosTramite?.length) return s.adjuntosTramite
-  }
-  // Estados finales o de creación: se muestran los adjuntos originales.
-  return s.adjuntos
-}
+// La tabla SIEMPRE muestra el adjunto original del solicitante. El PDF de
+// trámite y la evidencia de entrega se ven en el Historial de cambios, que
+// muestra todos los documentos del ciclo de vida.
+const adjuntosVisibles = (s) => s.adjuntos || []
 
 function Row({ icon, label, value }) {
   return (
@@ -626,7 +618,7 @@ export default function SolicitudesTable({
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setAdjuntosSolicitud(s) }}
                           aria-label="Ver adjuntos"
-                          title={enTransito(s) ? 'Ver factura o remisión' : 'Ver adjuntos'}
+                          title="Ver adjuntos"
                           className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
                         >
                           <MdAttachFile className="text-sm" />

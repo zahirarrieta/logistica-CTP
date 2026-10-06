@@ -21,15 +21,9 @@ import AdjuntoEnlace from '../../../../components/AdjuntoEnlace.jsx'
 import VisorPdfModal from '../../../../components/VisorPdfModal.jsx'
 import Modal from '../../../../components/Modal.jsx'
 
-const enTransito = (s) => ['En Tránsito', 'En Tránsito Parcial'].includes(s.estado)
-
-const adjuntosVisibles = (s) => {
-  if (enTransito(s)) {
-    if (s.nuevaFacturaUrls?.length) return s.nuevaFacturaUrls
-    if (s.adjuntosTramite?.length) return s.adjuntosTramite
-  }
-  return s.adjuntos
-}
+// La tabla SIEMPRE muestra el adjunto original del solicitante. El PDF de
+// trámite y la evidencia de entrega se ven en el Historial de cambios.
+const adjuntosVisibles = (s) => s.adjuntos || []
 
 function Dato({ label, value }) {
   return (

@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
-import { MdClose, MdHistory, MdTag, MdBusiness, MdPlace, MdPerson, MdAccessTime, MdArrowForward, MdCheckCircle, MdAssignmentInd } from 'react-icons/md'
+import { MdClose, MdHistory, MdTag, MdBusiness, MdPlace, MdPerson, MdAccessTime, MdArrowForward, MdCheckCircle, MdAssignmentInd, MdAttachFile } from 'react-icons/md'
 import { getBadgeColor, getDotColor } from '../../../../utils/estadoColors.js'
 import VisorPdfModal from '../../../../components/VisorPdfModal.jsx'
 import AdjuntoEnlace from '../../../../components/AdjuntoEnlace.jsx'
 import Modal from '../../../../components/Modal.jsx'
+
+const SEP_EVIDENCIA = '|'
+
+function evidenciaUrls(h) {
+  return String(h.evidencia || '').split(SEP_EVIDENCIA).map((u) => u.trim()).filter(Boolean).join(', ')
+}
 
 export default function HistorialModal({ solicitud, open, onClose }) {
   const [tab, setTab] = useState('estado')
@@ -88,6 +94,17 @@ export default function HistorialModal({ solicitud, open, onClose }) {
             )}
           </div>
 
+          {/* Adjunto original del solicitante: siempre visible al inicio del historial */}
+          {Array.isArray(solicitud.adjuntos) && solicitud.adjuntos.length > 0 && (
+            <div className="rounded-xl border border-brand-ink/10 bg-white shadow-sm p-3">
+              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-brand-deep mb-2">
+                <MdAttachFile className="text-brand-cyan" />
+                Documento adjunto del solicitante
+              </span>
+              <AdjuntoEnlace adjunto={solicitud.adjuntos.join(', ')} onVerPdf={setPdfUrl} />
+            </div>
+          )}
+
           {/* Lista de cambios (estado o asignación según tab) */}
           {listado.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
@@ -158,9 +175,15 @@ export default function HistorialModal({ solicitud, open, onClose }) {
                           Factura/Remisión: {h.referencia}
                         </p>
                       )}
-{h.adjunto && (
-                         <AdjuntoEnlace adjunto={h.adjunto} onVerPdf={(u) => { console.log('[HistorialModal] PDF url:', u); setPdfUrl(u); }} />
-                       )}
+                      {h.adjunto && (
+                        <AdjuntoEnlace adjunto={h.adjunto} onVerPdf={setPdfUrl} />
+                      )}
+                      {h.evidencia && evidenciaUrls(h) && (
+                        <div className="mt-2">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wide text-brand-deep/70">Evidencia de entrega</span>
+                          <AdjuntoEnlace adjunto={evidenciaUrls(h)} onVerPdf={setPdfUrl} />
+                        </div>
+                      )}
                     </div>
                   </li>
                 )
