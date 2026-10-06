@@ -375,7 +375,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   {restanteEliminar && (
                     <>
                       <MdTimer className="text-lg" />
-                      <span className="ml-1 font-mono">{formatearMs(restanteEliminar)}</span>
+                      <span className="ml-1">{formatearMs(restanteEliminar)}</span>
                     </>
                   )}
                 </button>
@@ -728,7 +728,7 @@ export default function SolicitudesTable({
                             {restanteEliminar && restanteEliminar(s) > 0 && (
                               <>
                                 <MdTimer className="text-lg" />
-                                <span className="font-mono">{formatearMs(restanteEliminar(s))}</span>
+                                <span>{formatearMs(restanteEliminar(s))}</span>
                               </>
                             )}
                           </button>

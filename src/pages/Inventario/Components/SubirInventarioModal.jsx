@@ -171,7 +171,7 @@ export default function SubirInventarioModal({ open, onClose, onSubido }) {
                 placeholder="Pega aquí las filas copiadas de Excel…"
                 spellCheck={false}
                 rows={8}
-                className={`${CLASES_CAMPO} font-mono text-xs leading-relaxed resize-y min-h-40`}
+                className={`${CLASES_CAMPO} text-xs leading-relaxed resize-y min-h-40`}
               />
               {hayFilas && (
                 <div className="mt-2 flex justify-end">
@@ -216,7 +216,7 @@ export default function SubirInventarioModal({ open, onClose, onSubido }) {
                       <tr key={i} className="odd:bg-white even:bg-brand-ink/[0.02]">
                         <td className="px-2.5 py-2 font-bold text-brand-deep whitespace-nowrap border-b border-l border-brand-ink/10">{f.numero_articulo || '—'}</td>
                         <td className="px-2.5 py-2 text-brand-ink/80 border-b border-l border-brand-ink/10">{f.descripcion || '—'}</td>
-                        <td className="px-2.5 py-2 text-brand-ink/80 font-mono whitespace-nowrap border-b border-l border-brand-ink/10">{f.lote || '—'}</td>
+                        <td className="px-2.5 py-2 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{f.lote || '—'}</td>
                         <td className="px-2.5 py-2 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{formatearFecha(f.fecha_vencimiento)}</td>
                         <td className="px-2.5 py-2 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{f.cantidad || '—'}</td>
                         <td className="px-2.5 py-2 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">{f.dias_inventario || '—'}</td>

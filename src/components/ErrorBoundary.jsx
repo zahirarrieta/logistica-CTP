@@ -75,7 +75,7 @@ export default class ErrorBoundary extends Component {
                 <p className="text-lg sm:text-xl font-extrabold text-red-700 mb-2">
                   Ocurrió un error inesperado
                 </p>
-                <p className="text-xs sm:text-sm font-mono text-red-600 break-words bg-red-50 rounded-xl p-3 mb-5 text-left max-h-48 overflow-y-auto">
+                <p className="text-xs sm:text-sm font-semibold text-red-600 break-words bg-red-50 rounded-xl p-3 mb-5 text-left max-h-48 overflow-y-auto">
                   {String(error?.message || error)}
                 </p>
                 <div className="flex items-center justify-center gap-3">

@@ -141,7 +141,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
               >
                 <MdDeleteOutline className="text-lg" />
                 <MdTimer className="text-lg" />
-                <span className="ml-1 font-mono">{formatearMs(tiempoEliminar)}</span>
+                <span className="ml-1">{formatearMs(tiempoEliminar)}</span>
               </button>
             )}
             <button

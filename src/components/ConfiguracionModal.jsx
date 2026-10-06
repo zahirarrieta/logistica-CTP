@@ -196,7 +196,7 @@ export default function ConfiguracionModal({ onClose }) {
       <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-brand-ink ring-1 ring-brand-cyan/25 shadow-[0_24px_60px_rgba(0,0,0,0.6)] animate-scaleIn">
         {/* Header del modal */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-brand-cyan/20">
-          <h2 id="config-titulo" className="font-display text-xl font-black">Configuración</h2>
+          <h2 id="config-titulo" className="text-xl font-black">Configuración</h2>
           <button
             type="button"
             onClick={onClose}

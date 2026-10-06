@@ -327,7 +327,7 @@ export default function UsuariosClavesModal({ onClose }) {
                               onChange={(e) => { setClaveNueva(e.target.value); setErrorForma('') }}
                               placeholder="Mínimo 8 caracteres"
                               autoFocus
-                              className={`${CLASES_CAMPO} pr-11 font-mono`}
+                              className={`${CLASES_CAMPO} pr-11`}
                             />
                             <button
                               type="button"

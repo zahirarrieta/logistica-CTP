@@ -10,7 +10,10 @@
 }
 
 :root {
-  font-family: 'Arial', 'Helvetica', sans-serif;
+  /* Una sola tipografía en todo el proyecto: Montserrat (la que define
+     font-sans en tailwind.config.js). Sin esta línea el body heredaba Arial y
+     los modales portaleados al document.body salían con otra fuente. */
+  font-family: 'Montserrat', system-ui, sans-serif;
   line-height: 1.6;
   font-weight: 400;
   font-synthesis: none;

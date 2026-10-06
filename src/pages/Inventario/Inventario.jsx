@@ -289,7 +289,7 @@ export default function Inventario() {
                               {f.descripcion || '—'}
                             </span>
                           </td>
-                          <td className="px-3 py-3 text-brand-ink/80 font-mono whitespace-nowrap border-b border-l border-brand-ink/10">
+                          <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
                             {f.lote || '—'}
                           </td>
                           <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">

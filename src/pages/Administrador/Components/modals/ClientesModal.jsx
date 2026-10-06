@@ -360,7 +360,7 @@ export default function ClientesModal({ open, onClose }) {
                           {c.nombre || 'Sin nombre'}
                         </p>
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-brand-ink/60">
-                          <span className="rounded-md bg-brand-ink/5 px-1.5 py-0.5 font-mono">
+                          <span className="rounded-md bg-brand-ink/5 px-1.5 py-0.5">
                             NIT {c.nit}
                           </span>
                           {c.bodega ? <span>Bodega {c.bodega}</span> : null}
