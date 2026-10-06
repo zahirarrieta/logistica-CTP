@@ -35,6 +35,7 @@ const estado = {
   rol: 'superadmin',
   filas: [],
   creada: false,
+  actualizadoEn: '2026-10-06 12:34:56.789',
   borrar: true, // si el DELETE llega a ejecutarse
   errorInsert: false,
   ejecutadas: [],
@@ -71,6 +72,9 @@ async function ejecutar(sql, params) {
   }
   if (s.startsWith('SELECT id, numero_articulo')) {
     return [estado.filas, []]
+  }
+  if (s.startsWith('SELECT MAX(creado_en)')) {
+    return [[{ actualizado_en: estado.actualizadoEn }], []]
   }
   if (s.startsWith('DELETE FROM inventario')) {
     if (estado.borrar) estado.filas = []
@@ -143,6 +147,7 @@ function reiniciar() {
   estado.rol = 'superadmin'
   estado.filas = [fila({})]
   estado.creada = false
+  estado.actualizadoEn = '2026-10-06 12:34:56.789'
   estado.borrar = true
   estado.errorInsert = false
   estado.ejecutadas = []
@@ -155,9 +160,18 @@ probar('GET /inventario devuelve las filas guardadas', async () => {
   reiniciar()
   const r = await pedir('GET', '/api/inventario')
   assert.equal(r.estado, 200)
-  assert.ok(Array.isArray(r.datos))
-  assert.equal(r.datos[0].numero_articulo, 'A-1')
-  assert.equal(r.datos[0].fecha_vencimiento, '2027-01-15')
+  assert.ok(Array.isArray(r.datos.filas))
+  assert.equal(r.datos.filas[0].numero_articulo, 'A-1')
+  assert.equal(r.datos.filas[0].fecha_vencimiento, '2027-01-15')
+})
+
+probar('GET /inventario informa la fecha de la última subida', async () => {
+  reiniciar()
+  estado.actualizadoEn = '2026-10-06 09:00:00.000'
+  const r = await pedir('GET', '/api/inventario')
+  assert.equal(r.estado, 200)
+  assert.equal(r.datos.actualizadoEn, '2026-10-06 09:00:00.000')
+  assert.equal(r.datos.filas.length, 1)
 })
 
 probar('GET /inventario lo puede leer un solicitante', async () => {

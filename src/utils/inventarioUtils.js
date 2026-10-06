@@ -98,8 +98,9 @@ export function estadoVencimiento(iso, ref = hoy()) {
   return 'Vigente'
 }
 
-// Rotación por rangos de «días de inventario». La fórmula original no contempla
-// valores menores a 90 (ni vacíos), así que ahí no se pone etiqueta.
+// Rotación por rangos: mismos colores (y misma estructura de badge) que los
+// estados de las demás tablas. La fórmula original no contempla valores menores
+// a 90 (ni vacíos), así que ahí no se pone etiqueta.
 export function rangoInventario(dias) {
   if (dias === null || dias === undefined || dias === '') return ''
   const n = Math.round(Number(dias))
@@ -109,23 +110,40 @@ export function rangoInventario(dias) {
   return 'Rotar'
 }
 
-const CLASES_ESTADO = {
-  Vencido: 'bg-red-100 text-red-700 ring-red-200',
-  'Próximo a vencer': 'bg-amber-100 text-amber-800 ring-amber-200',
-  Vigente: 'bg-green-100 text-green-700 ring-green-200',
+// Badges de los rangos con la misma paleta que BADGE_COLORS/DOT_COLORS de
+// estadoColors.js (azul = En Trámite, naranja = Pendiente, rojo = Retenido).
+const RANGO_BADGE = {
+  'Rotación': 'bg-blue-100 text-blue-700',
+  'Rotar con Prioridad': 'bg-orange-100 text-orange-700',
+  'Rotar': 'bg-red-100 text-red-700',
 }
 
-const CLASES_RANGO = {
-  'Rotación': 'bg-blue-100 text-blue-700 ring-blue-200',
-  'Rotar con Prioridad': 'bg-orange-100 text-orange-700 ring-orange-200',
-  Rotar: 'bg-red-100 text-red-700 ring-red-200',
+const RANGO_DOT = {
+  'Rotación': 'bg-blue-500',
+  'Rotar con Prioridad': 'bg-orange-500',
+  'Rotar': 'bg-red-500',
 }
 
-export const claseEstado = (estado) => CLASES_ESTADO[estado] || 'bg-brand-ink/10 text-brand-ink/70 ring-brand-ink/20'
-export const claseRango = (rango) => CLASES_RANGO[rango] || 'bg-brand-ink/10 text-brand-ink/70 ring-brand-ink/20'
+export const badgeRango = (rango) => RANGO_BADGE[rango] || 'bg-brand-ink/10 text-brand-ink/70'
+export const dotRango = (rango) => RANGO_DOT[rango] || 'bg-brand-ink/40'
 
 export const formatearEntero = (n) =>
   n === null || n === undefined || n === '' ? '—' : new Intl.NumberFormat('es-CO').format(Math.round(Number(n)))
+
+// 'YYYY-MM-DDTHH:MM:SS.sssZ' (o lo que devuelva MySQL) → «06/10/2026, 2:32 p. m.».
+// Si no se puede interpretar se devuelve el valor tal cual.
+export function formatearFechaHora(valor) {
+  if (!valor) return ''
+  const d = new Date(valor)
+  if (Number.isNaN(d.getTime())) return String(valor)
+  return d.toLocaleString('es-CO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Pegado de Excel (TSV / CSV)

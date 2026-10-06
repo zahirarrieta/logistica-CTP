@@ -13,7 +13,11 @@ import { apiFetch } from './apiClient.js'
 
 export async function listarInventario() {
   const data = await apiFetch('/api/inventario')
-  return data || []
+  return {
+    // Momento de la última subida (null = nunca se ha subido nada).
+    actualizadoEn: data?.actualizadoEn || null,
+    filas: data?.filas || [],
+  }
 }
 
 export function guardarInventario(filas) {

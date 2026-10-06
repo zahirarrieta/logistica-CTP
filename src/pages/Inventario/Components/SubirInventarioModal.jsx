@@ -113,19 +113,26 @@ export default function SubirInventarioModal({ open, onClose, onSubido }) {
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
           {/* Instrucciones + columnas */}
           <div className="rounded-2xl border border-brand-cyan/35 bg-brand-cyan/5 p-4">
-            <p className="text-sm font-semibold text-brand-ink/80 inline-flex items-start gap-2">
-              <MdOutlineContentPaste className="text-brand-cyan mt-0.5 shrink-0 text-lg" />
-              <span>
-                Selecciona las filas del reporte en Excel y cópialas (Ctrl+C). Pégalas
-                aquí tal cual: se respeta el orden de las columnas y, si la primera
-                línea es el encabezado, se reconoce por su nombre.
-              </span>
-            </p>
+            <h4 className="font-extrabold text-sm text-brand-deep inline-flex items-center gap-2">
+              <MdOutlineContentPaste className="text-brand-cyan text-lg" />
+              Cómo pegar el reporte
+            </h4>
+            <ol className="mt-2 space-y-1.5 text-sm text-brand-ink/75 list-decimal list-inside marker:text-brand-cyan marker:font-extrabold">
+              <li>
+                Selecciona las filas del reporte en Excel. Si la primera línea es el
+                encabezado puedes incluirla: se reconoce por su nombre.
+              </li>
+              <li>Cópialas con Ctrl+C.</li>
+              <li>
+                Pégalas en el recuadro de abajo: al pegar aparecerá la tabla de vista
+                previa con las filas que se van a subir.
+              </li>
+            </ol>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {COLUMNAS_ORIGINALES.map((c) => (
                 <span
                   key={c.key}
-                  className="rounded-md bg-white px-2 py-1 text-[11px] font-bold text-brand-deep ring-1 ring-brand-cyan/30"
+                  className="rounded-full bg-brand-navy px-2.5 py-1 text-[11px] font-bold text-white"
                 >
                   {c.etiqueta}
                 </span>
@@ -142,10 +149,10 @@ export default function SubirInventarioModal({ open, onClose, onSubido }) {
               id="pegar-inventario"
               value={texto}
               onChange={(e) => { setTexto(e.target.value); if (errorForm) setErrorForm('') }}
-              placeholder={'Pega aquí las filas del reporte…\nA-001\tCLORO 500ML\tL-2027\t15/01/2027\t120\t120\t1\tPRINCIPAL\tBOGOTA\tSOLUCIONES\tSECA\tSI'}
+              placeholder="Pega aquí las filas copiadas de Excel…"
               spellCheck={false}
-              rows={8}
-              className={`${CLASES_CAMPO} font-mono text-xs leading-relaxed resize-y min-h-36`}
+              rows={6}
+              className={`${CLASES_CAMPO} font-mono text-xs leading-relaxed resize-y min-h-32`}
             />
           </div>
 
@@ -206,8 +213,8 @@ export default function SubirInventarioModal({ open, onClose, onSubido }) {
           ) : null}
 
           {/* Aviso de reemplazo */}
-          <p className="text-xs font-semibold text-brand-ink/60">
-            Al subir, este reporte <span className="font-extrabold text-brand-ink">reemplaza por completo</span> el
+          <p className="rounded-xl bg-amber-50 ring-1 ring-amber-200 px-3.5 py-2.5 text-xs font-semibold leading-relaxed text-amber-800">
+            Al subir, este reporte <span className="font-extrabold">reemplaza por completo</span> el
             inventario actual ({filas.length.toLocaleString('es-CO')} fila{filas.length === 1 ? '' : 's'} se
             guardarán; las que existan ahora desaparecerán).
           </p>

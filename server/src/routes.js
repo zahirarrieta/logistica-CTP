@@ -537,7 +537,13 @@ router.get(
          FROM inventario
         ORDER BY id`
     )
-    res.json(filas)
+    // Momento de la última subida. Como cada subida reemplaza todo el
+    // inventario, MAX(creado_en) es la fecha en que se cargó la información que
+    // se está viendo ahora (null = nunca se ha subido nada).
+    const [[{ actualizado_en }]] = await pool.execute(
+      'SELECT MAX(creado_en) AS actualizado_en FROM inventario'
+    )
+    res.json({ actualizadoEn: actualizado_en || null, filas })
   })
 )
 

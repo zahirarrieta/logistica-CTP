@@ -5,6 +5,7 @@ import {
   MdInventory,
   MdNavigateBefore,
   MdNavigateNext,
+  MdSchedule,
   MdSearch,
 } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
@@ -13,21 +14,23 @@ import { useAuth } from '../../auth/AuthContext.jsx'
 import { esPrivilegiado } from '../../auth/roles.js'
 import { listarInventario } from '../../services/inventarioApi.js'
 import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
+import { getBadgeColor, getDotColor, getEstadoBg } from '../../utils/estadoColors.js'
 import {
   COLUMNAS_ORIGINALES,
-  claseEstado,
-  claseRango,
+  badgeRango,
   diasVigencia,
+  dotRango,
   estadoVencimiento,
   formatearEntero,
   formatearFecha,
+  formatearFechaHora,
   rangoInventario,
 } from '../../utils/inventarioUtils.js'
 
 const POR_PAGINA = 25
 
-// Columnas calculadas en el navegador (nunca se guardan): son las 12 originales
-// más estas tres, que salen en el extremo derecho de la tabla.
+// Las 12 columnas originales del reporte (pegadas) más las 3 calculadas en el
+// navegador, que salen al final con el mismo estilo que el resto.
 const COLUMNAS_CALCULADAS = [
   { key: 'estado', etiqueta: 'Estado' },
   { key: 'vigencia', etiqueta: 'Días de vigencia' },
@@ -36,13 +39,52 @@ const COLUMNAS_CALCULADAS = [
 
 const BUSCAR_EN = COLUMNAS_ORIGINALES.map((c) => c.key)
 
-const BADGE = 'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ring-1 whitespace-nowrap'
+// Mismo badge que EstadoBadge de SolicitudesTable: pastel + punto de color.
+function EstadoBadge({ estado }) {
+  if (!estado) return <span className="text-brand-ink/40">—</span>
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${getBadgeColor(estado)}`}>
+      <span className={`size-2 rounded-full ${getDotColor(estado)}`} />
+      {estado}
+    </span>
+  )
+}
+
+function RangoBadge({ rango }) {
+  if (!rango) return <span className="text-brand-ink/40">—</span>
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${badgeRango(rango)}`}>
+      <span className={`size-2 rounded-full ${dotRango(rango)}`} />
+      {rango}
+    </span>
+  )
+}
+
+// Páginas visibles alrededor de la actual (con «…» cuando se salta): mismo
+// estilo de botones circulares que SolicitudesTable, pero acotado para que un
+// inventario de miles de filas no pinte cientos de círculos.
+function paginasVisibles(pagina, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const cerca = [1, 2, pagina - 1, pagina, pagina + 1, total - 1, total]
+    .filter((p) => p >= 1 && p <= total)
+    .filter((p, i, a) => a.indexOf(p) === i)
+    .sort((a, b) => a - b)
+  const salida = []
+  let anterior = 0
+  for (const p of cerca) {
+    if (p - anterior > 1) salida.push('…')
+    salida.push(p)
+    anterior = p
+  }
+  return salida
+}
 
 export default function Inventario() {
   const { rol } = useAuth()
   const puedeSubir = esPrivilegiado(rol)
 
   const [filas, setFilas] = useState([])
+  const [actualizadoEn, setActualizadoEn] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [busqueda, setBusqueda] = useState('')
@@ -54,7 +96,10 @@ export default function Inventario() {
     setError('')
     try {
       const datos = await listarInventario()
-      if (esValido()) setFilas(datos)
+      if (esValido()) {
+        setFilas(datos.filas)
+        setActualizadoEn(datos.actualizadoEn)
+      }
     } catch (e) {
       if (esValido()) setError(e.message || 'No se pudo cargar el inventario')
     } finally {
@@ -81,6 +126,11 @@ export default function Inventario() {
   const inicio = (paginaSegura - 1) * POR_PAGINA
   const filasPagina = visibles.slice(inicio, inicio + POR_PAGINA)
 
+  // Mismo fondo de fila que las demás tablas: pastel por estado (vista con
+  // colores) y, sin estado conocido, alternado como en las vistas simples.
+  const estiloFila = (estado, i) =>
+    estado ? getEstadoBg(estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')
+
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white text-brand-ink">
       <Header />
@@ -88,7 +138,7 @@ export default function Inventario() {
       <main className="flex-1 py-6 sm:py-10">
         <div className="w-full px-4 sm:px-6">
           {/* Barra superior */}
-          <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="text-left">
               <h1 className="text-xl sm:text-3xl font-extrabold text-brand-ink inline-flex items-center gap-3">
                 <span className="grid place-items-center size-10 sm:size-12 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30">
@@ -101,8 +151,9 @@ export default function Inventario() {
               </p>
             </div>
 
-            {puedeSubir && (
-              <div className="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
+            {/* Esquina superior derecha: subir + última actualización */}
+            <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+              {puedeSubir && (
                 <button
                   type="button"
                   onClick={() => setSubirAbierto(true)}
@@ -111,8 +162,14 @@ export default function Inventario() {
                   <MdCloudUpload className="text-lg" />
                   Subir información
                 </button>
-              </div>
-            )}
+              )}
+              {actualizadoEn && (
+                <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/5 ring-1 ring-brand-ink/10 px-3 py-1.5 text-xs font-bold text-brand-ink/60">
+                  <MdSchedule className="text-sm text-brand-ink/40" />
+                  Última actualización: {formatearFechaHora(actualizadoEn)}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Buscador */}
@@ -171,12 +228,13 @@ export default function Inventario() {
             </div>
           ) : (
             <>
-              {/* Tabla: 12 columnas originales pegadas + 3 calculadas en el navegador */}
+              {/* Tabla: mismo estilo que SolicitudesTable (encabezado navy,
+                  tipografía text-sm, filas en pastel por estado) */}
               <div className="overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
                 <table className="w-full text-left text-sm border-separate border-spacing-0 min-w-[1750px]">
                   <thead>
                     <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
-                      <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-12 text-center">N°</th>
+                      <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-14 text-center">N°</th>
                       {COLUMNAS_ORIGINALES.map((c) => (
                         <th key={c.key} className="px-3 py-4 text-xs font-bold border-r border-white/15 whitespace-nowrap">
                           {c.etiqueta}
@@ -185,9 +243,9 @@ export default function Inventario() {
                       {COLUMNAS_CALCULADAS.map((c, i) => (
                         <th
                           key={c.key}
-                          className={`px-3 py-4 text-xs font-bold whitespace-nowrap ${i === 1 ? 'text-right' : ''} ${
-                            i === COLUMNAS_CALCULADAS.length - 1 ? '' : 'border-r border-brand-cyan/40'
-                          } bg-brand-deep`}
+                          className={`px-3 py-4 text-xs font-bold whitespace-nowrap ${
+                            i < COLUMNAS_CALCULADAS.length - 1 ? 'border-r border-white/15' : ''
+                          } ${i === 1 ? 'text-right' : ''}`}
                         >
                           {c.etiqueta}
                         </th>
@@ -199,10 +257,11 @@ export default function Inventario() {
                       const estado = estadoVencimiento(f.fecha_vencimiento)
                       const vigencia = diasVigencia(f.fecha_vencimiento)
                       const rango = rangoInventario(f.dias_inventario)
+                      const fondo = estiloFila(estado, i)
                       return (
                         <tr
                           key={f.id ?? `${f.numero_articulo}-${f.lote}-${inicio + i}`}
-                          className="transition-colors hover:bg-brand-deep/10 odd:bg-white even:bg-brand-ink/[0.02]"
+                          className={`transition-colors hover:bg-brand-deep/20 ${fondo}`}
                         >
                           <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
                             <span className={`inline-flex items-center justify-center size-7 rounded-full text-xs font-extrabold ${i % 2 === 0 ? 'bg-brand-navy text-white' : 'bg-brand-deep text-white'}`}>
@@ -248,15 +307,11 @@ export default function Inventario() {
                             {f.comercial || '—'}
                           </td>
 
-                          {/* --- Calculadas en el navegador --- */}
-                          <td className="px-3 py-3 border-b border-l border-brand-cyan/30 bg-brand-cyan/5">
-                            {estado ? (
-                              <span className={`${BADGE} ${claseEstado(estado)}`}>{estado}</span>
-                            ) : (
-                              <span className="text-brand-ink/40">—</span>
-                            )}
+                          {/* Calculadas: mismo estilo de celda que el resto */}
+                          <td className="px-3 py-3 border-b border-l border-brand-ink/10">
+                            <EstadoBadge estado={estado} />
                           </td>
-                          <td className="px-3 py-3 text-right font-bold whitespace-nowrap border-b border-l border-brand-cyan/30 bg-brand-cyan/5">
+                          <td className="px-3 py-3 text-right font-bold whitespace-nowrap border-b border-l border-brand-ink/10">
                             {vigencia === null ? (
                               <span className="font-normal text-brand-ink/40">—</span>
                             ) : (
@@ -265,12 +320,8 @@ export default function Inventario() {
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-3 border-b border-l border-brand-cyan/30 bg-brand-cyan/5">
-                            {rango ? (
-                              <span className={`${BADGE} ${claseRango(rango)}`}>{rango}</span>
-                            ) : (
-                              <span className="text-brand-ink/40">—</span>
-                            )}
+                          <td className="px-3 py-3 border-b border-l border-brand-ink/10">
+                            <RangoBadge rango={rango} />
                           </td>
                         </tr>
                       )
@@ -279,7 +330,7 @@ export default function Inventario() {
                 </table>
               </div>
 
-              {/* Paginación */}
+              {/* Paginación: mismos botones que SolicitudesTable */}
               <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6">
                 <button
                   type="button"
@@ -290,9 +341,28 @@ export default function Inventario() {
                   <MdNavigateBefore className="text-lg" />
                   <span className="hidden sm:inline">Anterior</span>
                 </button>
-                <span className="text-sm font-bold text-brand-ink/70 px-2">
-                  Página {paginaSegura} de {totalPaginas}
-                </span>
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  {paginasVisibles(paginaSegura, totalPaginas).map((p, i) =>
+                    p === '…' ? (
+                      <span key={`gap-${i}`} className="px-1 text-sm font-bold text-brand-ink/40">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPagina(p)}
+                        className={`size-8 sm:size-9 rounded-full font-bold text-sm transition-all ${
+                          paginaSegura === p
+                            ? 'bg-brand-cyan text-brand-ink shadow-cyanGlow'
+                            : 'bg-white text-brand-ink border border-brand-ink/15 hover:bg-brand-deep/10'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => setPagina(Math.min(totalPaginas, paginaSegura + 1))}
