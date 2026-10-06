@@ -1,12 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  MdAccessTime,
+  MdApartment,
+  MdBusiness,
+  MdCalendarToday,
+  MdCategory,
+  MdCheckCircle,
   MdCloudUpload,
   MdErrorOutline,
+  MdExpandMore,
   MdInventory,
+  MdLocalOffer,
   MdNavigateBefore,
   MdNavigateNext,
+  MdNumbers,
+  MdOutlineInfo,
+  MdPerson,
+  MdPlace,
   MdSchedule,
   MdSearch,
+  MdSwapHoriz,
+  MdWarehouse,
 } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -61,6 +75,88 @@ function RangoBadge({ rango }) {
   )
 }
 
+// Fila de detalle dentro de la card móvil (mismo estilo que Row de
+// SolicitudesTable: icono + etiqueta + valor).
+function Row({ icon, label, value }) {
+  return (
+    <div className="flex items-start gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
+      <span className="text-brand-cyan mt-0.5 shrink-0">{icon}</span>
+      <span className="text-brand-ink/50 w-28 shrink-0">{label}</span>
+      <span className="text-brand-ink font-medium capitalize min-w-0 break-words">{value}</span>
+    </div>
+  )
+}
+
+// Identidad de una fila para la paginación y para saber qué card está abierta.
+const claveFila = (f, posicion) => f.id ?? `${f.numero_articulo}-${f.lote}-${posicion}`
+
+// Card de una fila del inventario para móvil: mismo patrón que SolicitudCard
+// (encabezado que alterna el detalle, badges de estado y fondo pastel).
+function InventarioCard({ f, numero, estado, vigencia, rango, fondo, expanded, onToggle, onVerDetalle }) {
+  return (
+    <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${fondo}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className={`w-full flex items-center justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-brand-deep/20 ${expanded ? 'bg-brand-deep/20' : ''}`}
+      >
+        <div className="flex flex-col gap-1 min-w-0">
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <span className="shrink-0 grid place-items-center size-6 rounded-full bg-brand-navy text-white text-[11px] font-extrabold">
+              {numero}
+            </span>
+            <span className="font-bold text-brand-deep truncate">{f.numero_articulo || '—'}</span>
+          </span>
+          <span className="text-xs text-brand-ink/60 truncate">{f.descripcion || 'Sin descripción'}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <EstadoBadge estado={estado} />
+          <MdExpandMore className={`text-xl text-brand-ink/50 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 pt-2 space-y-2 text-sm border-t border-brand-ink/10 animate-fadeIn">
+          <Row icon={<MdLocalOffer />} label="Lote" value={f.lote || '—'} />
+          <Row icon={<MdCalendarToday />} label="Vencimiento" value={formatearFecha(f.fecha_vencimiento)} />
+          <Row icon={<MdNumbers />} label="Cantidad" value={f.cantidad || '—'} />
+          <Row icon={<MdOutlineInfo />} label="Días inventario" value={formatearEntero(f.dias_inventario)} />
+          <Row icon={<MdWarehouse />} label="Bodega" value={f.bodega || '—'} />
+          <Row icon={<MdBusiness />} label="Nombre bodega" value={f.nombre_bodega || '—'} />
+          <Row icon={<MdPlace />} label="Zona" value={f.zona || '—'} />
+          <Row icon={<MdCategory />} label="Grupo" value={f.grupo_articulos || '—'} />
+          <Row icon={<MdApartment />} label="Tipo bodega" value={f.tipo_bodega || '—'} />
+          <Row icon={<MdPerson />} label="Comercial" value={f.comercial || '—'} />
+          <Row icon={<MdCheckCircle />} label="Estado" value={<EstadoBadge estado={estado} />} />
+          <Row
+            icon={<MdAccessTime />}
+            label="Vigencia"
+            value={
+              vigencia === null ? (
+                '—'
+              ) : (
+                <span className={vigencia < 0 ? 'text-red-600' : undefined}>
+                  {formatearEntero(vigencia)} días
+                </span>
+              )
+            }
+          />
+          <Row icon={<MdSwapHoriz />} label="Rango" value={<RangoBadge rango={rango} />} />
+          <button
+            type="button"
+            onClick={() => onVerDetalle(f)}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-4 py-2.5 text-xs font-bold"
+          >
+            <MdOutlineInfo className="text-base" />
+            Ver detalle completo
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Páginas visibles alrededor de la actual (con «…» cuando se salta): mismo
 // estilo de botones circulares que SolicitudesTable, pero acotado para que un
 // inventario de miles de filas no pinte cientos de círculos.
@@ -92,6 +188,7 @@ export default function Inventario() {
   const [pagina, setPagina] = useState(1)
   const [subirAbierto, setSubirAbierto] = useState(false)
   const [filaDetalle, setFilaDetalle] = useState(null)
+  const [filaExpandida, setFilaExpandida] = useState(null)
 
   const cargar = useCallback(async (esValido = () => true) => {
     setCargando(true)
@@ -234,9 +331,34 @@ export default function Inventario() {
             </div>
           ) : (
             <>
-              {/* Tabla: mismo estilo que SolicitudesTable (encabezado navy,
-                  tipografía text-sm, filas en pastel por estado) */}
-              <div className="overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
+              {/* Cards — visible solo en móvil (mismo patrón que SolicitudesTable) */}
+              <div className="md:hidden space-y-3">
+                {filasPagina.map((f, i) => {
+                  const estado = estadoVencimiento(f.fecha_vencimiento)
+                  const vigencia = diasVigencia(f.fecha_vencimiento)
+                  const rango = rangoInventario(f.dias_inventario)
+                  const clave = claveFila(f, inicio + i)
+                  return (
+                    <InventarioCard
+                      key={clave}
+                      f={f}
+                      numero={inicio + i + 1}
+                      estado={estado}
+                      vigencia={vigencia}
+                      rango={rango}
+                      fondo={estiloFila(estado, i)}
+                      expanded={filaExpandida === clave}
+                      onToggle={() => setFilaExpandida(filaExpandida === clave ? null : clave)}
+                      onVerDetalle={setFilaDetalle}
+                    />
+                  )
+                })}
+              </div>
+
+              {/* Tabla — visible en tablet y desktop, con scroll horizontal si
+                  se alarga (encabezado navy, tipografía text-sm, filas en
+                  pastel por estado) */}
+              <div className="hidden md:block overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
                 <table className="w-full text-left text-sm border-separate border-spacing-0 min-w-[1750px]">
                   <thead>
                     <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
@@ -266,7 +388,7 @@ export default function Inventario() {
                       const fondo = estiloFila(estado, i)
                       return (
                         <tr
-                          key={f.id ?? `${f.numero_articulo}-${f.lote}-${inicio + i}`}
+                          key={claveFila(f, inicio + i)}
                           onClick={() => setFilaDetalle(f)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
