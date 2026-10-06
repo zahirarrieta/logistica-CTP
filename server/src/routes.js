@@ -422,6 +422,167 @@ router.delete(
 )
 
 // ---------------------------------------------------------------------------
+// Inventario
+// ---------------------------------------------------------------------------
+// Módulo Inventario: el frontend pega el reporte exportado de Excel y lo guarda
+// tal cual. Solo se guardan las columnas ORIGINALES; las calculadas (Estado,
+// Días de Vigencia y Días de Inventario por rangos) las calcula el navegador al
+// mostrarlas, para que siempre reflejen la fecha de hoy sin volver a subir nada.
+//
+// Cada subida REEMPLAZA el inventario completo (la hoja de Excel es la fuente de
+// verdad) y solo la pueden hacer los roles privilegiados. La tabla se crea sola
+// en la primera lectura/escritura, igual que push_suscripciones y
+// correos_enviados: un hosting ya desplegado no necesita pegar SQL.
+let inventarioCreado = false
+
+async function asegurarInventario() {
+  if (inventarioCreado) return true
+  try {
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS inventario (
+        id                INT AUTO_INCREMENT NOT NULL,
+        numero_articulo   VARCHAR(64)   NOT NULL DEFAULT '',
+        descripcion       VARCHAR(500)  NOT NULL DEFAULT '',
+        lote              VARCHAR(64)   NOT NULL DEFAULT '',
+        fecha_vencimiento DATE          NULL,
+        cantidad          VARCHAR(64)   NOT NULL DEFAULT '',
+        dias_inventario   INT           NULL,
+        bodega            VARCHAR(120)  NOT NULL DEFAULT '',
+        nombre_bodega     VARCHAR(255)  NOT NULL DEFAULT '',
+        zona              VARCHAR(120)  NOT NULL DEFAULT '',
+        grupo_articulos   VARCHAR(255)  NOT NULL DEFAULT '',
+        tipo_bodega       VARCHAR(120)  NOT NULL DEFAULT '',
+        comercial         VARCHAR(255)  NOT NULL DEFAULT '',
+        creado_en         DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        KEY inventario_vencimiento_idx (fecha_vencimiento),
+        KEY inventario_articulo_idx (numero_articulo)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `)
+    inventarioCreado = true
+    return true
+  } catch (error) {
+    // Sin flag a true: se volverá a intentar en la siguiente llamada y el error
+    // no se registra cada vez para no llenar el log del hosting.
+    console.error(`[Inventario] no se pudo crear/verificar la tabla: ${error?.message}`)
+    return false
+  }
+}
+
+const COLUMNAS_INVENTARIO = [
+  'numero_articulo', 'descripcion', 'lote', 'fecha_vencimiento', 'cantidad',
+  'dias_inventario', 'bodega', 'nombre_bodega', 'zona', 'grupo_articulos',
+  'tipo_bodega', 'comercial',
+]
+
+const textoInv = (v, max = 500) =>
+  String(v === undefined || v === null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max)
+
+// Número tolerante: acepta "1.234,5" (español), "1,234.5" (inglés) y "90".
+// Para «Días de inventario» lo que interesa es el entero resultante.
+function numeroInv(v) {
+  let s = String(v === undefined || v === null ? '' : v).replace(/\s/g, '')
+  if (!s) return null
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '').replace(',', '.')
+  else if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.')
+  else if (s.includes(',')) s = s.replace(',', '.')
+  const n = Number(s)
+  return Number.isFinite(n) ? Math.round(n) : null
+}
+
+// Fecha en formato ISO (aaaa-mm-dd), que es lo que manda el frontend después de
+// interpretar el dd/mm/aaaa de Excel. Cualquier otra cosa se guarda vacía.
+function fechaInv(v) {
+  const s = String(v === undefined || v === null ? '' : v).trim()
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null
+}
+
+// Devuelve la lista de filas como arrays en el orden de COLUMNAS_INVENTARIO,
+// null si no hay nada que subir, o 'demasiadas' si se pasa del tope.
+function normalizarInventario(cuerpo) {
+  const filas = Array.isArray(cuerpo && cuerpo.filas) ? cuerpo.filas : null
+  if (!filas || filas.length === 0) return null
+  if (filas.length > 20000) return 'demasiadas'
+  return filas.map((f) => [
+    textoInv(f && f.numero_articulo, 64),
+    textoInv(f && f.descripcion),
+    textoInv(f && f.lote, 64),
+    fechaInv(f && f.fecha_vencimiento),
+    textoInv(f && f.cantidad, 64),
+    numeroInv(f && f.dias_inventario),
+    textoInv(f && f.bodega, 120),
+    textoInv(f && f.nombre_bodega),
+    textoInv(f && f.zona, 120),
+    textoInv(f && f.grupo_articulos),
+    textoInv(f && f.tipo_bodega, 120),
+    textoInv(f && f.comercial),
+  ])
+}
+
+router.get(
+  '/inventario',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (ctx.rol === 'conductor') {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+    await asegurarInventario()
+    // DATE_FORMAT a texto: así el navegador recibe 'aaaa-mm-dd' sin que la zona
+    // horaria del servidor corra el día una casilla hacia atrás.
+    const [filas] = await pool.execute(
+      `SELECT id, numero_articulo, descripcion, lote,
+              DATE_FORMAT(fecha_vencimiento, '%Y-%m-%d') AS fecha_vencimiento,
+              cantidad, dias_inventario, bodega, nombre_bodega, zona,
+              grupo_articulos, tipo_bodega, comercial
+         FROM inventario
+        ORDER BY id`
+    )
+    res.json(filas)
+  })
+)
+
+router.post(
+  '/inventario',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (!P.esPrivilegiado(ctx.rol)) {
+      return res.status(403).json({ error: 'Solo el administrador puede subir el inventario' })
+    }
+    const filas = normalizarInventario(req.body)
+    if (filas === null) return res.status(400).json({ error: 'No hay filas para subir' })
+    if (filas === 'demasiadas') {
+      return res.status(400).json({ error: 'Máximo 20.000 filas por subida' })
+    }
+    await asegurarInventario()
+
+    // Reemplazo completo dentro de una transacción: si algo falla a mitad de la
+    // inserción no se queda el inventario a medias (vacío o con la mitad).
+    const conexion = await pool.getConnection()
+    try {
+      await conexion.beginTransaction()
+      await conexion.execute('DELETE FROM inventario')
+      const columnas = `(${COLUMNAS_INVENTARIO.join(', ')})`
+      const porTanda = 200
+      for (let i = 0; i < filas.length; i += porTanda) {
+        const tanda = filas.slice(i, i + porTanda)
+        const valores = tanda.map(() => `(${COLUMNAS_INVENTARIO.map(() => '?').join(', ')})`).join(', ')
+        await conexion.execute(
+          `INSERT INTO inventario ${columnas} VALUES ${valores}`,
+          tanda.flat()
+        )
+      }
+      await conexion.commit()
+    } catch (error) {
+      try { await conexion.rollback() } catch { /* no hay transacción que deshacer */ }
+      throw error
+    } finally {
+      conexion.release()
+    }
+    res.status(201).json({ ok: true, total: filas.length })
+  })
+)
+
+// ---------------------------------------------------------------------------
 // Usuarios
 // ---------------------------------------------------------------------------
 router.get(
@@ -1176,4 +1337,10 @@ router.get('/salud', ruta(async (req, res) => {
   res.json({ ok: true, hora: new Date().toISOString() })
 }))
 
-module.exports = { protegido: router, publico }
+module.exports = {
+  protegido: router,
+  publico,
+  // Solo para test/inventario.test.js: olvida que la tabla de inventario ya se
+  // creó, para poder comprobar que se crea sola en el primer uso.
+  reiniciarInventarioPruebas: () => { inventarioCreado = false },
+}

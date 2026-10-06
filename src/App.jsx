@@ -19,6 +19,7 @@ const Home = lazy(() => import('./pages/Home/Home.jsx'))
 const Solicitudes = lazy(() => import('./pages/Home/Solicitudes.jsx'))
 const Administrador = lazy(() => import('./pages/Administrador/Administrador.jsx'))
 const Conductor = lazy(() => import('./pages/Conductor/Conductor.jsx'))
+const Inventario = lazy(() => import('./pages/Inventario/Inventario.jsx'))
 
 // Bloquea el acceso a módulos que el rol del usuario no tiene permitidos.
 function Protegida({ path, children }) {
@@ -104,6 +105,7 @@ return (
           <Route path="/solicitudes" element={<Protegida path="/solicitudes"><Solicitudes /></Protegida>} />
           <Route path="/administrador" element={<Protegida path="/administrador"><Administrador /></Protegida>} />
           <Route path="/conductor" element={<Protegida path="/conductor"><Conductor /></Protegida>} />
+          <Route path="/inventario" element={<Protegida path="/inventario"><Inventario /></Protegida>} />
         </Routes>
         <AvisoCierreSesion
           abierto={aviso}

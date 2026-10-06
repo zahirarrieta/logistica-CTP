@@ -18,6 +18,7 @@ export const ROLES = {
 // Rutas de los módulos del menú superior.
 export const RUTA_INICIO = '/inicio'
 export const RUTA_SOLICITUDES = '/solicitudes'
+export const RUTA_INVENTARIO = '/inventario'
 export const RUTA_CONDUCTOR = '/conductor'
 export const RUTA_ADMIN = '/administrador'
 // Configuración es para todo el mundo: cada rol tiene algo que activar ahí (el
@@ -25,12 +26,14 @@ export const RUTA_ADMIN = '/administrador'
 // sería un callejón sin salida cada vez que aparezca un ajuste nuevo.
 export const RUTA_CONFIGURACION = '/configuracion'
 
-const TODOS = [RUTA_INICIO, RUTA_SOLICITUDES, RUTA_CONDUCTOR, RUTA_ADMIN]
+const TODOS = [RUTA_INICIO, RUTA_SOLICITUDES, RUTA_INVENTARIO, RUTA_CONDUCTOR, RUTA_ADMIN]
 
 // Módulos visibles/permitidos por rol (usado por el Header y por los guards).
+// El conductor queda fuera de Inventario: él mueve las entregas, no administra
+// el stock.
 const MODULOS_POR_ROL = {
   [ROLES.CONDUCTOR]: [RUTA_INICIO, RUTA_CONDUCTOR],
-  [ROLES.SOLICITANTE]: [RUTA_INICIO, RUTA_SOLICITUDES],
+  [ROLES.SOLICITANTE]: [RUTA_INICIO, RUTA_SOLICITUDES, RUTA_INVENTARIO],
   [ROLES.ADMINISTRADOR]: TODOS,
   [ROLES.SUPERADMIN]: TODOS,
 }
@@ -41,6 +44,12 @@ export function esSuperAdmin(rol) {
 
 export function esAdministrador(rol) {
   return rol === ROLES.ADMINISTRADOR
+}
+
+// Roles que suben el inventario y editan el catálogo: espejo de
+// P.esPrivilegiado del backend.
+export function esPrivilegiado(rol) {
+  return rol === ROLES.ADMINISTRADOR || rol === ROLES.SUPERADMIN
 }
 
 export function esConductor(rol) {

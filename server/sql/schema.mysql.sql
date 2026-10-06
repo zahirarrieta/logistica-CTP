@@ -263,6 +263,40 @@ CREATE TABLE IF NOT EXISTS push_suscripciones (
 --   DELETE FROM push_suscripciones WHERE correo = 'correo@dominio.com';
 
 -- ----------------------------------------------------------------------------
+-- 6b. INVENTARIO (artículos, lotes y vencimientos por bodega)
+--     Una fila por artículo del reporte que pega el administrador en el
+--     módulo Inventario. Solo se guardan las columnas ORIGINALES: las
+--     calculadas (Estado, Días de Vigencia y Días de Inventario por rangos)
+--     las calcula el navegador al mostrarlas, para que siempre reflejen la
+--     fecha de hoy sin volver a subir el reporte.
+--
+--     No hace falta crearla a mano: server/src/routes.js la crea sola en la
+--     primera subida (igual que push_suscripciones y correos_enviados). Está
+--     aquí para documentarla y por si se prefiere crearla desde phpMyAdmin.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS inventario (
+  id                INT AUTO_INCREMENT NOT NULL,
+  numero_articulo   VARCHAR(64)   NOT NULL DEFAULT '',
+  descripcion       VARCHAR(500)  NOT NULL DEFAULT '',
+  lote              VARCHAR(64)   NOT NULL DEFAULT '',
+  fecha_vencimiento DATE          NULL,
+  -- Texto y no número: la cantidad se muestra tal cual se pegó (con su
+  -- separador de miles/decimales original) y así no se altera al guardarla.
+  cantidad          VARCHAR(64)   NOT NULL DEFAULT '',
+  dias_inventario   INT           NULL,
+  bodega            VARCHAR(120)  NOT NULL DEFAULT '',
+  nombre_bodega     VARCHAR(255)  NOT NULL DEFAULT '',
+  zona              VARCHAR(120)  NOT NULL DEFAULT '',
+  grupo_articulos   VARCHAR(255)  NOT NULL DEFAULT '',
+  tipo_bodega       VARCHAR(120)  NOT NULL DEFAULT '',
+  comercial         VARCHAR(255)  NOT NULL DEFAULT '',
+  creado_en         DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY inventario_vencimiento_idx (fecha_vencimiento),
+  KEY inventario_articulo_idx (numero_articulo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- 7. ROLES INICIALES
 --     El alta ya no se hace por SQL: la pantalla de registro crea las cuentas y
 --     les asigna el rol 'solicitante'. Para la PRIMERA cuenta con permisos de

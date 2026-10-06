@@ -21,7 +21,7 @@ for (const bloque of schema.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)\s*\(([\s\
   const [, tabla, cuerpo] = bloque
   const columnas = new Set()
   for (const linea of cuerpo.split('\n')) {
-    const m = linea.match(/^\s{2}(\w+)\s+(?:CHAR|VARCHAR|TEXT|JSON|BIGINT|INT|TINYINT|DATETIME|DECIMAL)/i)
+    const m = linea.match(/^\s{2}(\w+)\s+(?:CHAR|VARCHAR|TEXT|JSON|BIGINT|INT|TINYINT|DATE|DATETIME|DECIMAL)/i)
     if (m) columnas.add(m[1].toLowerCase())
   }
   tablas[tabla.toLowerCase()] = columnas
@@ -56,6 +56,14 @@ const esperadas = {
   push_suscripciones: [
     'id', 'correo', 'endpoint', 'clave_publica', 'clave_privada', 'agente',
     'creado_en', 'actualizado_en', 'ultimo_envio_ok_en',
+  ],
+  // La crea la propia API en la primera subida (routes.js). Solo guarda las
+  // columnas originales del reporte: Estado, Días de Vigencia y Días de
+  // Inventario por rangos se calculan en el navegador al mostrarlas.
+  inventario: [
+    'id', 'numero_articulo', 'descripcion', 'lote', 'fecha_vencimiento',
+    'cantidad', 'dias_inventario', 'bodega', 'nombre_bodega', 'zona',
+    'grupo_articulos', 'tipo_bodega', 'comercial', 'creado_en',
   ],
 }
 

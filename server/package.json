@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node dev.js",
-    "test": "node test/archivos.test.js && node test/clientes-rutas.test.js && node test/correo.test.js && node test/correo-envio.test.js && node test/push.test.js",
+    "test": "node test/archivos.test.js && node test/clientes-rutas.test.js && node test/correo.test.js && node test/correo-envio.test.js && node test/inventario.test.js && node test/push.test.js",
     "verificar:sql": "node sql/verificar-columnas.mjs"
   },
   "dependencies": {

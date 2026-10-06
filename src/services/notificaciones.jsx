@@ -10,6 +10,7 @@ import {
   MdEdit,
   MdErrorOutline,
   MdInbox,
+  MdInventory2,
   MdLocalShipping,
   MdLockClock,
   MdPersonAdd,
@@ -543,6 +544,32 @@ export function errorClientes(mensaje) {
     duration: 6000,
     title: 'No se pudo guardar el cliente',
     icon: <MdApartment />,
+    description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Módulo Inventario
+// ---------------------------------------------------------------------------
+export function inventarioSubido(total) {
+  sileo.success({
+    ...BASE,
+    duration: 6000,
+    sonido: 'Abierto',
+    title: 'Inventario actualizado',
+    icon: <MdInventory2 />,
+    description: linea(
+      `${total} artículo${total === 1 ? '' : 's'} guardado${total === 1 ? '' : 's'}. El inventario anterior fue reemplazado.`
+    ),
+  })
+}
+
+export function errorInventario(mensaje) {
+  sileo.error({
+    ...BASE,
+    duration: 7000,
+    title: 'No se pudo subir el inventario',
+    icon: <MdInventory2 />,
     description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
   })
 }
