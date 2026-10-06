@@ -1,12 +1,13 @@
 import { useRef, useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { MdHome, MdFolderOpen, MdSettings, MdLogout, MdLockReset, MdExpandMore, MdTune, MdInventory2 } from 'react-icons/md'
+import { MdHome, MdFolderOpen, MdSettings, MdLogout, MdLockReset, MdExpandMore, MdTune, MdInventory2, MdManageAccounts } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { shortName } from '../auth/user.js'
-import { puedeVer } from '../auth/roles.js'
+import { puedeVer, CORREO_SISTEMAS } from '../auth/roles.js'
 import CambiarClaveModal from './CambiarClaveModal.jsx'
 import ConfiguracionModal from './ConfiguracionModal.jsx'
+import UsuariosClavesModal from './UsuariosClavesModal.jsx'
 import { createPortal } from 'react-dom'
 
 const MENU = [
@@ -23,6 +24,7 @@ export default function Header() {
   const [abrirMenu, setAbrirMenu] = useState(false)
   const [cambiarClave, setCambiarClave] = useState(false)
   const [configuracion, setConfiguracion] = useState(false)
+  const [usuariosClaves, setUsuariosClaves] = useState(false)
   const menuRef = useRef(null)
 
   useEffect(() => {
@@ -36,12 +38,18 @@ export default function Header() {
   const nombreUsuario = usuario?.nombre || account?.name || ''
   const greeting = nombreUsuario ? `Hola, ${shortName({ name: nombreUsuario })}` : 'Cerrar sesión'
   const enlaces = MENU.filter((item) => puedeVer(rol, item.to))
+  // «Usuarios y claves» (restablecer contraseñas olvidadas) es exclusivo de la
+  // cuenta de sistemas: aquí se oculta el menú, y el backend vuelve a pedirlo.
+  const esSistemas = String(usuario?.correo || '').toLowerCase() === CORREO_SISTEMAS
 
   const modal = cambiarClave ? createPortal(
     <CambiarClaveModal onClose={() => setCambiarClave(false)} />,
     document.body
   ) : configuracion ? createPortal(
     <ConfiguracionModal onClose={() => setConfiguracion(false)} />,
+    document.body
+  ) : usuariosClaves ? createPortal(
+    <UsuariosClavesModal onClose={() => setUsuariosClaves(false)} />,
     document.body
   ) : null
 
@@ -104,6 +112,17 @@ export default function Header() {
                 <MdLockReset className="size-5" />
                 Cambiar clave
               </button>
+              {esSistemas && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setUsuariosClaves(true); setAbrirMenu(false) }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-brand-mist hover:bg-brand-navy hover:text-brand-cyan transition-colors"
+                >
+                  <MdManageAccounts className="size-5" />
+                  Usuarios y claves
+                </button>
+              )}
               <hr className="my-1 border-brand-cyan/20" />
               <button
                 type="button"

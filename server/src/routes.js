@@ -13,6 +13,7 @@ const multer = require('multer')
 
 const { pool } = require('./db')
 const P = require('./permisos')
+const C = require('./contrasenas')
 const archivos = require('./archivos')
 const config = require('./config')
 const correo = require('./correo')
@@ -780,6 +781,58 @@ router.put(
     params.push(objetivo)
     await pool.execute(`UPDATE usuarios SET ${campos.join(', ')} WHERE correo = ?`, params)
     res.json({ ok: true })
+  })
+)
+
+// ---------------------------------------------------------------------------
+// POST /api/usuarios/:correo/restablecer-clave
+// Restablece la contraseña de un usuario que la olvidó y quedó fuera del sistema.
+//
+// No hay correo de recuperación en este proyecto (ver /cambiar-clave en
+// rutasAuth.js), así que la única vía es que un humano autorizado la ponga de
+// nuevo. La autoriza el CORREO_SISTEMAS, no el rol: pueden llamar este
+// endpoint solo desde la cuenta de sistemas, ni siquiera los demás superadmins.
+// El frontend solo muestra el botón para esa cuenta, y aquí la comprobación se
+// repite porque la regla de negocio es el correo, no la interfaz.
+//
+// Sin cuerpo (o con la clave predeterminada) deja la CLAVE_PREDETERMINADA; con
+// {"contrasena": "..."} deja la que se pida. La predeterminada son 7 caracteres
+// y es la ÚNICA excepción a C.problema (mínimo 8): se acepta por igualdad con
+// la constante, no bajando la regla, así que una clave personalizada de 7
+// caracteres sigue siendo 400.
+// ---------------------------------------------------------------------------
+const CORREO_SISTEMAS = 'sistemas@ctpmedica.com'
+const CLAVE_PREDETERMINADA = 'CTP2026'
+
+router.post(
+  '/usuarios/:correo/restablecer-clave',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (ctx.correo !== CORREO_SISTEMAS) {
+      return res.status(403).json({ error: 'Solo el usuario de sistemas puede restablecer contraseñas' })
+    }
+
+    const destino = String(req.params.correo || '').trim().toLowerCase()
+    const pedida = String(req.body?.contrasena || '').trim()
+    const predeterminada = !pedida || pedida === CLAVE_PREDETERMINADA
+    const nueva = predeterminada ? CLAVE_PREDETERMINADA : pedida
+
+    if (!predeterminada) {
+      const problema = C.problema(nueva)
+      if (problema) return res.status(400).json({ error: problema })
+    }
+
+    const [existe] = await pool.execute(
+      'SELECT correo FROM usuarios WHERE correo = ? LIMIT 1',
+      [destino]
+    )
+    if (!existe[0]) return res.status(404).json({ error: 'Ese usuario no existe' })
+
+    const hash = await C.hashear(nueva)
+    await pool.execute('UPDATE usuarios SET password_hash = ? WHERE correo = ?', [hash, destino])
+
+    console.log(`[Auth] clave restablecida: ${destino} por ${ctx.correo}${predeterminada ? ' (predeterminada)' : ''}`)
+    return res.json({ ok: true, predeterminada })
   })
 )
 

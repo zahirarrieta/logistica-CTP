@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.06-4",
+  "version": "2026.10.06-5",
   "fecha": "2026-10-06",
   "cambios": [
+    "Nuevo «Usuarios y claves» en el menú del usuario (solo visible para la cuenta de sistemas): lista los usuarios y permite restablecer una contraseña olvidada a la clave predeterminada del sistema, o fijar una nueva.",
     "Nuevo módulo Inventario en el menú: lista los artículos con su lote, vencimiento y bodega, con Estado y días de vigencia calculados al abrir. El administrador puede pegar el reporte de Excel desde «Subir información».",
     "Al subir el inventario: las instrucciones ahora están en un botón con su propio modal, la tabla de vista previa aparece de una vez al pegar (con scroll propio) y se puede volver al texto para corregirlo. En la tabla, al hacer clic en cualquier fila se abre el detallado completo (ubicación, lote, vencimiento y estado) sin scroll horizontal.",
     "El módulo Inventario usa ahora los mismos colores por estado en las filas y en las etiquetas, la misma paginación que las demás tablas y muestra en la esquina la fecha de la última actualización.",

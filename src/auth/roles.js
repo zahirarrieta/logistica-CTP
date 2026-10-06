@@ -42,6 +42,12 @@ export function esSuperAdmin(rol) {
   return rol === ROLES.SUPERADMIN
 }
 
+// Cuenta de sistemas (Zahir). Única que ve el menú «Usuarios y claves» del
+// desplegable del header para restablecer contraseñas olvidadas. Espejo del
+// CORREO_SISTEMAS del backend: la regla vive en el servidor y aquí solo gobierna
+// la interfaz.
+export const CORREO_SISTEMAS = 'sistemas@ctpmedica.com'
+
 export function esAdministrador(rol) {
   return rol === ROLES.ADMINISTRADOR
 }

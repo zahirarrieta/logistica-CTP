@@ -13,6 +13,7 @@ import {
   MdInventory2,
   MdLocalShipping,
   MdLockClock,
+  MdLockReset,
   MdPersonAdd,
   MdRestartAlt,
   MdSend,
@@ -570,6 +571,37 @@ export function errorInventario(mensaje) {
     duration: 7000,
     title: 'No se pudo subir el inventario',
     icon: <MdInventory2 />,
+    description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Usuarios y claves (solo cuenta de sistemas)
+// ---------------------------------------------------------------------------
+// Ni aquí ni en ningún texto de la interfaz se escribe la clave predeterminada:
+// el bundle del frontend es público y quien la leyera podría entrar a las
+// cuentas que aún no la han cambiado. El valor vive solo en el backend.
+export function claveRestablecida(correo, predeterminada) {
+  sileo.success({
+    ...BASE,
+    duration: 6000,
+    sonido: 'Abierto',
+    title: 'Contraseña restablecida',
+    icon: <MdLockReset />,
+    description: linea(
+      predeterminada
+        ? `${correo} ya puede entrar con la clave predeterminada.`
+        : `${correo} ya puede entrar con la contraseña nueva.`
+    ),
+  })
+}
+
+export function errorClave(mensaje) {
+  sileo.error({
+    ...BASE,
+    duration: 6000,
+    title: 'No se pudo cambiar la contraseña',
+    icon: <MdLockReset />,
     description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
   })
 }
