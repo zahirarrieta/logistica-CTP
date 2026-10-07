@@ -104,28 +104,37 @@ export function estadoVencimiento(iso, ref = hoy()) {
 export function rangoInventario(dias) {
   if (dias === null || dias === undefined || dias === '') return ''
   const n = Math.round(Number(dias))
-  if (!Number.isFinite(n) || n < 90) return ''
-  if (n <= 180) return 'Rotación'
+  if (!Number.isFinite(n) || n < 0) return ''
+  if (n <= 90) return 'Ok Rotación'
+  if (n <= 120) return 'Rotar'
   if (n <= 240) return 'Rotar con Prioridad'
-  return 'Rotar'
+  return 'Rotar urgente'
 }
 
-// Badges de los rangos con la misma paleta que BADGE_COLORS/DOT_COLORS de
-// estadoColors.js (azul = En Trámite, naranja = Pendiente, rojo = Retenido).
-const RANGO_BADGE = {
-  'Rotación': 'bg-blue-100 text-blue-700',
+export const RANGO_PASTEL = {
+  'Ok Rotación': 'bg-green-100',
+  'Rotar': 'bg-yellow-100',
+  'Rotar con Prioridad': 'bg-orange-100',
+  'Rotar urgente': 'bg-red-100',
+}
+
+export const RANGO_BADGE = {
+  'Ok Rotación': 'bg-green-100 text-green-700',
+  'Rotar': 'bg-yellow-100 text-yellow-800',
   'Rotar con Prioridad': 'bg-orange-100 text-orange-700',
-  'Rotar': 'bg-red-100 text-red-700',
+  'Rotar urgente': 'bg-red-100 text-red-700',
 }
 
-const RANGO_DOT = {
-  'Rotación': 'bg-blue-500',
+export const RANGO_DOT = {
+  'Ok Rotación': 'bg-green-500',
+  'Rotar': 'bg-yellow-500',
   'Rotar con Prioridad': 'bg-orange-500',
-  'Rotar': 'bg-red-500',
+  'Rotar urgente': 'bg-red-500',
 }
 
 export const badgeRango = (rango) => RANGO_BADGE[rango] || 'bg-brand-ink/10 text-brand-ink/70'
 export const dotRango = (rango) => RANGO_DOT[rango] || 'bg-brand-ink/40'
+export const pastelRango = (rango) => RANGO_PASTEL[rango] || 'bg-white'
 
 export const formatearEntero = (n) =>
   n === null || n === undefined || n === '' ? '—' : new Intl.NumberFormat('es-CO').format(Math.round(Number(n)))

@@ -12,6 +12,7 @@
     "En «Cambiar estado», los PDFs guardados de la tanda de trámite se listan con su nombre y un botón para eliminarlos (con confirmación), para poder reemplazar una factura o remisión mal cargada sin desbordar el tope de 3. Solo administrador y superadmin, y solo mientras la solicitud siga «En Trámite» o «En Trámite Parcial».",
     "Los estados «Vencido», «Próximo a vencer» y «Vigente» ya no aparecen en el modal de Cambiar Estado ni en el filtro de solicitudes: son exclusivos del módulo Inventario.",
     "Corregido: al abrir el seguimiento de una solicitud o ver los contadores de la tabla aparecía un error en consola (ReferenceError) porque dos iconos se usaban sin importar. El lint ahora revisa ese tipo de error.",
-    "Nuevo estado «Cancelado» en el modal de Cambiar Estado: cierra la solicitud sin entregar y exige escribir el motivo de la cancelación. Una vez cancelada, la solicitud ya no ofrece cambios de estado ni asignación: solo queda su historial."
+    "Nuevo estado «Cancelado» en el modal de Cambiar Estado: cierra la solicitud sin entregar y exige escribir el motivo de la cancelación. Una vez cancelada, la solicitud ya no ofrece cambios de estado ni asignación: solo queda su historial.",
+    "Inventario: «Días de inventario por rangos» ahora colorea cada fila con su propio rango (verde «OK Rotación» hasta 90 días, amarillo «Rotar» hasta 120, naranja «Rotar con prioridad» hasta 240 y rojo «Rotar urgente» de 240 en adelante); los vencidos se pintan en gris oscuro."
   ]
 }

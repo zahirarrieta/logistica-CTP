@@ -29,10 +29,11 @@ import { esPrivilegiado } from '../../auth/roles.js'
 import { listarInventario } from '../../services/inventarioApi.js'
 import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
-import { getBadgeColor, getDotColor, getEstadoBg } from '../../utils/estadoColors.js'
+import { getBadgeColor, getDotColor } from '../../utils/estadoColors.js'
 import {
   COLUMNAS_ORIGINALES,
   badgeRango,
+  pastelRango,
   diasVigencia,
   dotRango,
   estadoVencimiento,
@@ -227,8 +228,12 @@ export default function Inventario() {
 
   // Mismo fondo de fila que las demás tablas: pastel por estado (vista con
   // colores) y, sin estado conocido, alternado como en las vistas simples.
-  const estiloFila = (estado, i) =>
-    estado ? getEstadoBg(estado) : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')
+  const estiloFila = (fila, estado, i) => {
+    if (estado === 'Vencido') return 'bg-slate-600/20 text-slate-900'
+    const rango = rangoInventario(fila?.dias_inventario)
+    if (rango) return pastelRango(rango)
+    return i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'
+  }
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white text-brand-ink">
@@ -346,7 +351,7 @@ export default function Inventario() {
                       estado={estado}
                       vigencia={vigencia}
                       rango={rango}
-                      fondo={estiloFila(estado, i)}
+                       fondo={estiloFila(f, estado, i)}
                       expanded={filaExpandida === clave}
                       onToggle={() => setFilaExpandida(filaExpandida === clave ? null : clave)}
                       onVerDetalle={setFilaDetalle}
@@ -385,7 +390,7 @@ export default function Inventario() {
                       const estado = estadoVencimiento(f.fecha_vencimiento)
                       const vigencia = diasVigencia(f.fecha_vencimiento)
                       const rango = rangoInventario(f.dias_inventario)
-                      const fondo = estiloFila(estado, i)
+                       const fondo = estiloFila(f, estado, i)
                       return (
                         <tr
                           key={claveFila(f, inicio + i)}
