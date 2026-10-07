@@ -108,10 +108,12 @@ CREATE TABLE IF NOT EXISTS solicitudes (
     'Devolución a Solicitante',
     'Retenido por Cartera',
     'En Trámite',
+    'En Trámite Parcial',
     'En Tránsito',
     'En Tránsito Parcial',
     'Entregado Parcial',
-    'Entregado'))
+    'Entregado',
+    'Cancelado'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
