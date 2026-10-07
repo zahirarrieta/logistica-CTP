@@ -15,6 +15,7 @@ import {
   MdCheck,
   MdDeleteOutline,
   MdTimer,
+  MdCancel,
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../../../../utils/estadoColors.js'
@@ -59,6 +60,7 @@ const ICONOS_POR_ESTADO = {
   'En Tránsito Parcial': MdTwoWheeler,
   'Entregado Parcial': MdDoneAll,
   Entregado: MdVerified,
+  Cancelado: MdCancel,
 }
 
 export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir, onEliminar }) {
@@ -88,6 +90,14 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   // Calcular tiempo restante para eliminar (solo si es del solicitante actual)
   const tiempoEliminar = restanteEliminar(solicitud, correoActual, ahora)
   const esDev = estado === 'Devolución a Solicitante'
+  // Cancelado: el pedido se cerró sin entrega, así que no hay «avance» que
+  // mostrar. Se saca el motivo de la última entrada del historial.
+  const esCancelado = estado === 'Cancelado'
+  const motivoCancelacion = esCancelado
+    ? [...(Array.isArray(solicitud.historial) ? solicitud.historial : [])]
+        .reverse()
+        .find((h) => h.campo === 'estado' && h.nuevo === 'Cancelado')?.nota || ''
+    : ''
   const devolucion = esDev ? buscarDevolucion(solicitud) : null
   const { campos: camposCorregir, texto: textoMotivo } = parsearMotivoDevolucion(devolucion?.nota)
   const etiquetasCorregir = camposCorregir
@@ -155,7 +165,30 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
           </div>
         </div>
 
-        {entrega ? (
+        {esCancelado ? (
+          /* Cancelado: no hay avance de entrega que animar */
+          <div className="overflow-y-auto max-h-[calc(92vh-4.5rem)] p-4 sm:p-6">
+            <div className="rounded-2xl border border-gray-300 bg-gray-100 px-5 py-8 flex flex-col items-center text-center gap-3">
+              <span className="grid place-items-center size-16 rounded-full bg-gray-200 text-gray-500">
+                <MdCancel className="text-4xl" />
+              </span>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${getBadgeColor(estado)}`}>
+                <MdCancel className="text-sm" />
+                {estado}
+              </span>
+              <p className="text-sm font-bold text-brand-ink/70">
+                Este pedido fue cancelado y no se entregará.
+              </p>
+              {motivoCancelacion ? (
+                <p className="max-w-md rounded-lg bg-white/80 border-l-2 border-gray-400 px-3 py-2 text-sm text-brand-ink/70 whitespace-pre-wrap">
+                  Motivo: {motivoCancelacion}
+                </p>
+              ) : (
+                <p className="text-sm text-brand-ink/50">Revisa el historial de cambios para ver el detalle.</p>
+              )}
+            </div>
+          </div>
+        ) : entrega ? (
           /* Detalles de la entrega: sin pista animada ni encuesta */
           <div className="relative">
             <div className="absolute right-3 sm:right-4 top-3 sm:top-4 z-30">

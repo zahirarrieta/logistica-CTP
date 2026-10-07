@@ -11,6 +11,7 @@ import {
   MdImage,
   MdEvent,
   MdPictureAsPdf,
+  MdBlock,
 } from 'react-icons/md'
 import { getBadgeColor } from '../../../../utils/estadoColors.js'
 import { nombreDeAsignado, buscarEntrega } from '../../../../store/solicitudesStore.js'
@@ -45,6 +46,12 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
 
   const entrega = buscarEntrega(solicitud)
   const temporal = tiempoEntrega(solicitud)
+  const esCancelado = (solicitud.estado || '') === 'Cancelado'
+  const motivoCancelacion = esCancelado
+    ? [...(Array.isArray(solicitud.historial) ? solicitud.historial : [])]
+        .reverse()
+        .find((h) => h.campo === 'estado' && h.nuevo === 'Cancelado')?.nota || ''
+    : ''
   const adjuntos = adjuntosVisibles(solicitud)
   const historial = Array.isArray(solicitud.historial) ? solicitud.historial : []
 
@@ -137,12 +144,26 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
                   Tiempo de entrega: {formatHoras(temporal.horas)}
                 </span>
               ) : (
-                <span className="text-xs font-bold text-brand-ink/50">Aún no se ha entregado</span>
+                <span className="text-xs font-bold text-brand-ink/50">
+                  {esCancelado ? 'Pedido cancelado — no se entregará' : 'Aún no se ha entregado'}
+                </span>
               )}
               <span className="sm:ml-auto text-xs font-semibold text-brand-ink/50">
                 Creado {solicitud.fechaSubida || '—'} · {solicitud.horaSubida || '—'}
               </span>
             </div>
+
+            {esCancelado && (
+              <div className="rounded-2xl border border-gray-300 bg-gray-100 px-4 py-3">
+                <p className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-gray-600">
+                  <MdBlock className="text-base" />
+                  Pedido cancelado
+                </p>
+                <p className="mt-1 text-sm font-semibold text-brand-ink/70">
+                  {motivoCancelacion ? `Motivo: ${motivoCancelacion}` : 'Se cerró sin entrega. Revisa el historial.'}
+                </p>
+              </div>
+            )}
 
             {/* Datos generales */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
