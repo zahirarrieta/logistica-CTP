@@ -1,10 +1,7 @@
 {
-  "version": "2026.10.07-8",
+  "version": "2026.10.07-9",
   "fecha": "2026-10-07",
   "cambios": [
-    "Inventario: se agregó el filtro Artículo (código o descripción), además de Comercial, Tipo de bodega, Zona y Bodega.",
-    "Inventario: los filtros ahora muestran la lista de sugerencias al escribir (como el cliente en Nueva solicitud) y cada uno tiene un botón de lupa que abre el listado completo con buscador.",
-    "Inventario: cada tarjeta de artículo muestra como marca de agua el icono del artículo (frío, jeringa, cápsula, suero, guantes, etc.), que se agranda al pasar el cursor.",
-    "Inventario: las tarjetas del resumen llevan diseño en el icono y su marca de agua también se agranda al pasar el cursor."
+    "Inventario: el icono de marca de agua de las tarjetas de artículos ahora es un icono único (se agranda al pasar el cursor)."
   ]
 }

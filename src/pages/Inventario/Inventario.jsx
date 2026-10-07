@@ -33,7 +33,7 @@ import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
 import FiltroBuscable from './Components/FiltroBuscable.jsx'
 import { getBadgeColor, getDotColor } from '../../utils/estadoColors.js'
-import { iconoArticulo } from '../../utils/inventarioIconos.js'
+import { RiContactsBookUploadFill } from 'react-icons/ri'
 import {
   badgeRango,
   diasVigencia,
@@ -152,11 +152,11 @@ function Dato({ icon, label, valor, alerta }) {
 }
 
 // Card de un artículo (reemplaza la fila de tabla). Compacta para que entren
-// dos por fila en el celular y con el icono del artículo como marca de agua.
+// dos por fila en el celular y con un icono de marca de agua.
 function InventarioCard({ f, onVer }) {
   const cantidad = String(f.cantidad ?? '').trim()
   const vigencia = f._vigencia
-  const Watermark = iconoArticulo(f.descripcion, f.grupo_articulos)
+  const Watermark = RiContactsBookUploadFill
   const acento = ACENTO_RANGO[f._rango] || 'bg-brand-deep/20'
 
   return (
@@ -168,7 +168,7 @@ function InventarioCard({ f, onVer }) {
     >
       {/* Acento lateral por rango de rotación */}
       <span className={`absolute left-0 top-0 h-full w-1.5 ${acento}`} />
-      {/* Icono del artículo como marca de agua (se agranda al pasar el cursor) */}
+      {/* Icono de marca de agua (se agranda al pasar el cursor) */}
       <Watermark className="pointer-events-none absolute -right-3 -bottom-3 text-[5.5rem] text-brand-deep/[0.06] origin-bottom-right transition-all duration-300 ease-out group-hover:scale-125 group-hover:text-brand-cyan/15" />
 
       <div className="relative flex flex-col gap-2">
