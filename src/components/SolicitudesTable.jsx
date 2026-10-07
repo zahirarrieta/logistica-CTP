@@ -28,6 +28,7 @@ import {
   MdAssignmentReturn,
   MdBadge,
   MdReceiptLong,
+  MdTimer,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../utils/estadoColors.js'
 import { pdfsTramite } from '../utils/pdfUtils.js'

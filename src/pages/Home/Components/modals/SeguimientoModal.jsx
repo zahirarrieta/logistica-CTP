@@ -16,6 +16,7 @@ import {
   MdDeleteOutline,
   MdTimer,
 } from 'react-icons/md'
+import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../../../../utils/estadoColors.js'
 import { formatearMs } from '../../../../utils/dashboardUtils.js'
 import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteEliminar } from '../../../../store/solicitudesStore.js'

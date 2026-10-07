@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.06-6",
+  "version": "2026.10.06-7",
   "fecha": "2026-10-06",
   "cambios": [
     "Nuevo «Usuarios y claves» en el menú del usuario (solo visible para la cuenta de sistemas): lista los usuarios y permite restablecer una contraseña olvidada a la clave predeterminada del sistema, o fijar una nueva.",
@@ -10,6 +10,7 @@
     "Nuevo estado «En Trámite Parcial» en el modal de cambio de estado, junto a «En Trámite», con su propio color, sonido y factura/remisión.",
     "El modal de Cambiar Estado ya no bloquea el botón de cerrar: se puede salir en cualquier momento; los avisos del pie indican solo qué falta para poder guardar.",
     "En «Cambiar estado», los PDFs guardados de la tanda de trámite se listan con su nombre y un botón para eliminarlos (con confirmación), para poder reemplazar una factura o remisión mal cargada sin desbordar el tope de 3. Solo administrador y superadmin, y solo mientras la solicitud siga «En Trámite» o «En Trámite Parcial».",
-    "Los estados «Vencido», «Próximo a vencer» y «Vigente» ya no aparecen en el modal de Cambiar Estado ni en el filtro de solicitudes: son exclusivos del módulo Inventario."
+    "Los estados «Vencido», «Próximo a vencer» y «Vigente» ya no aparecen en el modal de Cambiar Estado ni en el filtro de solicitudes: son exclusivos del módulo Inventario.",
+    "Corregido: al abrir el seguimiento de una solicitud o ver los contadores de la tabla aparecía un error en consola (ReferenceError) porque dos iconos se usaban sin importar. El lint ahora revisa ese tipo de error."
   ]
 }
