@@ -1,6 +1,9 @@
 import { ESTADOS } from './estadoColors.js'
 
 export const ESTADOS_FINALES = ['Entregado', 'Entregado Parcial']
+// Cierres de la solicitud: entregada o cancelada. Ya no se mueven, no cuentan
+// como activas y no admiten más cambios de estado.
+export const ESTADOS_CERRADOS = [...ESTADOS_FINALES, 'Cancelado']
 export const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
 export const HEX_ESTADO = {
@@ -14,6 +17,7 @@ export const HEX_ESTADO = {
   'En Tránsito Parcial': '#D97706',
   'Entregado Parcial': '#EAB308',
   'Entregado': '#22C55E',
+  'Cancelado': '#94A3B8',
 }
 
 // Formatea milisegundos como «4:32» (min:seg). Lo usan las cuentas regresivas
@@ -121,7 +125,8 @@ export function resumen(solicitudes) {
   const enTransito = solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || '')).length
   const entregados = solicitudes.filter((s) => ESTADOS_FINALES.includes(s.estado || '')).length
   const entregadosParcial = solicitudes.filter((s) => (s.estado || '') === 'Entregado Parcial').length
-  const activos = solicitudes.length - entregados
+  const cerradas = solicitudes.filter((s) => ESTADOS_CERRADOS.includes(s.estado || '')).length
+  const activos = solicitudes.length - cerradas
 
   const horas = solicitudes
     .map((s) => tiempoEntrega(s)?.horas)
@@ -436,7 +441,7 @@ export function topClientesSatisfaccion(solicitudes, n = 8) {
 export function lentosActivos(solicitudes, umbralHoras = 48) {
   const ahora = Date.now()
   return solicitudes
-    .filter((s) => !ESTADOS_FINALES.includes(s.estado || ''))
+    .filter((s) => !ESTADOS_CERRADOS.includes(s.estado || ''))
     .map((s) => {
       const inicio = parseStamp(s.fechaSubida, s.horaSubida) || ahora
       return {

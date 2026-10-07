@@ -14,6 +14,8 @@ export const ESTADOS = [
   'En Tránsito Parcial',
   'Entregado Parcial',
   'Entregado',
+  // Cierre sin entrega: la solicitud deja de moverse (ver EstadosModal).
+  'Cancelado',
 ]
 
 export const BADGE_COLORS = {
@@ -29,6 +31,7 @@ export const BADGE_COLORS = {
   'En Tránsito Parcial': 'bg-amber-200 text-amber-900',
   'Entregado Parcial': 'bg-yellow-200 text-yellow-800',
   'Entregado': 'bg-green-100 text-green-700',
+  'Cancelado': 'bg-gray-100 text-gray-700',
   'Vencido': 'bg-red-100 text-red-700',
   'Próximo a vencer': 'bg-orange-100 text-orange-700',
   'Vigente': 'bg-green-100 text-green-700',
@@ -45,6 +48,7 @@ export const DOT_COLORS = {
   'En Tránsito Parcial': 'bg-amber-600',
   'Entregado Parcial': 'bg-yellow-500',
   'Entregado': 'bg-green-500',
+  'Cancelado': 'bg-gray-500',
   'Vencido': 'bg-red-500',
   'Próximo a vencer': 'bg-orange-500',
   'Vigente': 'bg-green-500',
@@ -61,6 +65,7 @@ export const SOFT_COLORS = {
   'En Tránsito Parcial': 'bg-white ring-1 ring-amber-500/70 text-amber-800',
   'Entregado Parcial': 'bg-white ring-1 ring-yellow-400/60 text-yellow-700',
   'Entregado': 'bg-white ring-1 ring-green-400/60 text-green-700',
+  'Cancelado': 'bg-white ring-1 ring-gray-400/60 text-gray-700',
   'Vencido': 'bg-white ring-1 ring-red-400/60 text-red-700',
   'Próximo a vencer': 'bg-white ring-1 ring-orange-400/60 text-orange-700',
   'Vigente': 'bg-white ring-1 ring-green-400/60 text-green-700',
@@ -77,6 +82,7 @@ export const PASTEL_BG = {
   'En Tránsito Parcial': 'bg-amber-100',
   'Entregado Parcial': 'bg-yellow-100',
   'Entregado': 'bg-green-100',
+  'Cancelado': 'bg-gray-100',
   'Vencido': 'bg-red-100',
   'Próximo a vencer': 'bg-orange-100',
   'Vigente': 'bg-green-100',

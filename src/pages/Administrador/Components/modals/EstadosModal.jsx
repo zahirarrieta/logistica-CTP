@@ -11,6 +11,9 @@ import Modal from '../../../../components/Modal.jsx'
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const ESTADOS_TRAMITE = ['En Trámite', 'En Trámite Parcial']
 const ESTADO_DEVOLUCION = 'Devolución a Solicitante'
+// Cierre de la solicitud sin entrega: exige observaciones y deja la solicitud
+// sin más opciones de cambio (la lista desaparece de la tabla).
+const ESTADO_CANCELADO = 'Cancelado'
 // «En Trámite» y «En Trámite Parcial» se comportan igual: panel de observaciones,
 // factura/remisión opcional y reaplicación sobre el estado actual.
 const esTramite = (e) => ESTADOS_TRAMITE.includes(e)
@@ -159,7 +162,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     }
   }
 
-  const listaEstados = permitidos || ESTADOS
+  // Una solicitud cancelada ya está cerrada: el modal no ofrece nada más.
+  const solicitudCancelada = (solicitud.estado || '') === ESTADO_CANCELADO
+  const listaEstados = solicitudCancelada ? [] : (permitidos || ESTADOS)
 
   const isCurrent = (e) => e === estado
   const esSeleccionado = estado !== (solicitud.estado || 'Abierto')
@@ -168,8 +173,12 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const transporteListo = Boolean(solicitud.conductor && solicitud.vehiculo && solicitud.placa)
   const numeroRefValido = numeroRef.trim().length > 0 && adjuntoTramite.length > 0
   const esDevolucion = estado === ESTADO_DEVOLUCION
+  const esCancelado = estado === ESTADO_CANCELADO
   const notaObligatoria = esDevolucion && nota.trim().length > 0
   const camposObligatorios = esDevolucion && camposCorregir.length > 0
+  // Cancelar siempre lleva observaciones: es el registro de por qué se cerró
+  // el pedido sin entregar.
+  const motivoCancelacion = esCancelado && nota.trim().length > 0
   // «En Trámite»/«En Trámite Parcial» se pueden aplicar varias veces: si la
   // solicitud ya está en uno de esos estados, basta abrir el modal y guardar
   // (solo observaciones) sin factura.
@@ -178,15 +187,18 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const puedeGuardar =
     !subiendo &&
     !borrando &&
+    !solicitudCancelada &&
     (esTramite(estado)
       ? asignarFactura
         ? numeroRefValido
         : esSeleccionado || tramiteReaplicado
       : esDevolucion
         ? esSeleccionado && notaObligatoria && camposObligatorios
-        : esSeleccionado
-          ? !esTransitoSeleccionado || transporteListo
-          : esTransitoActual && transporteListo)
+        : esCancelado
+          ? esSeleccionado && motivoCancelacion
+          : esSeleccionado
+            ? !esTransitoSeleccionado || transporteListo
+            : esTransitoActual && transporteListo)
 
   const handleSelect = (e) => {
     // «En Trámite»/«En Trámite Parcial» se puede volver a aplicar aunque ya sea el estado actual.
@@ -283,6 +295,21 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
 
         {/* Lista de estados */}
         <div className="p-4 sm:p-6 overflow-y-auto">
+          {solicitudCancelada ? (
+            <div className="rounded-xl border border-gray-300 bg-gray-100 p-4 text-center space-y-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-gray-100 text-gray-700 ring-1 ring-gray-400/60">
+                <span className="size-2 rounded-full bg-gray-500" />
+                Cancelado
+              </span>
+              <p className="text-sm font-semibold text-brand-ink/70">
+                La solicitud fue cancelada: ya no admite cambios de estado.
+              </p>
+              <p className="text-xs font-semibold text-brand-ink/50">
+                Revisa el motivo en el historial de cambios.
+              </p>
+            </div>
+          ) : (
+            <>
           <label className="block text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-3 inline-flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-brand-ink/10 text-brand-ink/70">
               <span className="size-2 rounded-full bg-brand-ink/40" />
@@ -350,8 +377,12 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                     <div className="mt-1.5 rounded-xl bg-brand-ink/5 border border-brand-cyan/30 p-3 animate-fadeIn">
                       <label className="flex items-center gap-2 text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-2">
                         <MdNotes className="text-base text-brand-cyan" />
-                        {e === ESTADO_DEVOLUCION ? 'Motivo de la devolución — qué debe corregir' : 'Observaciones del cambio'}
-                        {e === ESTADO_DEVOLUCION && <span className="text-red-500">*</span>}
+                        {e === ESTADO_DEVOLUCION
+                          ? 'Motivo de la devolución — qué debe corregir'
+                          : e === ESTADO_CANCELADO
+                            ? 'Motivo de cancelación — por qué se cierra el pedido'
+                            : 'Observaciones del cambio'}
+                        {(e === ESTADO_DEVOLUCION || e === ESTADO_CANCELADO) && <span className="text-red-500">*</span>}
                       </label>
                       {e === ESTADO_DEVOLUCION && (
                         <div className="mb-2.5">
@@ -393,9 +424,15 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                         value={nota}
                         onChange={(ev) => setNota(ev.target.value.toUpperCase())}
                         rows={3}
-                        placeholder={e === ESTADO_DEVOLUCION ? 'ESCRIBE QUÉ ESTÁ MAL Y QUÉ DEBE CORREGIR EL SOLICITANTE…' : 'ESCRIBE LAS OBSERVACIONES DEL CAMBIO DE ESTADO…'}
+                        placeholder={
+                          e === ESTADO_DEVOLUCION
+                            ? 'ESCRIBE QUÉ ESTÁ MAL Y QUÉ DEBE CORREGIR EL SOLICITANTE…'
+                            : e === ESTADO_CANCELADO
+                              ? 'ESCRIBE EL MOTIVO POR EL QUE SE CANCELA EL PEDIDO…'
+                              : 'ESCRIBE LAS OBSERVACIONES DEL CAMBIO DE ESTADO…'
+                        }
                         className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm uppercase text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:ring-4 focus:outline-none transition-all resize-none ${
-                          e === ESTADO_DEVOLUCION && !nota.trim()
+                          (e === ESTADO_DEVOLUCION || e === ESTADO_CANCELADO) && !nota.trim()
                             ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
                             : 'border-brand-deep/20 focus:border-brand-deep/60 focus:ring-brand-deep/10'
                         }`}
@@ -404,6 +441,12 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                         <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
                           <MdInfoOutline className="text-sm shrink-0" />
                           Indica el motivo para poder devolver la solicitud al solicitante.
+                        </p>
+                      )}
+                      {e === ESTADO_CANCELADO && !nota.trim() && (
+                        <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
+                          <MdInfoOutline className="text-sm shrink-0" />
+                          Escribe el motivo de la cancelación para poder cerrar la solicitud.
                         </p>
                       )}
                       {esTramite(e) && (
@@ -635,9 +678,12 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
               )
             })}
           </div>
+            </>
+          )}
         </div>
 
         {/* Botones */}
+        {!solicitudCancelada && (
         <div className="px-4 sm:px-6 py-4 border-t border-brand-ink/10 shrink-0 space-y-2">
           {errorSubida && (
             <p className="inline-flex items-start gap-1.5 text-xs font-bold text-red-600">
@@ -647,14 +693,17 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
           )}
           <div className="flex items-center justify-between gap-2 sm:gap-3">
           {((esTramite(estado) && asignarFactura && !numeroRefValido) ||
-            (esDevolucion && (!notaObligatoria || !camposObligatorios))) && (
+            (esDevolucion && (!notaObligatoria || !camposObligatorios)) ||
+            (esCancelado && !motivoCancelacion)) && (
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
               <MdInfoOutline className="text-base shrink-0" />
               {esDevolucion
                 ? !notaObligatoria
                   ? 'Escribe el motivo de la devolución para poder guardar'
                   : 'Marca al menos un campo que debe corregir el solicitante'
-                : 'Completa número de factura o remisión y adjúntala para poder guardar'}
+                : esCancelado
+                  ? 'Escribe el motivo de la cancelación para poder guardar'
+                  : 'Completa número de factura o remisión y adjúntala para poder guardar'}
             </span>
           )}
             <button
@@ -670,6 +719,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
             </button>
           </div>
         </div>
+        )}
       </div>
     </Modal>
   )

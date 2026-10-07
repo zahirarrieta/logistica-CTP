@@ -46,6 +46,9 @@ const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const enTransito = (s) => ESTADOS_TRANSITO.includes(s.estado)
 const esEntregado = (s) => ['Entregado', 'Entregado Parcial'].includes(s.estado)
 const esDevolucion = (s) => s.estado === 'Devolución a Solicitante'
+// Cancelada: se cerró sin entrega. Ya no admite cambios de estado ni asignación,
+// solo queda el historial (igual que una entregada, pero sin detalles de entrega).
+const esCancelado = (s) => s.estado === 'Cancelado'
 const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !== '')
 // Devolución cuyo tiempo de corrección venció: ya no se tramita.
 const devolucionVencida = (s, ahora) => esDevolucion(s) && restanteDevolucion(s, ahora) === 0
@@ -167,7 +170,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
     ? (vencidaDev ? 'bg-slate-200' : getEstadoBg(s.estado))
     : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
   const mostrarCorregir = Boolean(onCorregirClick) && esDevolucion(s)
-  const mostrarEstado = Boolean(onCambiarEstadoClick) && !esEntregado(s) && !vencidaDev
+  const mostrarEstado = Boolean(onCambiarEstadoClick) && !esEntregado(s) && !esCancelado(s) && !vencidaDev
   const hasCardAcciones = Boolean(onAsignarClick || mostrarEstado || onEstadoClick || onSeguimientoClick || onEliminarClick || mostrarCorregir)
   const docsEntrega = mostrarDocEntrega ? documentoEntregable(s) : null
 
@@ -284,7 +287,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Corregir
                 </button>
               )}
-              {onAsignarClick && !esEntregado(s) && (
+              {onAsignarClick && !esEntregado(s) && !esCancelado(s) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -435,8 +438,8 @@ export default function SolicitudesTable({
   // Una fila tiene acción visible si alguno de los botones aplica a su estado.
   const filaConAccion = (s) =>
     Boolean(
-      (onAsignarClick && !esEntregado(s)) ||
-        (onCambiarEstadoClick && !esEntregado(s) && !devolucionVencida(s, ahora)) ||
+      (onAsignarClick && !esEntregado(s) && !esCancelado(s)) ||
+        (onCambiarEstadoClick && !esEntregado(s) && !esCancelado(s) && !devolucionVencida(s, ahora)) ||
         (onEntregaDetallesClick && esEntregado(s)) ||
         onEstadoClick ||
         (onEliminarClick && (!puedeEliminar || puedeEliminar(s)))
@@ -658,7 +661,7 @@ export default function SolicitudesTable({
                     <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${estiloFila(s, i)}`}>
                       <div className="flex items-center justify-center gap-1.5">
 
-                        {onAsignarClick && !esEntregado(s) && (
+                        {onAsignarClick && !esEntregado(s) && !esCancelado(s) && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -674,7 +677,7 @@ export default function SolicitudesTable({
                             <MdPersonAdd className="text-xl" />
                           </button>
                         )}
-                        {onCambiarEstadoClick && !esEntregado(s) && !devolucionVencida(s, ahora) && (
+                        {onCambiarEstadoClick && !esEntregado(s) && !esCancelado(s) && !devolucionVencida(s, ahora) && (
                           <button
                             type="button"
                             onClick={(e) => {
