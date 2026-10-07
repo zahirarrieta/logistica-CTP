@@ -34,6 +34,7 @@ import imgTransitoCarro from '../../../../assets/estado/TransitoCarro.png'
 import imgTransitoMoto from '../../../../assets/estado/TransitoMoto.png'
 import imgTransitoElite from '../../../../assets/estado/TransitoElite.png'
 import imgTransitoCarBog from '../../../../assets/estado/TransitoCarBog.png'
+import imgCancelado from '../../../../assets/estado/Cancelado.png'
 import Modal from '../../../../components/Modal.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
@@ -47,6 +48,7 @@ const IMAGENES_POR_ESTADO = {
   'En Trámite Parcial': imgRemision,
   'En Tránsito': imgTransitoCarro,
   'En Tránsito Parcial': imgTransitoMoto,
+  Cancelado: imgCancelado,
 }
 
 const ICONOS_POR_ESTADO = {
@@ -168,10 +170,12 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
         {esCancelado ? (
           /* Cancelado: no hay avance de entrega que animar */
           <div className="overflow-y-auto max-h-[calc(92vh-4.5rem)] p-4 sm:p-6">
-            <div className="rounded-2xl border border-gray-300 bg-gray-100 px-5 py-8 flex flex-col items-center text-center gap-3">
-              <span className="grid place-items-center size-16 rounded-full bg-gray-200 text-gray-500">
-                <MdCancel className="text-4xl" />
-              </span>
+            <div className="rounded-2xl border border-gray-300 bg-gray-100 px-5 py-6 flex flex-col items-center text-center gap-3">
+              <img
+                src={imgCancelado}
+                alt="Pedido cancelado"
+                className="h-32 sm:h-40 w-auto object-contain"
+              />
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${getBadgeColor(estado)}`}>
                 <MdCancel className="text-sm" />
                 {estado}
