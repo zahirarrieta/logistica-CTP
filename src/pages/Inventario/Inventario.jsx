@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   MdAccessTime,
+  MdBusiness,
   MdCalendarToday,
   MdCheckCircle,
   MdCloudUpload,
@@ -17,6 +18,7 @@ import {
   MdRestartAlt,
   MdSchedule,
   MdSearch,
+  MdStorefront,
   MdSwapHoriz,
   MdTune,
   MdWarning,
@@ -29,7 +31,9 @@ import { esPrivilegiado } from '../../auth/roles.js'
 import { listarInventario } from '../../services/inventarioApi.js'
 import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
+import FiltroBuscable from './Components/FiltroBuscable.jsx'
 import { getBadgeColor, getDotColor } from '../../utils/estadoColors.js'
+import { iconoArticulo } from '../../utils/inventarioIconos.js'
 import {
   badgeRango,
   diasVigencia,
@@ -45,6 +49,7 @@ const POR_PAGINA = 24
 
 const FILTROS_INICIALES = {
   q: '',
+  articulo: '',
   comercial: '',
   tipo: '',
   zona: '',
@@ -53,14 +58,24 @@ const FILTROS_INICIALES = {
   estados: [],
 }
 
-// Categorías filtrables por texto (con lista de sugerencias). El estado y el
-// rango NO van aquí: para esos ya están las tarjetas del resumen.
+// Filtros que se escriben (con lista de sugerencias) y botón para ver el
+// listado completo. El estado y el rango NO van aquí: para esos ya están las
+// tarjetas del resumen.
 const CATEGORIAS = [
-  { clave: 'comercial', etiqueta: 'Comercial', campo: 'comercial', placeholder: 'Comercial' },
-  { clave: 'tipo', etiqueta: 'Tipo de bodega', campo: 'tipo_bodega', placeholder: 'Tipo de bodega' },
-  { clave: 'zona', etiqueta: 'Zona', campo: 'zona', placeholder: 'Zona' },
-  { clave: 'bodega', etiqueta: 'Bodega', campo: 'bodega', placeholder: 'Bodega' },
+  { clave: 'articulo', etiqueta: 'Artículo', icono: <MdInventory2 className="text-sm" />, placeholder: 'Código o descripción' },
+  { clave: 'comercial', etiqueta: 'Comercial', icono: <MdBusiness className="text-sm" />, placeholder: 'Comercial' },
+  { clave: 'tipo', etiqueta: 'Tipo de bodega', icono: <MdWarehouse className="text-sm" />, placeholder: 'Tipo de bodega' },
+  { clave: 'zona', etiqueta: 'Zona', icono: <MdPlace className="text-sm" />, placeholder: 'Zona' },
+  { clave: 'bodega', etiqueta: 'Bodega', icono: <MdStorefront className="text-sm" />, placeholder: 'Bodega' },
 ]
+
+// Campo del artículo por el que filtra cada categoría de texto.
+const CAMPO_CATEGORIA = {
+  comercial: 'comercial',
+  tipo: 'tipo_bodega',
+  zona: 'zona',
+  bodega: 'bodega',
+}
 
 // Color del acento lateral y del icono según el rango de rotación.
 const ACENTO_RANGO = {
@@ -68,13 +83,6 @@ const ACENTO_RANGO = {
   Rotar: 'bg-yellow-500',
   'Rotar con Prioridad': 'bg-orange-500',
   'Rotar urgente': 'bg-red-500',
-}
-
-function iconoEstado(estado) {
-  if (estado === 'Vencido') return MdEventBusy
-  if (estado === 'Próximo a vencer') return MdWarning
-  if (estado === 'Vigente') return MdEventAvailable
-  return MdInventory2
 }
 
 function EstadoBadge({ estado }) {
@@ -103,52 +111,31 @@ function RangoBadge({ rango }) {
   )
 }
 
-// Tarjeta del tablero: número + etiqueta, clicable para filtrar.
+// Tarjeta del tablero: número + etiqueta, clicable para filtrar. Lleva el icono
+// en el badge y el mismo icono como marca de agua que se agranda al pasar el
+// cursor.
 function TarjetaResumen({ icon, label, valor, accent, activa, onClick }) {
+  const Icono = icon
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={activa}
-      className={`rounded-2xl p-3 sm:p-4 flex items-center gap-3 text-left transition-all ${
+      className={`group relative overflow-hidden rounded-2xl p-3 sm:p-4 flex items-center gap-3 text-left transition-all ${
         activa
           ? 'bg-white ring-2 ring-brand-cyan shadow-md'
           : 'bg-white ring-1 ring-brand-ink/10 shadow-sm hover:-translate-y-0.5 hover:ring-brand-cyan/40 hover:shadow-md'
       }`}
     >
-      <span className={`grid place-items-center size-10 rounded-xl text-white text-xl shadow-md shrink-0 ${accent}`}>
-        {icon}
+      <Icono className="pointer-events-none absolute -bottom-4 -right-3 text-[5.5rem] text-brand-deep/[0.06] transition-transform duration-300 ease-out group-hover:scale-125 group-hover:text-brand-cyan/10" />
+      <span className={`relative grid place-items-center size-10 rounded-xl text-white text-xl shadow-md shrink-0 transition-transform duration-300 group-hover:scale-110 ${accent}`}>
+        <Icono />
       </span>
-      <span className="min-w-0">
+      <span className="relative min-w-0">
         <span className="block text-xl sm:text-2xl font-extrabold text-brand-ink leading-none tabular-nums">{valor}</span>
         <span className="block text-[11px] font-bold text-brand-ink/50 uppercase tracking-wide mt-1 truncate">{label}</span>
       </span>
     </button>
-  )
-}
-
-// Campo de filtro que se puede escribir: al escribir aparece la lista de
-// valores disponibles (datalist) y el texto filtra por coincidencia parcial.
-function FiltroBuscable({ clave, etiqueta, value, onChange, opciones, placeholder }) {
-  const id = `inv-filtro-${clave}`.replace(/[^a-z0-9-]/gi, '-')
-  return (
-    <label className="flex flex-col gap-1 min-w-0">
-      <span className="text-[11px] font-extrabold uppercase tracking-wide text-brand-ink/45">{etiqueta}</span>
-      <input
-        type="text"
-        list={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        autoComplete="off"
-        className="w-full rounded-xl border border-brand-ink/15 bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 outline-none transition focus:border-brand-cyan/70 focus:ring-2 focus:ring-brand-cyan/25"
-      />
-      <datalist id={id}>
-        {opciones.map((o) => (
-          <option key={o} value={o} />
-        ))}
-      </datalist>
-    </label>
   )
 }
 
@@ -165,11 +152,11 @@ function Dato({ icon, label, valor, alerta }) {
 }
 
 // Card de un artículo (reemplaza la fila de tabla). Compacta para que entren
-// dos por fila en el celular y con un icono de marca de agua según el estado.
+// dos por fila en el celular y con el icono del artículo como marca de agua.
 function InventarioCard({ f, onVer }) {
   const cantidad = String(f.cantidad ?? '').trim()
   const vigencia = f._vigencia
-  const Watermark = iconoEstado(f._estado)
+  const Watermark = iconoArticulo(f.descripcion, f.grupo_articulos)
   const acento = ACENTO_RANGO[f._rango] || 'bg-brand-deep/20'
 
   return (
@@ -181,8 +168,8 @@ function InventarioCard({ f, onVer }) {
     >
       {/* Acento lateral por rango de rotación */}
       <span className={`absolute left-0 top-0 h-full w-1.5 ${acento}`} />
-      {/* Icono de marca de agua */}
-      <Watermark className="pointer-events-none absolute -right-3 -bottom-3 text-[5.5rem] text-brand-deep/[0.06] group-hover:text-brand-cyan/10 transition-colors" />
+      {/* Icono del artículo como marca de agua (se agranda al pasar el cursor) */}
+      <Watermark className="pointer-events-none absolute -right-3 -bottom-3 text-[5.5rem] text-brand-deep/[0.06] origin-bottom-right transition-all duration-300 ease-out group-hover:scale-125 group-hover:text-brand-cyan/15" />
 
       <div className="relative flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
@@ -248,7 +235,7 @@ function ChipActivo({ children, onQuitar }) {
   )
 }
 
-// Páginas visibles alrededor de la actual, con «…» cuando se salta.
+// Páginas visibles alrededor de la actual, con «⬦» cuando se salta.
 function paginasVisibles(pagina, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
   const cerca = [1, 2, pagina - 1, pagina, pagina + 1, total - 1, total]
@@ -258,7 +245,7 @@ function paginasVisibles(pagina, total) {
   const salida = []
   let anterior = 0
   for (const p of cerca) {
-    if (p - anterior > 1) salida.push('…')
+    if (p - anterior > 1) salida.push('⬦')
     salida.push(p)
     anterior = p
   }
@@ -318,9 +305,25 @@ export default function Inventario() {
         const v = String(f[campo] ?? '').trim()
         if (v) s.add(v)
       }
-      return [...s].sort((a, b) => a.localeCompare(b, 'es'))
+      return [...s]
+        .sort((a, b) => a.localeCompare(b, 'es'))
+        .map((v) => ({ valor: v, label: v }))
+    }
+    // Un solo registro por artículo (código + descripción), sin repetir lotes.
+    const porArticulo = new Map()
+    for (const f of filas) {
+      const codigo = String(f.numero_articulo ?? '').trim()
+      const desc = String(f.descripcion ?? '').trim()
+      const clave = codigo || desc
+      if (!clave || porArticulo.has(clave)) continue
+      porArticulo.set(clave, {
+        valor: codigo || desc,
+        label: desc || codigo,
+        sub: codigo ? `Art. ${codigo}` : '',
+      })
     }
     return {
+      articulo: [...porArticulo.values()].sort((a, b) => a.label.localeCompare(b.label, 'es')),
       comercial: unicos('comercial'),
       tipo: unicos('tipo_bodega'),
       zona: unicos('zona'),
@@ -350,12 +353,16 @@ export default function Inventario() {
 
   const filtradas = useMemo(() => {
     const q = filtros.q.trim().toLowerCase()
+    const art = filtros.articulo.trim().toLowerCase()
     const igual = (valor, filtro) => !filtro || String(valor ?? '').toLowerCase().includes(filtro.trim().toLowerCase())
     return enriquecidas.filter((f) => {
-      if (!igual(f.comercial, filtros.comercial)) return false
-      if (!igual(f.tipo_bodega, filtros.tipo)) return false
-      if (!igual(f.zona, filtros.zona)) return false
-      if (!igual(f.bodega, filtros.bodega)) return false
+      if (art) {
+        const heno = `${f.numero_articulo ?? ''} ${f.descripcion ?? ''}`.toLowerCase()
+        if (!heno.includes(art)) return false
+      }
+      for (const [clave, campo] of Object.entries(CAMPO_CATEGORIA)) {
+        if (!igual(f[campo], filtros[clave])) return false
+      }
       if (filtros.rangos.length && !filtros.rangos.includes(f._rango)) return false
       if (filtros.estados.length && !filtros.estados.includes(f._estado)) return false
       if (q) {
@@ -383,7 +390,7 @@ export default function Inventario() {
   // Filtros aplicados, mostrados como lista de chips removibles.
   const chips = []
   if (filtros.q.trim()) {
-    chips.push({ id: 'q', texto: `“${filtros.q.trim()}”`, onQuitar: () => setFiltros((p) => ({ ...p, q: '' })) })
+        chips.push({ id: 'q', texto: `“${filtros.q.trim()}”`, onQuitar: () => setFiltros((p) => ({ ...p, q: '' })) })
   }
   for (const cat of CATEGORIAS) {
     if (filtros[cat.clave]) {
@@ -450,7 +457,7 @@ export default function Inventario() {
           {cargando ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-brand-deep/60">
               <div className="size-10 animate-spin rounded-full border-4 border-brand-deep/20 border-t-brand-deep" />
-              <p className="text-sm font-semibold">Cargando inventario…</p>
+              <p className="text-sm font-semibold">Cargando inventario⬦</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16">
@@ -482,7 +489,7 @@ export default function Inventario() {
               <section aria-label="Resumen del inventario" className="space-y-3 sm:space-y-4 mb-5">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <TarjetaResumen
-                    icon={<MdInventory />}
+                    icon={MdInventory}
                     accent="bg-gradient-to-br from-brand-navy to-brand-deep"
                     label="Artículos"
                     valor={formatearEntero(resumen.total)}
@@ -490,7 +497,7 @@ export default function Inventario() {
                     onClick={() => setFiltros(FILTROS_INICIALES)}
                   />
                   <TarjetaResumen
-                    icon={<MdEventBusy />}
+                    icon={MdEventBusy}
                     accent="bg-gradient-to-br from-red-500 to-rose-400"
                     label="Vencidos"
                     valor={formatearEntero(resumen.vencidos)}
@@ -498,7 +505,7 @@ export default function Inventario() {
                     onClick={() => filtroRapido('estados', 'Vencido')}
                   />
                   <TarjetaResumen
-                    icon={<MdWarning />}
+                    icon={MdWarning}
                     accent="bg-gradient-to-br from-amber-500 to-yellow-400"
                     label="Próximo a vencer"
                     valor={formatearEntero(resumen.proximos)}
@@ -506,7 +513,7 @@ export default function Inventario() {
                     onClick={() => filtroRapido('estados', 'Próximo a vencer')}
                   />
                   <TarjetaResumen
-                    icon={<MdEventAvailable />}
+                    icon={MdEventAvailable}
                     accent="bg-gradient-to-br from-green-500 to-emerald-400"
                     label="Vigentes"
                     valor={formatearEntero(resumen.vigentes)}
@@ -517,7 +524,7 @@ export default function Inventario() {
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <TarjetaResumen
-                    icon={<MdCheckCircle />}
+                    icon={MdCheckCircle}
                     accent="bg-gradient-to-br from-green-500 to-emerald-400"
                     label="Ok Rotación"
                     valor={formatearEntero(resumen.ok)}
@@ -525,7 +532,7 @@ export default function Inventario() {
                     onClick={() => filtroRapido('rangos', 'Ok Rotación')}
                   />
                   <TarjetaResumen
-                    icon={<MdSwapHoriz />}
+                    icon={MdSwapHoriz}
                     accent="bg-gradient-to-br from-yellow-500 to-amber-400"
                     label="Rotar"
                     valor={formatearEntero(resumen.rotar)}
@@ -533,7 +540,7 @@ export default function Inventario() {
                     onClick={() => filtroRapido('rangos', 'Rotar')}
                   />
                   <TarjetaResumen
-                    icon={<MdSwapHoriz />}
+                    icon={MdSwapHoriz}
                     accent="bg-gradient-to-br from-orange-500 to-amber-500"
                     label="Rotar con prioridad"
                     valor={formatearEntero(resumen.prioridad)}
@@ -541,7 +548,7 @@ export default function Inventario() {
                     onClick={() => filtroRapido('rangos', 'Rotar con Prioridad')}
                   />
                   <TarjetaResumen
-                    icon={<MdWarning />}
+                    icon={MdWarning}
                     accent="bg-gradient-to-br from-red-600 to-rose-500"
                     label="Rotar urgente"
                     valor={formatearEntero(resumen.urgente)}
@@ -579,18 +586,18 @@ export default function Inventario() {
                     type="search"
                     value={filtros.q}
                     onChange={(e) => setFiltros((p) => ({ ...p, q: e.target.value }))}
-                    placeholder="Buscar por artículo, descripción, lote, bodega, zona o comercial…"
+                    placeholder="Buscar en todo el inventario…"
                     aria-label="Buscar en el inventario"
                     className="w-full rounded-xl border border-brand-ink/15 bg-white px-4 py-3 pl-11 text-brand-ink placeholder:text-brand-ink/40 outline-none transition focus:border-brand-cyan/70 focus:ring-2 focus:ring-brand-cyan/25"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                   {CATEGORIAS.map((cat) => (
                     <FiltroBuscable
                       key={cat.clave}
-                      clave={cat.clave}
                       etiqueta={cat.etiqueta}
+                      icono={cat.icono}
                       value={filtros[cat.clave]}
                       onChange={(v) => setFiltros((p) => ({ ...p, [cat.clave]: v }))}
                       opciones={opciones[cat.clave]}
@@ -649,8 +656,8 @@ export default function Inventario() {
                   </button>
                   <div className="flex items-center gap-1 sm:gap-1.5">
                     {paginasVisibles(paginaSegura, totalPaginas).map((p, i) =>
-                      p === '…' ? (
-                        <span key={`gap-${i}`} className="px-1 text-sm font-bold text-brand-ink/40">…</span>
+                      p === '⬦' ? (
+                        <span key={`gap-${i}`} className="px-1 text-sm font-bold text-brand-ink/40">⬦</span>
                       ) : (
                         <button
                           key={p}
