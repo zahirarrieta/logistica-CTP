@@ -170,7 +170,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
     ? (vencidaDev ? 'bg-slate-200' : getEstadoBg(s.estado))
     : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
   const mostrarCorregir = Boolean(onCorregirClick) && esDevolucion(s)
-  const mostrarEstado = Boolean(onCambiarEstadoClick) && !esEntregado(s) && !esCancelado(s) && !vencidaDev
+  const mostrarEstado = Boolean(onCambiarEstadoClick) && !esEntregado(s) && !esCancelado(s)
   const hasCardAcciones = Boolean(onAsignarClick || mostrarEstado || onEstadoClick || onSeguimientoClick || onEliminarClick || mostrarCorregir)
   const docsEntrega = mostrarDocEntrega ? documentoEntregable(s) : null
 
@@ -439,7 +439,10 @@ export default function SolicitudesTable({
   const filaConAccion = (s) =>
     Boolean(
       (onAsignarClick && !esEntregado(s) && !esCancelado(s)) ||
-        (onCambiarEstadoClick && !esEntregado(s) && !esCancelado(s) && !devolucionVencida(s, ahora)) ||
+        // La devolución vencida también ofrece «Cambiar estado»: el modal solo
+      // deja elegir «Cancelado» para cerrar el pedido que el solicitante no
+      // corrigió (ver Administrador).
+      (onCambiarEstadoClick && !esEntregado(s) && !esCancelado(s)) ||
         (onEntregaDetallesClick && esEntregado(s)) ||
         onEstadoClick ||
         (onEliminarClick && (!puedeEliminar || puedeEliminar(s)))
@@ -677,7 +680,7 @@ export default function SolicitudesTable({
                             <MdPersonAdd className="text-xl" />
                           </button>
                         )}
-                        {onCambiarEstadoClick && !esEntregado(s) && !esCancelado(s) && !devolucionVencida(s, ahora) && (
+                        {onCambiarEstadoClick && !esEntregado(s) && !esCancelado(s) && (
                           <button
                             type="button"
                             onClick={(e) => {

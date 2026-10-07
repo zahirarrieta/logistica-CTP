@@ -51,6 +51,10 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const urlsRef = useRef(new Map())
   const inputRef = useRef(null)
 
+  // Única opción «Cancelado»: caso de una devolución a solicitante con el plazo
+  // de corrección vencido (Administrador pasa permitidos={['Cancelado']}).
+  const soloCancelar = Array.isArray(permitidos) && permitidos.length === 1 && permitidos[0] === ESTADO_CANCELADO
+
   useEffect(() => {
     if (!open) {
       abiertoRef.current = false
@@ -63,7 +67,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     }
     if (abiertoRef.current || !solicitud) return
     abiertoRef.current = true
-    setEstado(solicitud.estado || 'Abierto')
+    // Si la única opción es «Cancelado» (devolución vencida) se preselecciona
+    // para que el motivo quede a la vista de una vez.
+    setEstado(soloCancelar ? ESTADO_CANCELADO : (solicitud.estado || 'Abierto'))
     setNota('')
     setCamposCorregir([])
     setNumeroRef(solicitud.numeroReferencia || '')
@@ -75,7 +81,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setPreviewAbierto(null)
     setBorrando('')
     setConfirmarBorrar('')
-  }, [open, solicitud])
+  }, [open, solicitud, soloCancelar])
 
   // Libera las URLs de vista previa al desmontar el modal.
   useEffect(() => () => {
@@ -310,6 +316,14 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
             </div>
           ) : (
             <>
+          {soloCancelar && (
+            <div className="mb-3 rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-3 py-2.5 text-xs font-bold text-fuchsia-700 inline-flex items-start gap-1.5">
+              <MdInfoOutline className="text-base shrink-0" />
+              <span>
+                La devolución venció sin que el solicitante corrigiera. Solo puedes cancelar la solicitud.
+              </span>
+            </div>
+          )}
           <label className="block text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-3 inline-flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-brand-ink/10 text-brand-ink/70">
               <span className="size-2 rounded-full bg-brand-ink/40" />

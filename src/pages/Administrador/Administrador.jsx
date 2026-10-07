@@ -18,7 +18,7 @@ import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
 import DashboardTab from './Components/DashboardTab.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
 import ClientesModal from './Components/modals/ClientesModal.jsx'
-import { loadSolicitudes, updateSolicitud, removeSolicitud, suscribir, peekNextId, refrescarProximoCodigo } from '../../store/solicitudesStore.js'
+import { loadSolicitudes, updateSolicitud, removeSolicitud, suscribir, peekNextId, refrescarProximoCodigo, restanteDevolucion } from '../../store/solicitudesStore.js'
 import { estadoActualizado, solicitudAsignada, conductorAsignado } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { esSuperAdmin, esAsignadoA } from '../../auth/roles.js'
@@ -160,6 +160,13 @@ export default function Administrador() {
   }
 
   const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
+
+  // Una devolución cuyo plazo de corrección venció ya no se puede tramitar: el
+  // único estado que admite es «Cancelado» (con su motivo obligatorio).
+  const permitidosEstado = (s) =>
+    s && s.estado === 'Devolución a Solicitante' && restanteDevolucion(s) === 0
+      ? ['Cancelado']
+      : ESTADOS_ADMIN
 
   const handleEliminar = (solicitud) => {
     setEliminarSolicitud(solicitud)
@@ -377,7 +384,7 @@ export default function Administrador() {
         onClose={() => setEditSolicitud(null)}
         onUpdate={handleUpdateEstado}
         onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
-        permitidos={ESTADOS_ADMIN}
+        permitidos={permitidosEstado(editSolicitud)}
       />
 
       <AsignarUsuarioModal
