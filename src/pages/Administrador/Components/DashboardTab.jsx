@@ -51,6 +51,9 @@ import {
   formatHoras,
   HEX_ESTADO,
   parseStamp,
+  ESTADOS_FINALES,
+  ESTADOS_CERRADOS,
+  ESTADOS_TRANSITO,
 } from '../../../utils/dashboardUtils.js'
 import { getBadgeColor } from '../../../utils/estadoColors.js'
 import { nombreDeAsignado } from '../../../store/solicitudesStore.js'
@@ -461,6 +464,19 @@ export default function DashboardTab({
 
   const abrirDetalle = (id) => setDetalle(solicitudes.find((s) => s.id === id) || null)
 
+  // Fila genérica para el modal de listas (mismo formato que usa
+  // PedidosListaModal). Permite que cualquier tarjeta del dashboard sea
+  // clicable y abra el conjunto de pedidos que representa su número.
+  const fila = (s) => ({
+    id: s.id,
+    cliente: s.cliente || '—',
+    zona: s.zona || '—',
+    estado: s.estado || 'Abierto',
+    fechaHora: `${s.fechaSubida || ''} ${s.horaSubida || ''}`.trim(),
+  })
+
+  const abrirLista = (titulo, lista) => setPedidosModal({ titulo, items: lista.map(fila) })
+
   const descargarPdf = async () => {
     try {
       await exportarPdf(informeRef.current, 'Informe_dashboard')
@@ -563,10 +579,54 @@ export default function DashboardTab({
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7 gap-3 sm:gap-4">
-        <Kpi icon={<MdInbox />} accent="bg-gradient-to-br from-brand-navy to-brand-deep" label="Total de pedidos" value={r.total} />
-        <Kpi icon={<MdPendingActions />} accent="bg-gradient-to-br from-brand-deep to-brand-cyan" label="Activos" value={r.activos} sub={`${r.enTransito} en tránsito`} />
-        <Kpi icon={<MdCheckCircle />} accent="bg-gradient-to-br from-green-500 to-emerald-400" label="Entregados" value={r.entregados} sub={`${r.entregadosParcial} parciales`} />
-        <Kpi icon={<MdTrendingUp />} accent="bg-gradient-to-br from-brand-cyan to-cyan-400" label="Cumplimiento" value={`${cumplimiento}%`} sub={`${r.entregados + r.cancelados} de ${r.total}`} />
+        <Kpi
+          icon={<MdInbox />}
+          accent="bg-gradient-to-br from-brand-navy to-brand-deep"
+          label="Total de pedidos"
+          value={r.total}
+          onClick={() => abrirLista('Todos los pedidos', solicitudes)}
+        />
+        <Kpi
+          icon={<MdPendingActions />}
+          accent="bg-gradient-to-br from-brand-deep to-brand-cyan"
+          label="Activos"
+          value={r.activos}
+          sub={`${r.enTransito} en tránsito`}
+          onClick={() =>
+            abrirLista(
+              'Pedidos activos',
+              solicitudes.filter((s) => !ESTADOS_CERRADOS.includes(s.estado || ''))
+            )
+          }
+        />
+        <Kpi
+          icon={<MdCheckCircle />}
+          accent="bg-gradient-to-br from-green-500 to-emerald-400"
+          label="Entregados"
+          value={r.entregados}
+          sub={`${r.entregadosParcial} parciales`}
+          onClick={() =>
+            abrirLista(
+              'Pedidos entregados',
+              solicitudes.filter((s) => ESTADOS_FINALES.includes(s.estado || ''))
+            )
+          }
+        />
+        <Kpi
+          icon={<MdTrendingUp />}
+          accent="bg-gradient-to-br from-brand-cyan to-cyan-400"
+          label="Cumplimiento"
+          value={`${cumplimiento}%`}
+          sub={`${r.entregados + r.cancelados} de ${r.total}`}
+          onClick={() =>
+            abrirLista(
+              'Pedidos resueltos (entregados + cancelados)',
+              solicitudes.filter(
+                (s) => ESTADOS_FINALES.includes(s.estado || '') || (s.estado || '') === 'Cancelado'
+              )
+            )
+          }
+        />
         <Kpi
           icon={<MdBlock />}
           accent="bg-gradient-to-br from-slate-500 to-slate-400"
@@ -574,22 +634,38 @@ export default function DashboardTab({
           value={r.cancelados}
           sub="pedidos cancelados"
           onClick={() =>
-            setPedidosModal({
-              titulo: 'Pedidos cancelados',
-              items: solicitudes
-                .filter((s) => (s.estado || '') === 'Cancelado')
-                .map((s) => ({
-                  id: s.id,
-                  cliente: s.cliente || '—',
-                  zona: s.zona || '—',
-                  estado: s.estado || 'Cancelado',
-                  fechaHora: `${s.fechaSubida || ''} ${s.horaSubida || ''}`.trim(),
-                })),
-            })
+            abrirLista(
+              'Pedidos cancelados',
+              solicitudes.filter((s) => (s.estado || '') === 'Cancelado')
+            )
           }
         />
-        <Kpi icon={<MdSchedule />} accent="bg-gradient-to-br from-amber-500 to-yellow-400" label="Tiempo promedio" value={formatHoras(r.tiempos.promedio)} sub={r.tiempos.cantidad ? `${r.tiempos.cantidad} entregas` : 'sin entregas'} />
-        <Kpi icon={<MdLocalShipping />} accent="bg-gradient-to-br from-purple-500 to-fuchsia-400" label="En tránsito" value={r.enTransito} sub={solicitudes.filter((s) => (s.estado || '') === 'En Tránsito Parcial').length + ' parciales'} />
+        <Kpi
+          icon={<MdSchedule />}
+          accent="bg-gradient-to-br from-amber-500 to-yellow-400"
+          label="Tiempo promedio"
+          value={formatHoras(r.tiempos.promedio)}
+          sub={r.tiempos.cantidad ? `${r.tiempos.cantidad} entregas` : 'sin entregas'}
+          onClick={() =>
+            abrirLista(
+              'Pedidos entregados (base del tiempo promedio)',
+              solicitudes.filter((s) => ESTADOS_FINALES.includes(s.estado || ''))
+            )
+          }
+        />
+        <Kpi
+          icon={<MdLocalShipping />}
+          accent="bg-gradient-to-br from-purple-500 to-fuchsia-400"
+          label="En tránsito"
+          value={r.enTransito}
+          sub={solicitudes.filter((s) => (s.estado || '') === 'En Tránsito Parcial').length + ' parciales'}
+          onClick={() =>
+            abrirLista(
+              'Pedidos en tránsito',
+              solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || ''))
+            )
+          }
+        />
       </div>
 
       {/* Estado + quién los tiene */}

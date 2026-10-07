@@ -23,9 +23,12 @@ import {
   seriesPorDia,
   histogramaTiempos,
   formatHoras,
+  ESTADOS_FINALES,
+  ESTADOS_TRANSITO,
 } from '../../../utils/dashboardUtils.js'
 import { getBadgeColor } from '../../../utils/estadoColors.js'
 import PedidoDetalleModal from '../../Administrador/Components/modals/PedidoDetalleModal.jsx'
+import PedidosListaModal from '../../Administrador/Components/modals/PedidosListaModal.jsx'
 import {
   Kpi,
   Seccion,
@@ -38,6 +41,7 @@ import {
 
 export default function ConductorDashboard({ solicitudes }) {
   const [detalle, setDetalle] = useState(null)
+  const [pedidosModal, setPedidosModal] = useState(null)
   const r = useMemo(() => resumen(solicitudes), [solicitudes])
   const zonas = useMemo(() => porZona(solicitudes), [solicitudes])
   const tipos = useMemo(() => porTipo(solicitudes), [solicitudes])
@@ -45,6 +49,16 @@ export default function ConductorDashboard({ solicitudes }) {
   const tiempos = useMemo(() => histogramaTiempos(solicitudes), [solicitudes])
 
   const abrirDetalle = (id) => setDetalle(solicitudes.find((s) => s.id === id) || null)
+
+  // Tarjetas clicables: cada número abre la lista de pedidos que lo compone.
+  const fila = (s) => ({
+    id: s.id,
+    cliente: s.cliente || '—',
+    zona: s.zona || '—',
+    estado: s.estado || 'Abierto',
+    fechaHora: `${s.fechaSubida || ''} ${s.horaSubida || ''}`.trim(),
+  })
+  const abrirLista = (titulo, lista) => setPedidosModal({ titulo, items: lista.map(fila) })
 
   if (solicitudes.length === 0) {
     return (
@@ -80,12 +94,80 @@ export default function ConductorDashboard({ solicitudes }) {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4">
-          <Kpi icon={<MdInbox />} accent="bg-gradient-to-br from-brand-navy to-brand-deep" label="Total asignados" value={r.total} />
-          <Kpi icon={<MdLocalShipping />} accent="bg-gradient-to-br from-purple-500 to-fuchsia-400" label="En tránsito" value={r.enTransito} sub={`${enTransitoParcial} parcial(es)`} />
-          <Kpi icon={<MdCheckCircle />} accent="bg-gradient-to-br from-green-500 to-emerald-400" label="Entregados" value={r.entregados} sub={`${r.entregadosParcial} parciales`} />
-          <Kpi icon={<MdBlock />} accent="bg-gradient-to-br from-slate-500 to-slate-400" label="Cancelados" value={r.cancelados} sub="pedidos cancelados" />
-          <Kpi icon={<MdTrendingUp />} accent="bg-gradient-to-br from-brand-cyan to-cyan-400" label="Cumplimiento" value={`${cumplimiento}%`} sub={`${r.entregados + r.cancelados} de ${r.total}`} />
-          <Kpi icon={<MdSchedule />} accent="bg-gradient-to-br from-amber-500 to-yellow-400" label="Tiempo promedio" value={formatHoras(r.tiempos.promedio)} sub={r.tiempos.cantidad ? `${r.tiempos.cantidad} entregas` : 'sin entregas'} />
+          <Kpi
+            icon={<MdInbox />}
+            accent="bg-gradient-to-br from-brand-navy to-brand-deep"
+            label="Total asignados"
+            value={r.total}
+            onClick={() => abrirLista('Todos mis pedidos', solicitudes)}
+          />
+          <Kpi
+            icon={<MdLocalShipping />}
+            accent="bg-gradient-to-br from-purple-500 to-fuchsia-400"
+            label="En tránsito"
+            value={r.enTransito}
+            sub={`${enTransitoParcial} parcial(es)`}
+            onClick={() =>
+              abrirLista(
+                'Mis pedidos en tránsito',
+                solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || ''))
+              )
+            }
+          />
+          <Kpi
+            icon={<MdCheckCircle />}
+            accent="bg-gradient-to-br from-green-500 to-emerald-400"
+            label="Entregados"
+            value={r.entregados}
+            sub={`${r.entregadosParcial} parciales`}
+            onClick={() =>
+              abrirLista(
+                'Mis pedidos entregados',
+                solicitudes.filter((s) => ESTADOS_FINALES.includes(s.estado || ''))
+              )
+            }
+          />
+          <Kpi
+            icon={<MdBlock />}
+            accent="bg-gradient-to-br from-slate-500 to-slate-400"
+            label="Cancelados"
+            value={r.cancelados}
+            sub="pedidos cancelados"
+            onClick={() =>
+              abrirLista(
+                'Mis pedidos cancelados',
+                solicitudes.filter((s) => (s.estado || '') === 'Cancelado')
+              )
+            }
+          />
+          <Kpi
+            icon={<MdTrendingUp />}
+            accent="bg-gradient-to-br from-brand-cyan to-cyan-400"
+            label="Cumplimiento"
+            value={`${cumplimiento}%`}
+            sub={`${r.entregados + r.cancelados} de ${r.total}`}
+            onClick={() =>
+              abrirLista(
+                'Mis pedidos resueltos (entregados + cancelados)',
+                solicitudes.filter(
+                  (s) => ESTADOS_FINALES.includes(s.estado || '') || (s.estado || '') === 'Cancelado'
+                )
+              )
+            }
+          />
+          <Kpi
+            icon={<MdSchedule />}
+            accent="bg-gradient-to-br from-amber-500 to-yellow-400"
+            label="Tiempo promedio"
+            value={formatHoras(r.tiempos.promedio)}
+            sub={r.tiempos.cantidad ? `${r.tiempos.cantidad} entregas` : 'sin entregas'}
+            onClick={() =>
+              abrirLista(
+                'Mis pedidos entregados (base del tiempo promedio)',
+                solicitudes.filter((s) => ESTADOS_FINALES.includes(s.estado || ''))
+              )
+            }
+          />
         </div>
 
         {/* Estado + actividad */}
@@ -201,6 +283,17 @@ export default function ConductorDashboard({ solicitudes }) {
         solicitud={detalle}
         open={detalle !== null}
         onClose={() => setDetalle(null)}
+      />
+
+      <PedidosListaModal
+        titulo={pedidosModal?.titulo}
+        items={pedidosModal?.items || []}
+        open={pedidosModal !== null}
+        onClose={() => setPedidosModal(null)}
+        onVerPedido={(id) => {
+          setPedidosModal(null)
+          abrirDetalle(id)
+        }}
       />
     </>
   )
