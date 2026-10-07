@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   MdAccessTime,
+  MdCalendarToday,
   MdCheckCircle,
   MdCloudUpload,
   MdErrorOutline,
@@ -8,8 +9,11 @@ import {
   MdEventBusy,
   MdFilterAlt,
   MdInventory,
+  MdInventory2,
   MdNavigateBefore,
   MdNavigateNext,
+  MdNumbers,
+  MdPlace,
   MdRestartAlt,
   MdSchedule,
   MdSearch,
@@ -31,11 +35,9 @@ import {
   diasVigencia,
   dotRango,
   estadoVencimiento,
-  ESTADOS_VENCIMIENTO,
   formatearEntero,
   formatearFecha,
   formatearFechaHora,
-  RANGOS_INVENTARIO,
   rangoInventario,
 } from '../../utils/inventarioUtils.js'
 
@@ -51,7 +53,30 @@ const FILTROS_INICIALES = {
   estados: [],
 }
 
-// Clases del badge de estado (pastel + punto), iguales al resto de la app.
+// Categorías filtrables por texto (con lista de sugerencias). El estado y el
+// rango NO van aquí: para esos ya están las tarjetas del resumen.
+const CATEGORIAS = [
+  { clave: 'comercial', etiqueta: 'Comercial', campo: 'comercial', placeholder: 'Comercial' },
+  { clave: 'tipo', etiqueta: 'Tipo de bodega', campo: 'tipo_bodega', placeholder: 'Tipo de bodega' },
+  { clave: 'zona', etiqueta: 'Zona', campo: 'zona', placeholder: 'Zona' },
+  { clave: 'bodega', etiqueta: 'Bodega', campo: 'bodega', placeholder: 'Bodega' },
+]
+
+// Color del acento lateral y del icono según el rango de rotación.
+const ACENTO_RANGO = {
+  'Ok Rotación': 'bg-green-500',
+  Rotar: 'bg-yellow-500',
+  'Rotar con Prioridad': 'bg-orange-500',
+  'Rotar urgente': 'bg-red-500',
+}
+
+function iconoEstado(estado) {
+  if (estado === 'Vencido') return MdEventBusy
+  if (estado === 'Próximo a vencer') return MdWarning
+  if (estado === 'Vigente') return MdEventAvailable
+  return MdInventory2
+}
+
 function EstadoBadge({ estado }) {
   if (!estado) {
     return (
@@ -102,90 +127,124 @@ function TarjetaResumen({ icon, label, valor, accent, activa, onClick }) {
   )
 }
 
-function ChipFiltro({ activa, onClick, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={activa}
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
-        activa
-          ? 'bg-brand-navy text-white shadow-sm'
-          : 'bg-brand-ink/5 text-brand-ink/70 ring-1 ring-brand-ink/10 hover:bg-brand-cyan/15 hover:text-brand-deep'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function FiltroSelect({ label, value, onChange, opciones }) {
+// Campo de filtro que se puede escribir: al escribir aparece la lista de
+// valores disponibles (datalist) y el texto filtra por coincidencia parcial.
+function FiltroBuscable({ clave, etiqueta, value, onChange, opciones, placeholder }) {
+  const id = `inv-filtro-${clave}`.replace(/[^a-z0-9-]/gi, '-')
   return (
     <label className="flex flex-col gap-1 min-w-0">
-      <span className="text-[11px] font-extrabold uppercase tracking-wide text-brand-ink/45">{label}</span>
-      <select
+      <span className="text-[11px] font-extrabold uppercase tracking-wide text-brand-ink/45">{etiqueta}</span>
+      <input
+        type="text"
+        list={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-brand-ink/15 bg-white px-3 py-2.5 text-sm text-brand-ink outline-none transition focus:border-brand-cyan/70 focus:ring-2 focus:ring-brand-cyan/25"
-      >
-        <option value="">Todos</option>
+        placeholder={placeholder}
+        autoComplete="off"
+        className="w-full rounded-xl border border-brand-ink/15 bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 outline-none transition focus:border-brand-cyan/70 focus:ring-2 focus:ring-brand-cyan/25"
+      />
+      <datalist id={id}>
         {opciones.map((o) => (
-          <option key={o} value={o}>{o}</option>
+          <option key={o} value={o} />
         ))}
-      </select>
+      </datalist>
     </label>
   )
 }
 
+function Dato({ icon, label, valor, alerta }) {
+  return (
+    <div className="flex items-center gap-1.5 min-w-0 rounded-lg bg-brand-ink/[0.04] px-2 py-1">
+      <span className="text-brand-cyan text-sm shrink-0">{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-[9px] font-bold uppercase tracking-wide text-brand-ink/40 leading-none">{label}</span>
+        <span className={`block text-[11px] font-bold truncate ${alerta ? 'text-red-600' : 'text-brand-ink'}`}>{valor}</span>
+      </span>
+    </div>
+  )
+}
+
 // Card de un artículo (reemplaza la fila de tabla). Compacta para que entren
-// dos por fila en el celular.
+// dos por fila en el celular y con un icono de marca de agua según el estado.
 function InventarioCard({ f, onVer }) {
   const cantidad = String(f.cantidad ?? '').trim()
   const vigencia = f._vigencia
+  const Watermark = iconoEstado(f._estado)
+  const acento = ACENTO_RANGO[f._rango] || 'bg-brand-deep/20'
+
   return (
     <button
       type="button"
       onClick={() => onVer(f)}
       title={`Ver detalle de ${f.numero_articulo || f.descripcion || 'este artículo'}`}
-      className="group w-full text-left rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm hover:shadow-md hover:ring-brand-cyan/50 hover:-translate-y-0.5 transition-all p-3 flex flex-col gap-2"
+      className="group relative overflow-hidden w-full text-left rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm hover:shadow-md hover:ring-brand-cyan/50 hover:-translate-y-0.5 transition-all pl-4 pr-3 py-3"
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="inline-flex items-center justify-center rounded-lg bg-brand-navy text-white text-[11px] font-extrabold px-2 py-1 max-w-[55%] truncate">
-          {f.numero_articulo || '—'}
-        </span>
-        <EstadoBadge estado={f._estado} />
-      </div>
+      {/* Acento lateral por rango de rotación */}
+      <span className={`absolute left-0 top-0 h-full w-1.5 ${acento}`} />
+      {/* Icono de marca de agua */}
+      <Watermark className="pointer-events-none absolute -right-3 -bottom-3 text-[5.5rem] text-brand-deep/[0.06] group-hover:text-brand-cyan/10 transition-colors" />
 
-      <p className="text-xs font-semibold leading-snug text-brand-ink/80 line-clamp-2 min-h-[2rem]">
-        {f.descripcion || 'Sin descripción'}
-      </p>
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        <RangoBadge rango={f._rango} />
-        {vigencia !== null && (
-          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${vigencia < 0 ? 'bg-red-100 text-red-700' : 'bg-brand-ink/5 text-brand-ink/60'}`}>
-            <MdAccessTime className="text-xs" />
-            {formatearEntero(vigencia)} d
+      <div className="relative flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <span className="inline-flex items-center justify-center rounded-lg bg-brand-navy text-white text-[11px] font-extrabold px-2 py-1 max-w-[55%] truncate">
+            {f.numero_articulo || '—'}
           </span>
+          <EstadoBadge estado={f._estado} />
+        </div>
+
+        <p className="text-xs font-semibold leading-snug text-brand-ink/80 line-clamp-2 min-h-[2rem]">
+          {f.descripcion || 'Sin descripción'}
+        </p>
+
+        {f._rango && <div className="flex"><RangoBadge rango={f._rango} /></div>}
+
+        <div className="grid grid-cols-2 gap-1.5">
+          <Dato icon={<MdNumbers />} label="Cantidad" valor={cantidad || '—'} />
+          <Dato icon={<MdCalendarToday />} label="Vence" valor={formatearFecha(f.fecha_vencimiento)} />
+          <Dato
+            icon={<MdAccessTime />}
+            label="Vigencia"
+            valor={vigencia === null ? '—' : `${formatearEntero(vigencia)} d`}
+            alerta={vigencia !== null && vigencia < 0}
+          />
+          <Dato icon={<MdWarehouse />} label="Bodega" valor={f.bodega || '—'} />
+        </div>
+
+        {(f.zona || f.comercial) && (
+          <div className="flex items-center gap-3 text-[11px] text-brand-ink/50 min-w-0">
+            {f.zona && (
+              <span className="inline-flex items-center gap-1 min-w-0">
+                <MdPlace className="text-sm text-brand-cyan shrink-0" />
+                <span className="truncate">{f.zona}</span>
+              </span>
+            )}
+            {f.comercial && (
+              <span className="inline-flex items-center gap-1 min-w-0">
+                <MdInventory2 className="text-sm text-brand-cyan shrink-0" />
+                <span className="truncate">{f.comercial}</span>
+              </span>
+            )}
+          </div>
         )}
       </div>
-
-      <dl className="mt-0.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-        <div className="min-w-0">
-          <dt className="text-brand-ink/40 font-bold uppercase tracking-wide">Cantidad</dt>
-          <dd className="font-bold text-brand-ink tabular-nums truncate">{cantidad || '—'}</dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="text-brand-ink/40 font-bold uppercase tracking-wide">Vence</dt>
-          <dd className="font-bold text-brand-ink tabular-nums truncate">{formatearFecha(f.fecha_vencimiento)}</dd>
-        </div>
-      </dl>
-
-      <div className="mt-auto flex items-center gap-1.5 text-[11px] text-brand-ink/50 min-w-0">
-        <MdWarehouse className="text-sm text-brand-cyan shrink-0" />
-        <span className="truncate">{f.bodega || '—'}{f.zona ? ` · ${f.zona}` : ''}</span>
-      </div>
     </button>
+  )
+}
+
+// Chip de un filtro activo, con botón para quitarlo.
+function ChipActivo({ children, onQuitar }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white pl-3 pr-1.5 py-1 text-[11px] font-bold">
+      {children}
+      <button
+        type="button"
+        onClick={onQuitar}
+        aria-label="Quitar filtro"
+        className="grid place-items-center size-4 rounded-full bg-white/20 hover:bg-white/35 transition"
+      >
+        <span className="text-xs leading-none">×</span>
+      </button>
+    </span>
   )
 }
 
@@ -241,7 +300,6 @@ export default function Inventario() {
     return () => { vivo = false }
   }, [cargar])
 
-  // Filas con los valores calculados (Estado, Vigencia y Rango) ya resueltos.
   const enriquecidas = useMemo(
     () =>
       filas.map((f) => ({
@@ -253,50 +311,58 @@ export default function Inventario() {
     [filas]
   )
 
-  // Opciones de los selects, tomadas de los datos reales.
   const opciones = useMemo(() => {
-    const unicos = (arr) =>
-      [...new Set(arr.map((v) => String(v ?? '').trim()).filter(Boolean))].sort((a, b) =>
-        a.localeCompare(b, 'es')
-      )
+    const unicos = (campo) => {
+      const s = new Set()
+      for (const f of filas) {
+        const v = String(f[campo] ?? '').trim()
+        if (v) s.add(v)
+      }
+      return [...s].sort((a, b) => a.localeCompare(b, 'es'))
+    }
     return {
-      comerciales: unicos(filas.map((f) => f.comercial)),
-      zonas: unicos(filas.map((f) => f.zona)),
-      tipos: unicos(filas.map((f) => f.tipo_bodega)),
-      bodegas: unicos(filas.map((f) => f.bodega)),
+      comercial: unicos('comercial'),
+      tipo: unicos('tipo_bodega'),
+      zona: unicos('zona'),
+      bodega: unicos('bodega'),
     }
   }, [filas])
 
-  // Resumen global (no depende de los filtros).
   const resumen = useMemo(() => {
-    const contar = (fn) => enriquecidas.filter(fn).length
-    return {
-      total: enriquecidas.length,
-      vencidos: contar((f) => f._estado === 'Vencido'),
-      proximos: contar((f) => f._estado === 'Próximo a vencer'),
-      vigentes: contar((f) => f._estado === 'Vigente'),
-      ok: contar((f) => f._rango === 'Ok Rotación'),
-      rotar: contar((f) => f._rango === 'Rotar'),
-      prioridad: contar((f) => f._rango === 'Rotar con Prioridad'),
-      urgente: contar((f) => f._rango === 'Rotar urgente'),
+    let vencidos = 0
+    let proximos = 0
+    let vigentes = 0
+    let ok = 0
+    let rotar = 0
+    let prioridad = 0
+    let urgente = 0
+    for (const f of enriquecidas) {
+      if (f._estado === 'Vencido') vencidos += 1
+      else if (f._estado === 'Próximo a vencer') proximos += 1
+      else if (f._estado === 'Vigente') vigentes += 1
+      if (f._rango === 'Ok Rotación') ok += 1
+      else if (f._rango === 'Rotar') rotar += 1
+      else if (f._rango === 'Rotar con Prioridad') prioridad += 1
+      else if (f._rango === 'Rotar urgente') urgente += 1
     }
+    return { total: enriquecidas.length, vencidos, proximos, vigentes, ok, rotar, prioridad, urgente }
   }, [enriquecidas])
 
   const filtradas = useMemo(() => {
     const q = filtros.q.trim().toLowerCase()
+    const igual = (valor, filtro) => !filtro || String(valor ?? '').toLowerCase().includes(filtro.trim().toLowerCase())
     return enriquecidas.filter((f) => {
-      if (filtros.comercial && (f.comercial || '') !== filtros.comercial) return false
-      if (filtros.tipo && (f.tipo_bodega || '') !== filtros.tipo) return false
-      if (filtros.zona && (f.zona || '') !== filtros.zona) return false
-      if (filtros.bodega && (f.bodega || '') !== filtros.bodega) return false
+      if (!igual(f.comercial, filtros.comercial)) return false
+      if (!igual(f.tipo_bodega, filtros.tipo)) return false
+      if (!igual(f.zona, filtros.zona)) return false
+      if (!igual(f.bodega, filtros.bodega)) return false
       if (filtros.rangos.length && !filtros.rangos.includes(f._rango)) return false
       if (filtros.estados.length && !filtros.estados.includes(f._estado)) return false
       if (q) {
-        const texto = [
-          f.numero_articulo, f.descripcion, f.lote, f.bodega,
-          f.nombre_bodega, f.zona, f.grupo_articulos, f.comercial,
-        ].join(' ').toLowerCase()
-        if (!texto.includes(q)) return false
+        const heno = [f.numero_articulo, f.descripcion, f.lote, f.bodega, f.nombre_bodega, f.zona, f.grupo_articulos, f.comercial]
+          .join(' ')
+          .toLowerCase()
+        if (!heno.includes(q)) return false
       }
       return true
     })
@@ -308,17 +374,34 @@ export default function Inventario() {
   const paginaSegura = Math.min(pagina, totalPaginas)
   const inicio = (paginaSegura - 1) * POR_PAGINA
 
-  // Tarjeta del tablero → fija ese filtro (y lo quita si ya estaba solo ese).
   const filtroRapido = (clave, valor) =>
     setFiltros((prev) => {
       const activa = prev[clave].length === 1 && prev[clave][0] === valor
       return { ...prev, [clave]: activa ? [] : [valor] }
     })
 
-  const hayFiltrosActivos =
-    Boolean(filtros.q || filtros.comercial || filtros.tipo || filtros.zona || filtros.bodega) ||
-    filtros.rangos.length > 0 ||
-    filtros.estados.length > 0
+  // Filtros aplicados, mostrados como lista de chips removibles.
+  const chips = []
+  if (filtros.q.trim()) {
+    chips.push({ id: 'q', texto: `“${filtros.q.trim()}”`, onQuitar: () => setFiltros((p) => ({ ...p, q: '' })) })
+  }
+  for (const cat of CATEGORIAS) {
+    if (filtros[cat.clave]) {
+      chips.push({
+        id: `${cat.clave}-${filtros[cat.clave]}`,
+        texto: `${cat.etiqueta}: ${filtros[cat.clave]}`,
+        onQuitar: () => setFiltros((p) => ({ ...p, [cat.clave]: '' })),
+      })
+    }
+  }
+  for (const e of filtros.estados) {
+    chips.push({ id: `estado-${e}`, texto: e, onQuitar: () => setFiltros((p) => ({ ...p, estados: p.estados.filter((v) => v !== e) })) })
+  }
+  for (const r of filtros.rangos) {
+    chips.push({ id: `rango-${r}`, texto: r, onQuitar: () => setFiltros((p) => ({ ...p, rangos: p.rangos.filter((v) => v !== r) })) })
+  }
+
+  const hayFiltrosActivos = chips.length > 0
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white text-brand-ink">
@@ -395,7 +478,7 @@ export default function Inventario() {
             </div>
           ) : (
             <>
-              {/* Tablero: resumen por estado y por rango */}
+              {/* Tablero: tarjetas clicables que resumen y filtran */}
               <section aria-label="Resumen del inventario" className="space-y-3 sm:space-y-4 mb-5">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <TarjetaResumen
@@ -468,7 +551,7 @@ export default function Inventario() {
                 </div>
               </section>
 
-              {/* Card de filtros */}
+              {/* Filtros: búsqueda + campos escribibles con lista + activos */}
               <section
                 aria-label="Filtros"
                 className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-4 sm:p-5 mb-5 space-y-4"
@@ -503,79 +586,32 @@ export default function Inventario() {
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  <FiltroSelect
-                    label="Comercial"
-                    value={filtros.comercial}
-                    onChange={(v) => setFiltros((p) => ({ ...p, comercial: v }))}
-                    opciones={opciones.comerciales}
-                  />
-                  <FiltroSelect
-                    label="Tipo de bodega"
-                    value={filtros.tipo}
-                    onChange={(v) => setFiltros((p) => ({ ...p, tipo: v }))}
-                    opciones={opciones.tipos}
-                  />
-                  <FiltroSelect
-                    label="Zona"
-                    value={filtros.zona}
-                    onChange={(v) => setFiltros((p) => ({ ...p, zona: v }))}
-                    opciones={opciones.zonas}
-                  />
-                  <FiltroSelect
-                    label="Bodega"
-                    value={filtros.bodega}
-                    onChange={(v) => setFiltros((p) => ({ ...p, bodega: v }))}
-                    opciones={opciones.bodegas}
-                  />
+                  {CATEGORIAS.map((cat) => (
+                    <FiltroBuscable
+                      key={cat.clave}
+                      clave={cat.clave}
+                      etiqueta={cat.etiqueta}
+                      value={filtros[cat.clave]}
+                      onChange={(v) => setFiltros((p) => ({ ...p, [cat.clave]: v }))}
+                      opciones={opciones[cat.clave]}
+                      placeholder={cat.placeholder}
+                    />
+                  ))}
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-brand-ink/45">Estado</p>
-                  <div className="flex flex-wrap gap-2">
-                    {ESTADOS_VENCIMIENTO.map((e) => (
-                      <ChipFiltro
-                        key={e}
-                        activa={filtros.estados.includes(e)}
-                        onClick={() =>
-                          setFiltros((p) => ({
-                            ...p,
-                            estados: p.estados.includes(e)
-                              ? p.estados.filter((v) => v !== e)
-                              : [...p.estados, e],
-                          }))
-                        }
-                      >
-                        <span className={`size-2 rounded-full ${getDotColor(e)}`} />
-                        {e}
-                      </ChipFiltro>
+                {hayFiltrosActivos && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-brand-ink/10">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-brand-ink/45">
+                      <MdFilterAlt className="text-sm text-brand-cyan" />
+                      Activos
+                    </span>
+                    {chips.map((c) => (
+                      <ChipActivo key={c.id} onQuitar={c.onQuitar}>
+                        {c.texto}
+                      </ChipActivo>
                     ))}
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-brand-ink/45">
-                    Días de inventario por rangos
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {RANGOS_INVENTARIO.map((r) => (
-                      <ChipFiltro
-                        key={r}
-                        activa={filtros.rangos.includes(r)}
-                        onClick={() =>
-                          setFiltros((p) => ({
-                            ...p,
-                            rangos: p.rangos.includes(r)
-                              ? p.rangos.filter((v) => v !== r)
-                              : [...p.rangos, r],
-                          }))
-                        }
-                      >
-                        <span className={`size-2 rounded-full ${dotRango(r)}`} />
-                        {r}
-                      </ChipFiltro>
-                    ))}
-                  </div>
-                </div>
+                )}
               </section>
 
               {/* Resultados */}

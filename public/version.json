@@ -1,9 +1,10 @@
 {
-  "version": "2026.10.07-6",
+  "version": "2026.10.07-7",
   "fecha": "2026-10-07",
   "cambios": [
-    "Inventario: el módulo ya no muestra una tabla. Ahora es un tablero con tarjetas: arriba un resumen clicable (artículos, vencidos, próximos, vigentes y por rango de rotación) y abajo los artículos en tarjetas (2 por fila en el celular, más en pantallas grandes). Tocar una tarjeta abre el detalle completo.",
-    "Inventario: en lugar de la barra de filtros hay una tarjeta de filtros interactiva por Comercial, Días de inventario por rangos, Estado, Tipo de bodega, Zona y Bodega, además de la búsqueda. Las tarjetas del resumen filtran con un toque y se pueden limpiar todos los filtros.",
-    "Subir información: ahora se muestra el inventario actual (la «tabla anterior») y, al pegar el nuevo reporte, la tabla nueva junto con los cambios detectados (nuevas, modificadas con el campo que cambió, y eliminadas) antes de subir."
+    "Inventario: filtros unificados. El estado y el rango ahora se filtran solo con las tarjetas del resumen (clicables) y se quitaron los chips duplicados.",
+    "Inventario: los filtros de Comercial, Tipo de bodega, Zona y Bodega ahora se pueden escribir y despliegan la lista de valores disponibles (sugerencias) mientras escribes.",
+    "Inventario: se agregó la lista de filtros activos, con cada filtro aplicado como chip que se puede quitar de a uno, además del botón Limpiar.",
+    "Inventario: las tarjetas de artículos se rediseñaron para leerse más fácil, con acento de color según el rango, datos con iconos (cantidad, vencimiento, vigencia, bodega) y un icono de marca de agua según el estado."
   ]
 }
