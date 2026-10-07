@@ -32,8 +32,8 @@ import { listarInventario } from '../../services/inventarioApi.js'
 import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
 import FiltroBuscable from './Components/FiltroBuscable.jsx'
+import { FaTemperatureQuarter } from 'react-icons/fa6'
 import { getBadgeColor, getDotColor } from '../../utils/estadoColors.js'
-import { RiContactsBookUploadFill } from 'react-icons/ri'
 import {
   badgeRango,
   diasVigencia,
@@ -127,7 +127,7 @@ function TarjetaResumen({ icon, label, valor, accent, activa, onClick }) {
           : 'bg-white ring-1 ring-brand-ink/10 shadow-sm hover:-translate-y-0.5 hover:ring-brand-cyan/40 hover:shadow-md'
       }`}
     >
-      <Icono className="pointer-events-none absolute -bottom-4 -right-3 text-[5.5rem] text-brand-deep/[0.06] transition-transform duration-300 ease-out group-hover:scale-125 group-hover:text-brand-cyan/10" />
+      <Icono className="pointer-events-none absolute -bottom-4 -right-3 text-[5.5rem] text-brand-deep/[0.10] transition-transform duration-300 ease-out group-hover:scale-125 group-hover:text-brand-navy/[0.20]" />
       <span className={`relative grid place-items-center size-10 rounded-xl text-white text-xl shadow-md shrink-0 transition-transform duration-300 group-hover:scale-110 ${accent}`}>
         <Icono />
       </span>
@@ -156,7 +156,7 @@ function Dato({ icon, label, valor, alerta }) {
 function InventarioCard({ f, onVer }) {
   const cantidad = String(f.cantidad ?? '').trim()
   const vigencia = f._vigencia
-  const Watermark = RiContactsBookUploadFill
+  const Watermark = FaTemperatureQuarter
   const acento = ACENTO_RANGO[f._rango] || 'bg-brand-deep/20'
 
   return (
@@ -169,7 +169,7 @@ function InventarioCard({ f, onVer }) {
       {/* Acento lateral por rango de rotación */}
       <span className={`absolute left-0 top-0 h-full w-1.5 ${acento}`} />
       {/* Icono de marca de agua (se agranda al pasar el cursor) */}
-      <Watermark className="pointer-events-none absolute -right-3 -bottom-3 text-[5.5rem] text-brand-deep/[0.06] origin-bottom-right transition-all duration-300 ease-out group-hover:scale-125 group-hover:text-brand-cyan/15" />
+      <Watermark className="pointer-events-none absolute -right-3 -bottom-3 text-[5.5rem] text-brand-deep/[0.10] origin-bottom-right transition-all duration-300 ease-out group-hover:scale-125 group-hover:text-brand-navy/[0.20]" />
 
       <div className="relative flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">

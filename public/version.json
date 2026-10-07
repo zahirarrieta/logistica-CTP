@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.07-9",
+  "version": "2026.10.07-10",
   "fecha": "2026-10-07",
   "cambios": [
-    "Inventario: el icono de marca de agua de las tarjetas de artículos ahora es un icono único (se agranda al pasar el cursor)."
+    "Inventario: las marcas de agua (en las tarjetas de artículos y en las tarjetas clicables del resumen) ahora son azul oscuro.",
+    "Inventario: el icono de marca de agua de las tarjetas de artículos cambió por el de temperatura (FaTemperatureQuarter)."
   ]
 }
