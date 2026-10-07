@@ -1,8 +1,9 @@
 {
-  "version": "2026.10.07-5",
+  "version": "2026.10.07-6",
   "fecha": "2026-10-07",
   "cambios": [
-    "Dashboard: ahora todas las tarjetas son clicables (Total de pedidos, Activos, Entregados, Cumplimiento, Cancelados, Tiempo promedio y En tránsito). Al tocar cualquiera se abre la lista de pedidos que representa su número, y desde ahí puedes abrir el detalle de cada pedido.",
-    "El mismo comportamiento interactivo se aplicó al panel de entregas del conductor."
+    "Inventario: el módulo ya no muestra una tabla. Ahora es un tablero con tarjetas: arriba un resumen clicable (artículos, vencidos, próximos, vigentes y por rango de rotación) y abajo los artículos en tarjetas (2 por fila en el celular, más en pantallas grandes). Tocar una tarjeta abre el detalle completo.",
+    "Inventario: en lugar de la barra de filtros hay una tarjeta de filtros interactiva por Comercial, Días de inventario por rangos, Estado, Tipo de bodega, Zona y Bodega, además de la búsqueda. Las tarjetas del resumen filtran con un toque y se pueden limpiar todos los filtros.",
+    "Subir información: ahora se muestra el inventario actual (la «tabla anterior») y, al pegar el nuevo reporte, la tabla nueva junto con los cambios detectados (nuevas, modificadas con el campo que cambió, y eliminadas) antes de subir."
   ]
 }

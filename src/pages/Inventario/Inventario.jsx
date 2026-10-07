@@ -1,25 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   MdAccessTime,
-  MdApartment,
-  MdBusiness,
-  MdCalendarToday,
-  MdCategory,
   MdCheckCircle,
   MdCloudUpload,
   MdErrorOutline,
-  MdExpandMore,
+  MdEventAvailable,
+  MdEventBusy,
+  MdFilterAlt,
   MdInventory,
-  MdLocalOffer,
   MdNavigateBefore,
   MdNavigateNext,
-  MdNumbers,
-  MdOutlineInfo,
-  MdPerson,
-  MdPlace,
+  MdRestartAlt,
   MdSchedule,
   MdSearch,
   MdSwapHoriz,
+  MdTune,
+  MdWarning,
   MdWarehouse,
 } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
@@ -31,35 +27,41 @@ import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
 import { getBadgeColor, getDotColor } from '../../utils/estadoColors.js'
 import {
-  COLUMNAS_ORIGINALES,
   badgeRango,
-  pastelRango,
   diasVigencia,
   dotRango,
   estadoVencimiento,
+  ESTADOS_VENCIMIENTO,
   formatearEntero,
   formatearFecha,
   formatearFechaHora,
+  RANGOS_INVENTARIO,
   rangoInventario,
 } from '../../utils/inventarioUtils.js'
 
-const POR_PAGINA = 25
+const POR_PAGINA = 24
 
-// Las 12 columnas originales del reporte (pegadas) más las 3 calculadas en el
-// navegador, que salen al final con el mismo estilo que el resto.
-const COLUMNAS_CALCULADAS = [
-  { key: 'estado', etiqueta: 'Estado' },
-  { key: 'vigencia', etiqueta: 'Días de vigencia' },
-  { key: 'rango', etiqueta: 'Días de inventario por rangos' },
-]
+const FILTROS_INICIALES = {
+  q: '',
+  comercial: '',
+  tipo: '',
+  zona: '',
+  bodega: '',
+  rangos: [],
+  estados: [],
+}
 
-const BUSCAR_EN = COLUMNAS_ORIGINALES.map((c) => c.key)
-
-// Mismo badge que EstadoBadge de SolicitudesTable: pastel + punto de color.
+// Clases del badge de estado (pastel + punto), iguales al resto de la app.
 function EstadoBadge({ estado }) {
-  if (!estado) return <span className="text-brand-ink/40">—</span>
+  if (!estado) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/5 px-2.5 py-1 text-[11px] font-bold text-brand-ink/50">
+        Sin fecha
+      </span>
+    )
+  }
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${getBadgeColor(estado)}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${getBadgeColor(estado)}`}>
       <span className={`size-2 rounded-full ${getDotColor(estado)}`} />
       {estado}
     </span>
@@ -67,100 +69,127 @@ function EstadoBadge({ estado }) {
 }
 
 function RangoBadge({ rango }) {
-  if (!rango) return <span className="text-brand-ink/40">—</span>
+  if (!rango) return null
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap ${badgeRango(rango)}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${badgeRango(rango)}`}>
       <span className={`size-2 rounded-full ${dotRango(rango)}`} />
       {rango}
     </span>
   )
 }
 
-// Fila de detalle dentro de la card móvil (mismo estilo que Row de
-// SolicitudesTable: icono + etiqueta + valor).
-function Row({ icon, label, value }) {
+// Tarjeta del tablero: número + etiqueta, clicable para filtrar.
+function TarjetaResumen({ icon, label, valor, accent, activa, onClick }) {
   return (
-    <div className="flex items-start gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
-      <span className="text-brand-cyan mt-0.5 shrink-0">{icon}</span>
-      <span className="text-brand-ink/50 w-28 shrink-0">{label}</span>
-      <span className="text-brand-ink font-medium capitalize min-w-0 break-words">{value}</span>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activa}
+      className={`rounded-2xl p-3 sm:p-4 flex items-center gap-3 text-left transition-all ${
+        activa
+          ? 'bg-white ring-2 ring-brand-cyan shadow-md'
+          : 'bg-white ring-1 ring-brand-ink/10 shadow-sm hover:-translate-y-0.5 hover:ring-brand-cyan/40 hover:shadow-md'
+      }`}
+    >
+      <span className={`grid place-items-center size-10 rounded-xl text-white text-xl shadow-md shrink-0 ${accent}`}>
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xl sm:text-2xl font-extrabold text-brand-ink leading-none tabular-nums">{valor}</span>
+        <span className="block text-[11px] font-bold text-brand-ink/50 uppercase tracking-wide mt-1 truncate">{label}</span>
+      </span>
+    </button>
   )
 }
 
-// Identidad de una fila para la paginación y para saber qué card está abierta.
-const claveFila = (f, posicion) => f.id ?? `${f.numero_articulo}-${f.lote}-${posicion}`
-
-// Card de una fila del inventario para móvil: mismo patrón que SolicitudCard
-// (encabezado que alterna el detalle, badges de estado y fondo pastel).
-function InventarioCard({ f, numero, estado, vigencia, rango, fondo, expanded, onToggle, onVerDetalle }) {
+function ChipFiltro({ activa, onClick, children }) {
   return (
-    <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${fondo}`}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className={`w-full flex items-center justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-brand-deep/20 ${expanded ? 'bg-brand-deep/20' : ''}`}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activa}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+        activa
+          ? 'bg-brand-navy text-white shadow-sm'
+          : 'bg-brand-ink/5 text-brand-ink/70 ring-1 ring-brand-ink/10 hover:bg-brand-cyan/15 hover:text-brand-deep'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function FiltroSelect({ label, value, onChange, opciones }) {
+  return (
+    <label className="flex flex-col gap-1 min-w-0">
+      <span className="text-[11px] font-extrabold uppercase tracking-wide text-brand-ink/45">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-brand-ink/15 bg-white px-3 py-2.5 text-sm text-brand-ink outline-none transition focus:border-brand-cyan/70 focus:ring-2 focus:ring-brand-cyan/25"
       >
-        <div className="flex flex-col gap-1 min-w-0">
-          <span className="inline-flex items-center gap-2 min-w-0">
-            <span className="shrink-0 grid place-items-center size-6 rounded-full bg-brand-navy text-white text-[11px] font-extrabold">
-              {numero}
-            </span>
-            <span className="font-bold text-brand-deep truncate">{f.numero_articulo || '—'}</span>
-          </span>
-          <span className="text-xs text-brand-ink/60 truncate">{f.descripcion || 'Sin descripción'}</span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <EstadoBadge estado={estado} />
-          <MdExpandMore className={`text-xl text-brand-ink/50 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="px-4 pb-4 pt-2 space-y-2 text-sm border-t border-brand-ink/10 animate-fadeIn">
-          <Row icon={<MdLocalOffer />} label="Lote" value={f.lote || '—'} />
-          <Row icon={<MdCalendarToday />} label="Vencimiento" value={formatearFecha(f.fecha_vencimiento)} />
-          <Row icon={<MdNumbers />} label="Cantidad" value={f.cantidad || '—'} />
-          <Row icon={<MdOutlineInfo />} label="Días inventario" value={formatearEntero(f.dias_inventario)} />
-          <Row icon={<MdWarehouse />} label="Bodega" value={f.bodega || '—'} />
-          <Row icon={<MdBusiness />} label="Nombre bodega" value={f.nombre_bodega || '—'} />
-          <Row icon={<MdPlace />} label="Zona" value={f.zona || '—'} />
-          <Row icon={<MdCategory />} label="Grupo" value={f.grupo_articulos || '—'} />
-          <Row icon={<MdApartment />} label="Tipo bodega" value={f.tipo_bodega || '—'} />
-          <Row icon={<MdPerson />} label="Comercial" value={f.comercial || '—'} />
-          <Row icon={<MdCheckCircle />} label="Estado" value={<EstadoBadge estado={estado} />} />
-          <Row
-            icon={<MdAccessTime />}
-            label="Vigencia"
-            value={
-              vigencia === null ? (
-                '—'
-              ) : (
-                <span className={vigencia < 0 ? 'text-red-600' : undefined}>
-                  {formatearEntero(vigencia)} días
-                </span>
-              )
-            }
-          />
-          <Row icon={<MdSwapHoriz />} label="Rango" value={<RangoBadge rango={rango} />} />
-          <button
-            type="button"
-            onClick={() => onVerDetalle(f)}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-4 py-2.5 text-xs font-bold"
-          >
-            <MdOutlineInfo className="text-base" />
-            Ver detalle completo
-          </button>
-        </div>
-      )}
-    </div>
+        <option value="">Todos</option>
+        {opciones.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </label>
   )
 }
 
-// Páginas visibles alrededor de la actual (con «…» cuando se salta): mismo
-// estilo de botones circulares que SolicitudesTable, pero acotado para que un
-// inventario de miles de filas no pinte cientos de círculos.
+// Card de un artículo (reemplaza la fila de tabla). Compacta para que entren
+// dos por fila en el celular.
+function InventarioCard({ f, onVer }) {
+  const cantidad = String(f.cantidad ?? '').trim()
+  const vigencia = f._vigencia
+  return (
+    <button
+      type="button"
+      onClick={() => onVer(f)}
+      title={`Ver detalle de ${f.numero_articulo || f.descripcion || 'este artículo'}`}
+      className="group w-full text-left rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm hover:shadow-md hover:ring-brand-cyan/50 hover:-translate-y-0.5 transition-all p-3 flex flex-col gap-2"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="inline-flex items-center justify-center rounded-lg bg-brand-navy text-white text-[11px] font-extrabold px-2 py-1 max-w-[55%] truncate">
+          {f.numero_articulo || '—'}
+        </span>
+        <EstadoBadge estado={f._estado} />
+      </div>
+
+      <p className="text-xs font-semibold leading-snug text-brand-ink/80 line-clamp-2 min-h-[2rem]">
+        {f.descripcion || 'Sin descripción'}
+      </p>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <RangoBadge rango={f._rango} />
+        {vigencia !== null && (
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${vigencia < 0 ? 'bg-red-100 text-red-700' : 'bg-brand-ink/5 text-brand-ink/60'}`}>
+            <MdAccessTime className="text-xs" />
+            {formatearEntero(vigencia)} d
+          </span>
+        )}
+      </div>
+
+      <dl className="mt-0.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+        <div className="min-w-0">
+          <dt className="text-brand-ink/40 font-bold uppercase tracking-wide">Cantidad</dt>
+          <dd className="font-bold text-brand-ink tabular-nums truncate">{cantidad || '—'}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-brand-ink/40 font-bold uppercase tracking-wide">Vence</dt>
+          <dd className="font-bold text-brand-ink tabular-nums truncate">{formatearFecha(f.fecha_vencimiento)}</dd>
+        </div>
+      </dl>
+
+      <div className="mt-auto flex items-center gap-1.5 text-[11px] text-brand-ink/50 min-w-0">
+        <MdWarehouse className="text-sm text-brand-cyan shrink-0" />
+        <span className="truncate">{f.bodega || '—'}{f.zona ? ` · ${f.zona}` : ''}</span>
+      </div>
+    </button>
+  )
+}
+
+// Páginas visibles alrededor de la actual, con «…» cuando se salta.
 function paginasVisibles(pagina, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
   const cerca = [1, 2, pagina - 1, pagina, pagina + 1, total - 1, total]
@@ -185,11 +214,10 @@ export default function Inventario() {
   const [actualizadoEn, setActualizadoEn] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
-  const [busqueda, setBusqueda] = useState('')
+  const [filtros, setFiltros] = useState(FILTROS_INICIALES)
   const [pagina, setPagina] = useState(1)
   const [subirAbierto, setSubirAbierto] = useState(false)
   const [filaDetalle, setFilaDetalle] = useState(null)
-  const [filaExpandida, setFilaExpandida] = useState(null)
 
   const cargar = useCallback(async (esValido = () => true) => {
     setCargando(true)
@@ -213,27 +241,84 @@ export default function Inventario() {
     return () => { vivo = false }
   }, [cargar])
 
-  useEffect(() => setPagina(1), [busqueda])
+  // Filas con los valores calculados (Estado, Vigencia y Rango) ya resueltos.
+  const enriquecidas = useMemo(
+    () =>
+      filas.map((f) => ({
+        ...f,
+        _estado: estadoVencimiento(f.fecha_vencimiento),
+        _rango: rangoInventario(f.dias_inventario),
+        _vigencia: diasVigencia(f.fecha_vencimiento),
+      })),
+    [filas]
+  )
 
-  const visibles = useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
-    if (!q) return filas
-    return filas.filter((f) => BUSCAR_EN.some((k) => String(f[k] ?? '').toLowerCase().includes(q)))
-  }, [filas, busqueda])
+  // Opciones de los selects, tomadas de los datos reales.
+  const opciones = useMemo(() => {
+    const unicos = (arr) =>
+      [...new Set(arr.map((v) => String(v ?? '').trim()).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, 'es')
+      )
+    return {
+      comerciales: unicos(filas.map((f) => f.comercial)),
+      zonas: unicos(filas.map((f) => f.zona)),
+      tipos: unicos(filas.map((f) => f.tipo_bodega)),
+      bodegas: unicos(filas.map((f) => f.bodega)),
+    }
+  }, [filas])
 
-  const totalPaginas = Math.max(1, Math.ceil(visibles.length / POR_PAGINA))
+  // Resumen global (no depende de los filtros).
+  const resumen = useMemo(() => {
+    const contar = (fn) => enriquecidas.filter(fn).length
+    return {
+      total: enriquecidas.length,
+      vencidos: contar((f) => f._estado === 'Vencido'),
+      proximos: contar((f) => f._estado === 'Próximo a vencer'),
+      vigentes: contar((f) => f._estado === 'Vigente'),
+      ok: contar((f) => f._rango === 'Ok Rotación'),
+      rotar: contar((f) => f._rango === 'Rotar'),
+      prioridad: contar((f) => f._rango === 'Rotar con Prioridad'),
+      urgente: contar((f) => f._rango === 'Rotar urgente'),
+    }
+  }, [enriquecidas])
+
+  const filtradas = useMemo(() => {
+    const q = filtros.q.trim().toLowerCase()
+    return enriquecidas.filter((f) => {
+      if (filtros.comercial && (f.comercial || '') !== filtros.comercial) return false
+      if (filtros.tipo && (f.tipo_bodega || '') !== filtros.tipo) return false
+      if (filtros.zona && (f.zona || '') !== filtros.zona) return false
+      if (filtros.bodega && (f.bodega || '') !== filtros.bodega) return false
+      if (filtros.rangos.length && !filtros.rangos.includes(f._rango)) return false
+      if (filtros.estados.length && !filtros.estados.includes(f._estado)) return false
+      if (q) {
+        const texto = [
+          f.numero_articulo, f.descripcion, f.lote, f.bodega,
+          f.nombre_bodega, f.zona, f.grupo_articulos, f.comercial,
+        ].join(' ').toLowerCase()
+        if (!texto.includes(q)) return false
+      }
+      return true
+    })
+  }, [enriquecidas, filtros])
+
+  useEffect(() => setPagina(1), [filtros])
+
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA))
   const paginaSegura = Math.min(pagina, totalPaginas)
   const inicio = (paginaSegura - 1) * POR_PAGINA
-  const filasPagina = visibles.slice(inicio, inicio + POR_PAGINA)
 
-  // Mismo fondo de fila que las demás tablas: pastel por estado (vista con
-  // colores) y, sin estado conocido, alternado como en las vistas simples.
-  const estiloFila = (fila, estado, i) => {
-    if (estado === 'Vencido') return 'bg-slate-600/20 text-slate-900'
-    const rango = rangoInventario(fila?.dias_inventario)
-    if (rango) return pastelRango(rango)
-    return i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'
-  }
+  // Tarjeta del tablero → fija ese filtro (y lo quita si ya estaba solo ese).
+  const filtroRapido = (clave, valor) =>
+    setFiltros((prev) => {
+      const activa = prev[clave].length === 1 && prev[clave][0] === valor
+      return { ...prev, [clave]: activa ? [] : [valor] }
+    })
+
+  const hayFiltrosActivos =
+    Boolean(filtros.q || filtros.comercial || filtros.tipo || filtros.zona || filtros.bodega) ||
+    filtros.rangos.length > 0 ||
+    filtros.estados.length > 0
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white text-brand-ink">
@@ -259,7 +344,6 @@ export default function Inventario() {
               </p>
             </div>
 
-            {/* Esquina superior derecha: subir + última actualización */}
             <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
               {puedeSubir && (
                 <button
@@ -280,29 +364,6 @@ export default function Inventario() {
             </div>
           </div>
 
-          {/* Buscador */}
-          {!cargando && !error && filas.length > 0 && (
-            <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="relative flex-1 max-w-xl">
-                <MdSearch className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-ink/35 text-lg" />
-                <input
-                  type="search"
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar por artículo, descripción, lote, bodega o zona…"
-                  aria-label="Buscar en el inventario"
-                  className="w-full rounded-xl border border-brand-ink/15 bg-white px-4 py-3 pl-11 text-brand-ink placeholder:text-brand-ink/40 outline-none transition focus:border-brand-cyan/70 focus:ring-2 focus:ring-brand-cyan/25"
-                />
-              </div>
-              <p className="text-xs font-bold text-brand-ink/50 sm:ml-auto">
-                {visibles.length === filas.length
-                  ? `${filas.length} artículo${filas.length === 1 ? '' : 's'}`
-                  : `${visibles.length} de ${filas.length} artículos`}
-              </p>
-            </div>
-          )}
-
-          {/* Contenido */}
           {cargando ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-brand-deep/60">
               <div className="size-10 animate-spin rounded-full border-4 border-brand-deep/20 border-t-brand-deep" />
@@ -320,203 +381,267 @@ export default function Inventario() {
                 Reintentar
               </button>
             </div>
-          ) : visibles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-              <MdInventory className="text-4xl text-brand-ink/20" />
-              <p className="font-extrabold text-brand-ink">
-                {filas.length === 0 ? 'Aún no hay inventario' : 'Ningún artículo coincide con la búsqueda'}
-              </p>
-              <p className="text-sm text-brand-ink/60 max-w-md">
-                {filas.length === 0
-                  ? puedeSubir
-                    ? 'Sube el reporte de Excel con el botón «Subir información».'
-                    : 'El administrador aún no ha publicado el reporte de inventario.'
-                  : `No hay resultados para «${busqueda.trim()}».`}
+          ) : filas.length === 0 ? (
+            <div className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-6 py-16 text-center">
+              <div className="mx-auto grid place-items-center size-16 rounded-2xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 mb-4">
+                <MdInventory className="text-3xl" />
+              </div>
+              <p className="text-lg font-extrabold text-brand-ink">Aún no hay inventario</p>
+              <p className="text-sm text-brand-ink/50 mt-1">
+                {puedeSubir
+                  ? 'Usa «Subir información» para cargar el reporte de Excel.'
+                  : 'El administrador aún no ha subido el inventario.'}
               </p>
             </div>
           ) : (
             <>
-              {/* Cards — visible solo en móvil (mismo patrón que SolicitudesTable) */}
-              <div className="md:hidden space-y-3">
-                {filasPagina.map((f, i) => {
-                  const estado = estadoVencimiento(f.fecha_vencimiento)
-                  const vigencia = diasVigencia(f.fecha_vencimiento)
-                  const rango = rangoInventario(f.dias_inventario)
-                  const clave = claveFila(f, inicio + i)
-                  return (
-                    <InventarioCard
-                      key={clave}
-                      f={f}
-                      numero={inicio + i + 1}
-                      estado={estado}
-                      vigencia={vigencia}
-                      rango={rango}
-                       fondo={estiloFila(f, estado, i)}
-                      expanded={filaExpandida === clave}
-                      onToggle={() => setFilaExpandida(filaExpandida === clave ? null : clave)}
-                      onVerDetalle={setFilaDetalle}
-                    />
-                  )
-                })}
-              </div>
+              {/* Tablero: resumen por estado y por rango */}
+              <section aria-label="Resumen del inventario" className="space-y-3 sm:space-y-4 mb-5">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <TarjetaResumen
+                    icon={<MdInventory />}
+                    accent="bg-gradient-to-br from-brand-navy to-brand-deep"
+                    label="Artículos"
+                    valor={formatearEntero(resumen.total)}
+                    activa={!hayFiltrosActivos}
+                    onClick={() => setFiltros(FILTROS_INICIALES)}
+                  />
+                  <TarjetaResumen
+                    icon={<MdEventBusy />}
+                    accent="bg-gradient-to-br from-red-500 to-rose-400"
+                    label="Vencidos"
+                    valor={formatearEntero(resumen.vencidos)}
+                    activa={filtros.estados.length === 1 && filtros.estados[0] === 'Vencido'}
+                    onClick={() => filtroRapido('estados', 'Vencido')}
+                  />
+                  <TarjetaResumen
+                    icon={<MdWarning />}
+                    accent="bg-gradient-to-br from-amber-500 to-yellow-400"
+                    label="Próximo a vencer"
+                    valor={formatearEntero(resumen.proximos)}
+                    activa={filtros.estados.length === 1 && filtros.estados[0] === 'Próximo a vencer'}
+                    onClick={() => filtroRapido('estados', 'Próximo a vencer')}
+                  />
+                  <TarjetaResumen
+                    icon={<MdEventAvailable />}
+                    accent="bg-gradient-to-br from-green-500 to-emerald-400"
+                    label="Vigentes"
+                    valor={formatearEntero(resumen.vigentes)}
+                    activa={filtros.estados.length === 1 && filtros.estados[0] === 'Vigente'}
+                    onClick={() => filtroRapido('estados', 'Vigente')}
+                  />
+                </div>
 
-              {/* Tabla — visible en tablet y desktop, con scroll horizontal si
-                  se alarga (encabezado navy, tipografía text-sm, filas en
-                  pastel por estado) */}
-              <div className="hidden md:block overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
-                <table className="w-full text-left text-sm border-separate border-spacing-0 min-w-[1750px]">
-                  <thead>
-                    <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
-                      <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-14 text-center">N°</th>
-                      {COLUMNAS_ORIGINALES.map((c) => (
-                        <th key={c.key} className="px-3 py-4 text-xs font-bold border-r border-white/15 whitespace-nowrap">
-                          {c.etiqueta}
-                        </th>
-                      ))}
-                      {COLUMNAS_CALCULADAS.map((c, i) => (
-                        <th
-                          key={c.key}
-                          className={`px-3 py-4 text-xs font-bold whitespace-nowrap ${
-                            i < COLUMNAS_CALCULADAS.length - 1 ? 'border-r border-white/15' : ''
-                          } ${i === 1 ? 'text-right' : ''}`}
-                        >
-                          {c.etiqueta}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filasPagina.map((f, i) => {
-                      const estado = estadoVencimiento(f.fecha_vencimiento)
-                      const vigencia = diasVigencia(f.fecha_vencimiento)
-                      const rango = rangoInventario(f.dias_inventario)
-                       const fondo = estiloFila(f, estado, i)
-                      return (
-                        <tr
-                          key={claveFila(f, inicio + i)}
-                          onClick={() => setFilaDetalle(f)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault()
-                              setFilaDetalle(f)
-                            }
-                          }}
-                          tabIndex={0}
-                          role="button"
-                          title="Clic para ver el detalle del artículo"
-                          aria-label={`Ver detalle de ${f.numero_articulo || f.descripcion || 'este artículo'}`}
-                          className={`transition-colors hover:bg-brand-deep/20 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-cyan ${fondo}`}
-                        >
-                          <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
-                            <span className={`inline-flex items-center justify-center size-7 rounded-full text-xs font-extrabold ${i % 2 === 0 ? 'bg-brand-navy text-white' : 'bg-brand-deep text-white'}`}>
-                              {inicio + i + 1}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3 font-bold text-brand-deep whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {f.numero_articulo || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 min-w-[240px] border-b border-l border-brand-ink/10">
-                            <span className="block truncate whitespace-nowrap" title={f.descripcion || ''}>
-                              {f.descripcion || '—'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {f.lote || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {formatearFecha(f.fecha_vencimiento)}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 text-right whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {f.cantidad || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 text-right whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {formatearEntero(f.dias_inventario)}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {f.bodega || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {f.nombre_bodega || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {f.zona || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {f.grupo_articulos || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {f.tipo_bodega || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {f.comercial || '—'}
-                          </td>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <TarjetaResumen
+                    icon={<MdCheckCircle />}
+                    accent="bg-gradient-to-br from-green-500 to-emerald-400"
+                    label="Ok Rotación"
+                    valor={formatearEntero(resumen.ok)}
+                    activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Ok Rotación'}
+                    onClick={() => filtroRapido('rangos', 'Ok Rotación')}
+                  />
+                  <TarjetaResumen
+                    icon={<MdSwapHoriz />}
+                    accent="bg-gradient-to-br from-yellow-500 to-amber-400"
+                    label="Rotar"
+                    valor={formatearEntero(resumen.rotar)}
+                    activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Rotar'}
+                    onClick={() => filtroRapido('rangos', 'Rotar')}
+                  />
+                  <TarjetaResumen
+                    icon={<MdSwapHoriz />}
+                    accent="bg-gradient-to-br from-orange-500 to-amber-500"
+                    label="Rotar con prioridad"
+                    valor={formatearEntero(resumen.prioridad)}
+                    activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Rotar con Prioridad'}
+                    onClick={() => filtroRapido('rangos', 'Rotar con Prioridad')}
+                  />
+                  <TarjetaResumen
+                    icon={<MdWarning />}
+                    accent="bg-gradient-to-br from-red-600 to-rose-500"
+                    label="Rotar urgente"
+                    valor={formatearEntero(resumen.urgente)}
+                    activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Rotar urgente'}
+                    onClick={() => filtroRapido('rangos', 'Rotar urgente')}
+                  />
+                </div>
+              </section>
 
-                          {/* Calculadas: mismo estilo de celda que el resto */}
-                          <td className="px-3 py-3 border-b border-l border-brand-ink/10">
-                            <EstadoBadge estado={estado} />
-                          </td>
-                          <td className="px-3 py-3 text-right font-bold whitespace-nowrap border-b border-l border-brand-ink/10">
-                            {vigencia === null ? (
-                              <span className="font-normal text-brand-ink/40">—</span>
-                            ) : (
-                              <span className={vigencia < 0 ? 'text-red-600' : 'text-brand-ink/80'}>
-                                {formatearEntero(vigencia)}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 border-b border-l border-brand-ink/10">
-                            <RangoBadge rango={rango} />
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Paginación: mismos botones que SolicitudesTable */}
-              <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setPagina(Math.max(1, paginaSegura - 1))}
-                  disabled={paginaSegura === 1}
-                  className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white font-bold px-3 sm:px-5 py-2 sm:py-2.5 text-sm hover:bg-brand-deep transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <MdNavigateBefore className="text-lg" />
-                  <span className="hidden sm:inline">Anterior</span>
-                </button>
-                <div className="flex items-center gap-1 sm:gap-1.5">
-                  {paginasVisibles(paginaSegura, totalPaginas).map((p, i) =>
-                    p === '…' ? (
-                      <span key={`gap-${i}`} className="px-1 text-sm font-bold text-brand-ink/40">
-                        …
-                      </span>
-                    ) : (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setPagina(p)}
-                        className={`size-8 sm:size-9 rounded-full font-bold text-sm transition-all ${
-                          paginaSegura === p
-                            ? 'bg-brand-cyan text-brand-ink shadow-cyanGlow'
-                            : 'bg-white text-brand-ink border border-brand-ink/15 hover:bg-brand-deep/10'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    )
+              {/* Card de filtros */}
+              <section
+                aria-label="Filtros"
+                className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-4 sm:p-5 mb-5 space-y-4"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep">
+                    <MdTune className="text-brand-cyan text-lg" />
+                    Filtros
+                  </h2>
+                  {hayFiltrosActivos && (
+                    <button
+                      type="button"
+                      onClick={() => setFiltros(FILTROS_INICIALES)}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/5 px-3 py-1.5 text-xs font-bold text-brand-ink/70 hover:bg-brand-ink/10 transition"
+                    >
+                      <MdRestartAlt className="text-sm" />
+                      Limpiar
+                    </button>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setPagina(Math.min(totalPaginas, paginaSegura + 1))}
-                  disabled={paginaSegura === totalPaginas}
-                  className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white font-bold px-3 sm:px-5 py-2 sm:py-2.5 text-sm hover:bg-brand-deep transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <span className="hidden sm:inline">Siguiente</span>
-                  <MdNavigateNext className="text-lg" />
-                </button>
+
+                <div className="relative">
+                  <MdSearch className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-ink/35 text-lg" />
+                  <input
+                    type="search"
+                    value={filtros.q}
+                    onChange={(e) => setFiltros((p) => ({ ...p, q: e.target.value }))}
+                    placeholder="Buscar por artículo, descripción, lote, bodega, zona o comercial…"
+                    aria-label="Buscar en el inventario"
+                    className="w-full rounded-xl border border-brand-ink/15 bg-white px-4 py-3 pl-11 text-brand-ink placeholder:text-brand-ink/40 outline-none transition focus:border-brand-cyan/70 focus:ring-2 focus:ring-brand-cyan/25"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <FiltroSelect
+                    label="Comercial"
+                    value={filtros.comercial}
+                    onChange={(v) => setFiltros((p) => ({ ...p, comercial: v }))}
+                    opciones={opciones.comerciales}
+                  />
+                  <FiltroSelect
+                    label="Tipo de bodega"
+                    value={filtros.tipo}
+                    onChange={(v) => setFiltros((p) => ({ ...p, tipo: v }))}
+                    opciones={opciones.tipos}
+                  />
+                  <FiltroSelect
+                    label="Zona"
+                    value={filtros.zona}
+                    onChange={(v) => setFiltros((p) => ({ ...p, zona: v }))}
+                    opciones={opciones.zonas}
+                  />
+                  <FiltroSelect
+                    label="Bodega"
+                    value={filtros.bodega}
+                    onChange={(v) => setFiltros((p) => ({ ...p, bodega: v }))}
+                    opciones={opciones.bodegas}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-brand-ink/45">Estado</p>
+                  <div className="flex flex-wrap gap-2">
+                    {ESTADOS_VENCIMIENTO.map((e) => (
+                      <ChipFiltro
+                        key={e}
+                        activa={filtros.estados.includes(e)}
+                        onClick={() =>
+                          setFiltros((p) => ({
+                            ...p,
+                            estados: p.estados.includes(e)
+                              ? p.estados.filter((v) => v !== e)
+                              : [...p.estados, e],
+                          }))
+                        }
+                      >
+                        <span className={`size-2 rounded-full ${getDotColor(e)}`} />
+                        {e}
+                      </ChipFiltro>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-brand-ink/45">
+                    Días de inventario por rangos
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {RANGOS_INVENTARIO.map((r) => (
+                      <ChipFiltro
+                        key={r}
+                        activa={filtros.rangos.includes(r)}
+                        onClick={() =>
+                          setFiltros((p) => ({
+                            ...p,
+                            rangos: p.rangos.includes(r)
+                              ? p.rangos.filter((v) => v !== r)
+                              : [...p.rangos, r],
+                          }))
+                        }
+                      >
+                        <span className={`size-2 rounded-full ${dotRango(r)}`} />
+                        {r}
+                      </ChipFiltro>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              {/* Resultados */}
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-bold text-brand-ink/50">
+                  {filtradas.length === filas.length
+                    ? `${formatearEntero(filas.length)} artículo${filas.length === 1 ? '' : 's'}`
+                    : `${formatearEntero(filtradas.length)} de ${formatearEntero(filas.length)} artículos`}
+                </p>
+                {filtradas.length === 0 && (
+                  <p className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">
+                    <MdFilterAlt className="text-sm" />
+                    Ningún artículo coincide con los filtros
+                  </p>
+                )}
               </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {filtradas.slice(inicio, inicio + POR_PAGINA).map((f, i) => (
+                  <InventarioCard key={f.id ?? `${f.numero_articulo}-${f.lote}-${inicio + i}`} f={f} onVer={setFilaDetalle} />
+                ))}
+              </div>
+
+              {/* Paginación */}
+              {totalPaginas > 1 && (
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setPagina(Math.max(1, paginaSegura - 1))}
+                    disabled={paginaSegura === 1}
+                    className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white font-bold px-3 sm:px-5 py-2 sm:py-2.5 text-sm hover:bg-brand-deep transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <MdNavigateBefore className="text-lg" />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </button>
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    {paginasVisibles(paginaSegura, totalPaginas).map((p, i) =>
+                      p === '…' ? (
+                        <span key={`gap-${i}`} className="px-1 text-sm font-bold text-brand-ink/40">…</span>
+                      ) : (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setPagina(p)}
+                          className={`size-8 sm:size-9 rounded-full font-bold text-sm transition-all ${
+                            paginaSegura === p
+                              ? 'bg-brand-cyan text-brand-ink shadow-cyanGlow'
+                              : 'bg-white text-brand-ink border border-brand-ink/15 hover:bg-brand-deep/10'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPagina(Math.min(totalPaginas, paginaSegura + 1))}
+                    disabled={paginaSegura === totalPaginas}
+                    className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white font-bold px-3 sm:px-5 py-2 sm:py-2.5 text-sm hover:bg-brand-deep transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <span className="hidden sm:inline">Siguiente</span>
+                    <MdNavigateNext className="text-lg" />
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -526,6 +651,8 @@ export default function Inventario() {
 
       <SubirInventarioModal
         open={subirAbierto}
+        actuales={filas}
+        actualizadoEn={actualizadoEn}
         onClose={() => setSubirAbierto(false)}
         onSubido={() => cargar()}
       />

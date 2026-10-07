@@ -111,6 +111,10 @@ export function rangoInventario(dias) {
   return 'Rotar urgente'
 }
 
+// Listas de valores calculados, para los filtros del dashboard.
+export const RANGOS_INVENTARIO = ['Ok Rotación', 'Rotar', 'Rotar con Prioridad', 'Rotar urgente']
+export const ESTADOS_VENCIMIENTO = ['Vencido', 'Próximo a vencer', 'Vigente']
+
 export const RANGO_PASTEL = {
   'Ok Rotación': 'bg-green-100',
   'Rotar': 'bg-yellow-100',
@@ -234,4 +238,50 @@ export function parsearPegado(texto) {
     filas.push(fila)
   }
   return { filas, conEncabezado, fechasInvalidas }
+}
+
+// ---------------------------------------------------------------------------
+// Identidad y comparación (para ver qué cambia antes de subir)
+// ---------------------------------------------------------------------------
+// El reporte pegado no trae un id estable, así que una fila se identifica por
+// artículo + lote + bodega.
+export const claveInventario = (f) =>
+  [f?.numero_articulo, f?.lote, f?.bodega]
+    .map((v) => String(v ?? '').trim().toLowerCase())
+    .join('|')
+
+// Compara el inventario guardado con el pegado. Devuelve las filas nuevas,
+// eliminadas y modificadas (con los campos que cambiaron) más el conteo de las
+// que quedaron igual, para revisarlo antes de reemplazar todo.
+export function compararInventario(actuales = [], nuevas = []) {
+  const porClave = (arr) => {
+    const m = new Map()
+    for (const f of arr) m.set(claveInventario(f), f)
+    return m
+  }
+  const actual = porClave(actuales)
+  const nuevo = porClave(nuevas)
+
+  const agregadas = []
+  const modificadas = []
+  let sinCambios = 0
+  for (const [clave, fila] of nuevo) {
+    const anterior = actual.get(clave)
+    if (!anterior) {
+      agregadas.push(fila)
+      continue
+    }
+    const campos = COLUMNAS_ORIGINALES.filter(
+      (c) => String(anterior[c.key] ?? '') !== String(fila[c.key] ?? '')
+    )
+    if (campos.length) modificadas.push({ fila, anterior, campos })
+    else sinCambios += 1
+  }
+
+  const eliminadas = []
+  for (const [clave, fila] of actual) {
+    if (!nuevo.has(clave)) eliminadas.push(fila)
+  }
+
+  return { agregadas, modificadas, eliminadas, sinCambios }
 }
