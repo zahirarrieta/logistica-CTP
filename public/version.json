@@ -1,8 +1,7 @@
 {
-  "version": "2026.10.07-10",
+  "version": "2026.10.07-11",
   "fecha": "2026-10-07",
   "cambios": [
-    "Inventario: las marcas de agua (en las tarjetas de artículos y en las tarjetas clicables del resumen) ahora son azul oscuro.",
-    "Inventario: el icono de marca de agua de las tarjetas de artículos cambió por el de temperatura (FaTemperatureQuarter)."
+    "Inventario: las marcas de agua (tarjetas de artículos y tarjetas clicables del resumen) ahora usan el azul de la marca (brand-deep #003B73), más claro y visible, en vez del azul casi negro."
   ]
 }

@@ -127,7 +127,7 @@ function TarjetaResumen({ icon, label, valor, accent, activa, onClick }) {
           : 'bg-white ring-1 ring-brand-ink/10 shadow-sm hover:-translate-y-0.5 hover:ring-brand-cyan/40 hover:shadow-md'
       }`}
     >
-      <Icono className="pointer-events-none absolute -bottom-4 -right-3 text-[5.5rem] text-brand-deep/[0.10] transition-transform duration-300 ease-out group-hover:scale-125 group-hover:text-brand-navy/[0.20]" />
+      <Icono className="pointer-events-none absolute -bottom-4 -right-3 text-[5.5rem] text-brand-deep/20 transition-transform duration-300 ease-out group-hover:scale-125 group-hover:text-brand-deep/35" />
       <span className={`relative grid place-items-center size-10 rounded-xl text-white text-xl shadow-md shrink-0 transition-transform duration-300 group-hover:scale-110 ${accent}`}>
         <Icono />
       </span>
@@ -169,7 +169,7 @@ function InventarioCard({ f, onVer }) {
       {/* Acento lateral por rango de rotación */}
       <span className={`absolute left-0 top-0 h-full w-1.5 ${acento}`} />
       {/* Icono de marca de agua (se agranda al pasar el cursor) */}
-      <Watermark className="pointer-events-none absolute -right-3 -bottom-3 text-[5.5rem] text-brand-deep/[0.10] origin-bottom-right transition-all duration-300 ease-out group-hover:scale-125 group-hover:text-brand-navy/[0.20]" />
+      <Watermark className="pointer-events-none absolute -right-3 -bottom-3 text-[5.5rem] text-brand-deep/20 origin-bottom-right transition-all duration-300 ease-out group-hover:scale-125 group-hover:text-brand-deep/35" />
 
       <div className="relative flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
