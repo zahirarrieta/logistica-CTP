@@ -1,10 +1,9 @@
 {
-  "version": "2026.10.07-2",
+  "version": "2026.10.07-4",
   "fecha": "2026-10-07",
   "cambios": [
-    "Nuevo estado «Cancelado» en el modal de Cambiar Estado: cierra la solicitud sin entregar y exige escribir el motivo de la cancelación. Una vez cancelada, la solicitud ya no ofrece cambios de estado ni asignación: solo queda su historial.",
-    "Inventario: «Días de inventario por rangos» ahora colorea cada fila con su propio rango (verde «OK Rotación» hasta 90 días, amarillo «Rotar» hasta 120, naranja «Rotar con prioridad» hasta 240 y rojo «Rotar urgente» de 240 en adelante); los vencidos se pintan en gris oscuro.",
-    "Cuando una «Devolución a Solicitante» queda vencida (se acabó el contador de corrección), la tabla vuelve a mostrar el botón de Cambiar Estado, pero el modal solo permite elegir «Cancelado» con su motivo obligatorio, para cerrar el pedido que el solicitante no corrigió.",
-    "En un pedido cancelado ya no se muestra la pista/avance de entrega: el modal de Seguimiento y el detalle del pedido muestran el estado «Cancelado» con su motivo (tomado del historial), y el historial de cambios registra la cancelación con su color y su nota."
+    "Encuestas: al hacer clic en las estrellas de «Respuesta Regular» (2★) o «Respuesta Malo» (1★) ya se muestra la lista de pedidos. Antes se contaban por pregunta pero el clic buscaba por promedio, por lo que no coincidían.",
+    "Dashboard: nuevo indicador «Cancelados» para revisar los pedidos cancelados con un clic.",
+    "Dashboard: el indicador de Cumplimiento ahora cuenta los pedidos cancelados como resueltos (ya no penaliza la cancelación), tanto en el panel del administrador como en el del conductor."
   ]
 }

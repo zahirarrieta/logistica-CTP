@@ -125,6 +125,7 @@ export function resumen(solicitudes) {
   const enTransito = solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || '')).length
   const entregados = solicitudes.filter((s) => ESTADOS_FINALES.includes(s.estado || '')).length
   const entregadosParcial = solicitudes.filter((s) => (s.estado || '') === 'Entregado Parcial').length
+  const cancelados = solicitudes.filter((s) => (s.estado || '') === 'Cancelado').length
   const cerradas = solicitudes.filter((s) => ESTADOS_CERRADOS.includes(s.estado || '')).length
   const activos = solicitudes.length - cerradas
 
@@ -146,6 +147,7 @@ export function resumen(solicitudes) {
     activos,
     entregados,
     entregadosParcial,
+    cancelados,
     enTransito,
     pendientesSync: solicitudes.filter((s) => s.pendienteSync).length,
     porEstado,

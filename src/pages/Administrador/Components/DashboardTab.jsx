@@ -28,6 +28,7 @@ import {
   MdPoll,
   MdCalendarMonth,
   MdFilterAlt,
+  MdBlock,
 } from 'react-icons/md'
 import StarRating from '../../../components/StarRating.jsx'
 import {
@@ -47,7 +48,6 @@ import {
   promedioPorConductorEncuesta,
   topClientesSatisfaccion,
   promedioDeEncuesta,
-  nivelEstrella,
   formatHoras,
   HEX_ESTADO,
   parseStamp,
@@ -62,17 +62,30 @@ import { ESTADOS } from '../../../utils/estadoColors.js'
 
 const CARD_ICON = 'grid place-items-center size-10 rounded-xl text-white text-xl shadow-md'
 
-export function Kpi({ icon, label, value, accent, sub }) {
-  return (
-    <div className="rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-4 flex items-center gap-3.5">
+export function Kpi({ icon, label, value, accent, sub, onClick }) {
+  const contenido = (
+    <>
       <span className={`${CARD_ICON} ${accent}`}>{icon}</span>
-      <span className="min-w-0">
+      <span className="min-w-0 text-left">
         <span className="block text-2xl font-extrabold text-brand-ink leading-none truncate">{value}</span>
         <span className="block text-[11px] font-bold text-brand-ink/50 uppercase tracking-wide mt-1 truncate">{label}</span>
         {sub && <span className="block text-[11px] font-semibold text-brand-ink/40 mt-0.5 truncate">{sub}</span>}
       </span>
-    </div>
+    </>
   )
+  const clases = 'rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-4 flex items-center gap-3.5 min-w-0'
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${clases} text-left transition hover:-translate-y-0.5 hover:ring-brand-cyan/50 hover:shadow-md`}
+      >
+        {contenido}
+      </button>
+    )
+  }
+  return <div className={clases}>{contenido}</div>
 }
 
 export function Seccion({ icon, titulo, children, className = '' }) {
@@ -476,7 +489,9 @@ export default function DashboardTab({
     )
   }
 
-  const cumplimiento = r.total ? Math.round((r.entregados / r.total) * 100) : 0
+  // Un pedido cancelado se considera resuelto (como si se hubiera entregado):
+  // no penaliza el cumplimiento, ya que el pedido dejó de estar activo.
+  const cumplimiento = r.total ? Math.round(((r.entregados + r.cancelados) / r.total) * 100) : 0
 
   const handleMesChange = (e) => {
     const val = e.target.value
@@ -547,11 +562,32 @@ export default function DashboardTab({
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7 gap-3 sm:gap-4">
         <Kpi icon={<MdInbox />} accent="bg-gradient-to-br from-brand-navy to-brand-deep" label="Total de pedidos" value={r.total} />
         <Kpi icon={<MdPendingActions />} accent="bg-gradient-to-br from-brand-deep to-brand-cyan" label="Activos" value={r.activos} sub={`${r.enTransito} en tránsito`} />
         <Kpi icon={<MdCheckCircle />} accent="bg-gradient-to-br from-green-500 to-emerald-400" label="Entregados" value={r.entregados} sub={`${r.entregadosParcial} parciales`} />
-        <Kpi icon={<MdTrendingUp />} accent="bg-gradient-to-br from-brand-cyan to-cyan-400" label="Cumplimiento" value={`${cumplimiento}%`} sub={`${r.entregados} de ${r.total}`} />
+        <Kpi icon={<MdTrendingUp />} accent="bg-gradient-to-br from-brand-cyan to-cyan-400" label="Cumplimiento" value={`${cumplimiento}%`} sub={`${r.entregados + r.cancelados} de ${r.total}`} />
+        <Kpi
+          icon={<MdBlock />}
+          accent="bg-gradient-to-br from-slate-500 to-slate-400"
+          label="Cancelados"
+          value={r.cancelados}
+          sub="pedidos cancelados"
+          onClick={() =>
+            setPedidosModal({
+              titulo: 'Pedidos cancelados',
+              items: solicitudes
+                .filter((s) => (s.estado || '') === 'Cancelado')
+                .map((s) => ({
+                  id: s.id,
+                  cliente: s.cliente || '—',
+                  zona: s.zona || '—',
+                  estado: s.estado || 'Cancelado',
+                  fechaHora: `${s.fechaSubida || ''} ${s.horaSubida || ''}`.trim(),
+                })),
+            })
+          }
+        />
         <Kpi icon={<MdSchedule />} accent="bg-gradient-to-br from-amber-500 to-yellow-400" label="Tiempo promedio" value={formatHoras(r.tiempos.promedio)} sub={r.tiempos.cantidad ? `${r.tiempos.cantidad} entregas` : 'sin entregas'} />
         <Kpi icon={<MdLocalShipping />} accent="bg-gradient-to-br from-purple-500 to-fuchsia-400" label="En tránsito" value={r.enTransito} sub={solicitudes.filter((s) => (s.estado || '') === 'En Tránsito Parcial').length + ' parciales'} />
       </div>
@@ -609,7 +645,7 @@ export default function DashboardTab({
                     setPedidosModal({
                       titulo: `Respuesta ${s.nombre} · ${s.estrellas}★`,
                       items: encuestas.lista
-                        .filter((e) => nivelEstrella(promedioDeEncuesta(e)) === s.estrellas)
+                        .filter((e) => e.preguntas.some((p) => Number(p.puntuacion || 0) === s.estrellas))
                         .map(filaEncuesta),
                     })
                   }

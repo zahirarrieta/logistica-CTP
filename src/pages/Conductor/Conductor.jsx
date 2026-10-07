@@ -135,10 +135,17 @@ export default function Conductor() {
   )
 
   // Las entregas en tránsito (parcial o no) y las entregadas (parcial o no)
-  // son el universo que ve el dashboard del conductor.
+  // son el universo que ve el dashboard del conductor. Los pedidos cancelados
+  // también se listan para que quede registro de que no se entregarán.
   const base = tab === 'entregados' ? entregados : pendientes
   const solicitudesDash = useMemo(
-    () => mias.filter((s) => ESTADOS_TRANSITO.includes(s.estado || '') || ESTADOS_ENTREGADOS.includes(s.estado || '')),
+    () =>
+      mias.filter(
+        (s) =>
+          ESTADOS_TRANSITO.includes(s.estado || '') ||
+          ESTADOS_ENTREGADOS.includes(s.estado || '') ||
+          (s.estado || '') === 'Cancelado'
+      ),
     [mias]
   )
 

@@ -14,6 +14,7 @@ import {
   MdTimeline,
   MdList,
   MdChevronRight,
+  MdBlock,
 } from 'react-icons/md'
 import {
   resumen,
@@ -59,7 +60,9 @@ export default function ConductorDashboard({ solicitudes }) {
     )
   }
 
-  const cumplimiento = r.total ? Math.round((r.entregados / r.total) * 100) : 0
+  // Un pedido cancelado se considera resuelto (como si se hubiera entregado):
+  // no penaliza el cumplimiento, ya que el pedido dejó de estar activo.
+  const cumplimiento = r.total ? Math.round(((r.entregados + r.cancelados) / r.total) * 100) : 0
   const enTransitoParcial = solicitudes.filter((s) => (s.estado || '') === 'En Tránsito Parcial').length
 
   return (
@@ -71,16 +74,17 @@ export default function ConductorDashboard({ solicitudes }) {
             <MdInsights className="text-brand-cyan" /> Panel de entregas
           </h2>
           <p className="text-xs sm:text-sm text-brand-ink/50 mt-1">
-            Solo lo asignado a ti en tránsito o entregado.
+            Solo lo asignado a ti en tránsito, entregado o cancelado.
           </p>
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4">
           <Kpi icon={<MdInbox />} accent="bg-gradient-to-br from-brand-navy to-brand-deep" label="Total asignados" value={r.total} />
           <Kpi icon={<MdLocalShipping />} accent="bg-gradient-to-br from-purple-500 to-fuchsia-400" label="En tránsito" value={r.enTransito} sub={`${enTransitoParcial} parcial(es)`} />
           <Kpi icon={<MdCheckCircle />} accent="bg-gradient-to-br from-green-500 to-emerald-400" label="Entregados" value={r.entregados} sub={`${r.entregadosParcial} parciales`} />
-          <Kpi icon={<MdTrendingUp />} accent="bg-gradient-to-br from-brand-cyan to-cyan-400" label="Cumplimiento" value={`${cumplimiento}%`} sub={`${r.entregados} de ${r.total}`} />
+          <Kpi icon={<MdBlock />} accent="bg-gradient-to-br from-slate-500 to-slate-400" label="Cancelados" value={r.cancelados} sub="pedidos cancelados" />
+          <Kpi icon={<MdTrendingUp />} accent="bg-gradient-to-br from-brand-cyan to-cyan-400" label="Cumplimiento" value={`${cumplimiento}%`} sub={`${r.entregados + r.cancelados} de ${r.total}`} />
           <Kpi icon={<MdSchedule />} accent="bg-gradient-to-br from-amber-500 to-yellow-400" label="Tiempo promedio" value={formatHoras(r.tiempos.promedio)} sub={r.tiempos.cantidad ? `${r.tiempos.cantidad} entregas` : 'sin entregas'} />
         </div>
 
