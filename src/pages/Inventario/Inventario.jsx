@@ -34,12 +34,13 @@ import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
 import FiltroBuscable from './Components/FiltroBuscable.jsx'
 import {
+  MARCA_VENCIDO,
   RANGOS_INVENTARIO,
   badgeRango,
   diasVigencia,
   dotRango,
   estadoVencimiento,
-  fondoRango,
+  fondoInventario,
   formatearEntero,
   formatearFecha,
   formatearFechaHora,
@@ -123,8 +124,16 @@ const COLUMNAS_TABLA = [
   { key: 'cantidad', label: 'Cantidad', icon: <MdInventory2 />, centrada: true },
   { key: 'dias_inventario', label: 'Días de inventario', icon: <MdAccessTime />, centrada: true },
   { key: 'bodega', label: 'Bodega', icon: <MdWarehouse /> },
+  { key: 'nombre_bodega', label: 'Nombre de la bodega', icon: <MdStorefront />, clase: 'min-w-[13rem]' },
   { key: 'comercial', label: 'Comercial', icon: <MdBusiness /> },
 ]
+
+// Días de inventario como número para ordenar. Lo que no sea número queda al
+// final (se trata como el menor posible).
+function numeroDias(valor) {
+  const n = Number(String(valor ?? '').trim())
+  return Number.isFinite(n) ? n : Number.NEGATIVE_INFINITY
+}
 
 // Espacio que explica qué significa cada color de los «días de rotación».
 function LeyendaRotacion() {
@@ -179,7 +188,7 @@ function DatoMovil({ icon, label, valor }) {
 function TablaInventario({ filas, onVer }) {
   return (
     <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm">
-      <table className="w-full min-w-[900px] text-sm border-collapse">
+      <table className="w-full min-w-[1080px] text-sm border-collapse">
         <thead>
           <tr className="bg-brand-navy text-white">
             {COLUMNAS_TABLA.map((c) => (
@@ -214,15 +223,22 @@ function TablaInventario({ filas, onVer }) {
                 tabIndex={0}
                 role="button"
                 title={`Ver detalle de ${etiqueta}`}
-                className={`cursor-pointer border-t border-brand-ink/15 transition-colors hover:bg-brand-cyan/15 focus:outline-none focus-visible:bg-brand-cyan/20 ${fondoRango(f._rango)}`}
+                className={`cursor-pointer border-t border-brand-ink/15 transition-colors hover:bg-brand-cyan/15 focus:outline-none focus-visible:bg-brand-cyan/20 ${fondoInventario(f)}`}
               >
                 <td className="border border-brand-ink/10 px-3 py-2.5 text-center">
                   <span className="inline-flex items-center justify-center rounded-lg bg-brand-navy text-white text-[11px] font-extrabold px-2 py-1">
                     {f.numero_articulo || '—'}
                   </span>
                 </td>
-                <td className="border border-brand-ink/10 px-3 py-2.5 font-semibold leading-snug text-brand-ink/80">
-                  {f.descripcion || <span className="text-brand-ink/40">Sin descripción</span>}
+                <td className="relative overflow-hidden border border-brand-ink/10 px-3 py-2.5 font-semibold leading-snug text-brand-ink/80">
+                  {f._estado === 'Vencido' && (
+                    <span className="pointer-events-none select-none absolute inset-0 flex items-center justify-center whitespace-nowrap text-[10px] font-extrabold uppercase tracking-[0.3em] text-red-900/25">
+                      {MARCA_VENCIDO}
+                    </span>
+                  )}
+                  <span className="relative">
+                    {f.descripcion || <span className="text-brand-ink/40">Sin descripción</span>}
+                  </span>
                 </td>
                 <td className="border border-brand-ink/10 px-3 py-2.5 text-center align-middle text-brand-ink/70">
                   {f.fecha_vencimiento ? (
@@ -238,6 +254,7 @@ function TablaInventario({ filas, onVer }) {
                   <DiasRango f={f} />
                 </td>
                 <td className="border border-brand-ink/10 px-3 py-2.5 whitespace-nowrap text-brand-ink/70">{f.bodega || '—'}</td>
+                <td className="border border-brand-ink/10 px-3 py-2.5 text-brand-ink/70">{f.nombre_bodega || '—'}</td>
                 <td className="border border-brand-ink/10 px-3 py-2.5 whitespace-nowrap text-brand-ink/70">{f.comercial || '—'}</td>
               </tr>
             )
@@ -261,9 +278,14 @@ function TablaInventarioMovil({ filas, onVer }) {
             type="button"
             onClick={() => onVer(f)}
             title={`Ver detalle de ${etiqueta}`}
-            className={`relative w-full overflow-hidden rounded-2xl text-left ring-1 ring-brand-ink/10 shadow-sm hover:shadow-md transition-all pl-4 pr-3 py-3 ${fondoRango(f._rango)}`}
+            className={`relative w-full overflow-hidden rounded-2xl text-left ring-1 ring-brand-ink/10 shadow-sm hover:shadow-md transition-all pl-4 pr-3 py-3 ${fondoInventario(f)}`}
           >
-            <span className={`absolute left-0 top-0 h-full w-1.5 ${dotRango(f._rango)}`} />
+            <span className={`absolute left-0 top-0 h-full w-1.5 ${f._estado === 'Vencido' ? 'bg-red-800/60' : dotRango(f._rango)}`} />
+            {f._estado === 'Vencido' && (
+              <span className="pointer-events-none select-none absolute inset-0 flex items-center justify-center px-8 text-center text-[11px] font-extrabold uppercase tracking-[0.25em] text-red-900/25">
+                {MARCA_VENCIDO}
+              </span>
+            )}
             <div className="relative flex flex-col gap-2">
               <div className="flex items-start justify-between gap-2">
                 <span className="inline-flex items-center justify-center rounded-lg bg-brand-navy text-white text-[11px] font-extrabold px-2 py-1 max-w-[60%] truncate">
@@ -278,6 +300,7 @@ function TablaInventarioMovil({ filas, onVer }) {
                 <DatoMovil icon={<MdCalendarToday />} label="Vence" valor={f.fecha_vencimiento ? formatearFecha(f.fecha_vencimiento) : 'Sin fecha de vencimiento'} />
                 <DatoMovil icon={<MdInventory2 />} label="Cantidad" valor={String(f.cantidad ?? '').trim() || '—'} />
                 <DatoMovil icon={<MdWarehouse />} label="Bodega" valor={f.bodega || '—'} />
+                <DatoMovil icon={<MdStorefront />} label="Nombre bodega" valor={f.nombre_bodega || '—'} />
                 <DatoMovil icon={<MdBusiness />} label="Comercial" valor={f.comercial || '—'} />
               </div>
             </div>
@@ -425,7 +448,7 @@ export default function Inventario() {
     const q = filtros.q.trim().toLowerCase()
     const art = filtros.articulo.trim().toLowerCase()
     const igual = (valor, filtro) => !filtro || String(valor ?? '').toLowerCase().includes(filtro.trim().toLowerCase())
-    return enriquecidas.filter((f) => {
+    const resultado = enriquecidas.filter((f) => {
       if (art) {
         const heno = `${f.numero_articulo ?? ''} ${f.descripcion ?? ''}`.toLowerCase()
         if (!heno.includes(art)) return false
@@ -443,6 +466,9 @@ export default function Inventario() {
       }
       return true
     })
+    // Orden por defecto: días de inventario de mayor a menor. Las filas sin
+    // número de días quedan al final.
+    return resultado.sort((a, b) => numeroDias(b.dias_inventario) - numeroDias(a.dias_inventario))
   }, [enriquecidas, filtros])
 
   useEffect(() => setPagina(1), [filtros])

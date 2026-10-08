@@ -149,6 +149,16 @@ const FONDO_RANGO = {
 }
 export const fondoRango = (rango) => FONDO_RANGO[rango] || 'bg-white'
 
+// «Rojo gris» para los artículos ya vencidos: manda sobre el color de rotación y
+// lleva la marca de agua «material o mercancía vencida» en la fila.
+export const FONDO_VENCIDO = 'bg-[#ddc8c8]'
+export const MARCA_VENCIDO = 'Material o mercancía vencida'
+
+// Fondo de una fila/tarjeta del inventario: si está vencido usa el rojo gris; si
+// no, el color tenue del rango de rotación.
+export const fondoInventario = (f) =>
+  f?._estado === 'Vencido' ? FONDO_VENCIDO : fondoRango(f?._rango)
+
 export const formatearEntero = (n) =>
   n === null || n === undefined || n === '' ? '—' : new Intl.NumberFormat('es-CO').format(Math.round(Number(n)))
 

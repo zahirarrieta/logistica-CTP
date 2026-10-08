@@ -7,6 +7,8 @@
     "Inventario móvil: en el teléfono los artículos se ven como tarjetas, no como tabla.",
     "Inventario: el modal de detalle del artículo se rediseñó para mostrar mejor la información (encabezado coloreado, métricas de cantidad/días y datos de ubicación y artículo).",
     "Inventario: el modal de detalle usa los iconos como marca de agua y resume la ubicación y los datos del artículo.",
+    "Inventario: nueva columna «Nombre de la bodega» junto a Bodega y orden por defecto por días de inventario, del mayor al menor.",
+    "Inventario: los artículos vencidos se pintan en rojo gris con la marca de agua «Material o mercancía vencida» en su fila.",
     "Notificaciones: al tocar una notificación la app abre directamente la solicitud de la que viene."
   ]
 }
