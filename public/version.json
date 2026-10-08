@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.07-14",
+  "version": "2026.10.07-15",
   "fecha": "2026-10-07",
   "cambios": [
     "Inventario: los artículos se muestran en una tabla con N° de artículo, descripción, fecha de vencimiento, cantidad, días de inventario, bodega y comercial. Cada fila abre el detalle del artículo.",
@@ -9,6 +9,8 @@
     "Inventario: el modal de detalle usa los iconos como marca de agua y resume la ubicación y los datos del artículo.",
     "Inventario: nueva columna «Nombre de la bodega» junto a Bodega y orden por defecto por días de inventario, del mayor al menor.",
     "Inventario: los artículos vencidos se pintan en rojo gris con la marca de agua «Material o mercancía vencida» en su fila.",
-    "Notificaciones: al tocar una notificación la app abre directamente la solicitud de la que viene."
+    "Notificaciones: al tocar una notificación la app abre directamente la solicitud de la que viene.",
+    "Panel de control: las tarjetas de indicadores y las secciones muestran su icono como marca de agua (administrador, superadministrador y conductor).",
+    "Panel de control: nuevo botón de actividad que abre un modal con los cambios de estado, asignaciones de responsable/conductor y solicitudes creadas. El superadministrador ve la actividad de todos los usuarios (administradores, superadmins y conductores) y puede entrar al detalle de cada uno; el administrador y el conductor ven únicamente su propia actividad. Cada acción abre el pedido correspondiente."
   ]
 }

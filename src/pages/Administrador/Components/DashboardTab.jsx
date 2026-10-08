@@ -29,6 +29,7 @@ import {
   MdCalendarMonth,
   MdFilterAlt,
   MdBlock,
+  MdHistory,
 } from 'react-icons/md'
 import StarRating from '../../../components/StarRating.jsx'
 import {
@@ -54,12 +55,16 @@ import {
   ESTADOS_FINALES,
   ESTADOS_CERRADOS,
   ESTADOS_TRANSITO,
+  actividadPorUsuario,
 } from '../../../utils/dashboardUtils.js'
 import { getBadgeColor } from '../../../utils/estadoColors.js'
 import { nombreDeAsignado } from '../../../store/solicitudesStore.js'
+import useUsuarios from '../../../hooks/useUsuarios.js'
+import { useAuth } from '../../../auth/AuthContext.jsx'
 import PedidoDetalleModal from './modals/PedidoDetalleModal.jsx'
 import EtapaPedidosModal from './modals/EtapaPedidosModal.jsx'
 import PedidosListaModal from './modals/PedidosListaModal.jsx'
+import ActividadUsuariosModal from './modals/ActividadUsuariosModal.jsx'
 import { exportarExcel, exportarPdf } from '../../../services/exportarInforme.js'
 import { ESTADOS } from '../../../utils/estadoColors.js'
 
@@ -68,15 +73,18 @@ const CARD_ICON = 'grid place-items-center size-10 rounded-xl text-white text-xl
 export function Kpi({ icon, label, value, accent, sub, onClick }) {
   const contenido = (
     <>
-      <span className={`${CARD_ICON} ${accent}`}>{icon}</span>
-      <span className="min-w-0 text-left">
+      <span aria-hidden="true" className="pointer-events-none absolute -right-1.5 -bottom-2.5 text-5xl text-brand-deep/10">
+        {icon}
+      </span>
+      <span className={`relative ${CARD_ICON} ${accent}`}>{icon}</span>
+      <span className="relative min-w-0 text-left">
         <span className="block text-2xl font-extrabold text-brand-ink leading-none truncate">{value}</span>
         <span className="block text-[11px] font-bold text-brand-ink/50 uppercase tracking-wide mt-1 truncate">{label}</span>
         {sub && <span className="block text-[11px] font-semibold text-brand-ink/40 mt-0.5 truncate">{sub}</span>}
       </span>
     </>
   )
-  const clases = 'rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-4 flex items-center gap-3.5 min-w-0'
+  const clases = 'relative overflow-hidden rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-4 flex items-center gap-3.5 min-w-0'
   if (onClick) {
     return (
       <button
@@ -93,14 +101,17 @@ export function Kpi({ icon, label, value, accent, sub, onClick }) {
 
 export function Seccion({ icon, titulo, children, className = '' }) {
   return (
-    <section className={`rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-5 sm:p-6 ${className} db-chart-enter`}>
-      <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep mb-5">
+    <section className={`relative rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-5 sm:p-6 ${className} db-chart-enter`}>
+      <span aria-hidden="true" className="pointer-events-none absolute right-2 top-1 text-6xl text-brand-deep/5">
+        {icon}
+      </span>
+      <h2 className="relative inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep mb-5">
         <span className="grid place-items-center size-8 rounded-xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30">
           {icon}
         </span>
         {titulo}
       </h2>
-      {children}
+      <div className="relative">{children}</div>
     </section>
   )
 }
@@ -425,7 +436,15 @@ export default function DashboardTab({
   const [pedidosModal, setPedidosModal] = useState(null)
   const [mesFiltro, setMesFiltro] = useState('')
   const [anoFiltro, setAnoFiltro] = useState('')
-  
+  const [actividadAbierta, setActividadAbierta] = useState(false)
+
+  const { usuarios } = useUsuarios(true)
+  const { rol, account } = useAuth()
+
+  const correoActual = String(account?.username || account?.idTokenClaims?.email || '').trim().toLowerCase()
+  const nombreActual = account?.name || ''
+  const esSuper = rol === 'superadmin'
+
   const r = useMemo(() => resumen(solicitudes), [solicitudes])
   const porA = useMemo(() => porAsignado(solicitudes), [solicitudes])
   const tiempos = useMemo(() => histogramaTiempos(solicitudes), [solicitudes])
@@ -441,6 +460,17 @@ export default function DashboardTab({
   const encuestas = useMemo(() => resumenEncuestas(solicitudes), [solicitudes])
   const encConductores = useMemo(() => promedioPorConductorEncuesta(solicitudes), [solicitudes])
   const encClientes = useMemo(() => topClientesSatisfaccion(solicitudes, 8), [solicitudes])
+  // Asegura que el usuario actual siempre tenga su cubo aunque el listado de
+  // usuarios no lo traiga (p. ej. un administrador viendo solo su actividad).
+  const usuariosActividad = useMemo(() => {
+    if (!correoActual) return usuarios
+    const ya = usuarios.some((u) => String(u.correo || '').toLowerCase() === correoActual)
+    return ya ? usuarios : [...usuarios, { correo: correoActual, nombre: nombreActual, rol }]
+  }, [usuarios, correoActual, nombreActual, rol])
+  const actividadUsuarios = useMemo(
+    () => actividadPorUsuario(solicitudes, usuariosActividad),
+    [solicitudes, usuariosActividad]
+  )
 
   // Años disponibles para el filtro
   const anosDisponibles = useMemo(() => {
@@ -573,6 +603,15 @@ export default function DashboardTab({
           >
             <MdTableChart className="text-base" />
             Exportar Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => setActividadAbierta(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-brand-deep/30 bg-white text-brand-deep px-4 py-2 text-xs sm:text-sm font-bold hover:bg-brand-cyan/15 transition"
+            title={esSuper ? 'Ver la actividad de todos los usuarios' : 'Ver mi actividad'}
+          >
+            <MdHistory className="text-base" />
+            {esSuper ? 'Actividad por usuario' : 'Mi actividad'}
           </button>
         </div>
       </div>
@@ -989,6 +1028,18 @@ export default function DashboardTab({
       onClose={() => setPedidosModal(null)}
       onVerPedido={(id) => {
         setPedidosModal(null)
+        abrirDetalle(id)
+      }}
+    />
+
+    <ActividadUsuariosModal
+      usuarios={actividadUsuarios}
+      open={actividadAbierta}
+      onClose={() => setActividadAbierta(false)}
+      puedeVerTodos={esSuper}
+      usuarioActual={{ correo: correoActual, nombre: nombreActual, rol }}
+      onVerPedido={(id) => {
+        setActividadAbierta(false)
         abrirDetalle(id)
       }}
     />

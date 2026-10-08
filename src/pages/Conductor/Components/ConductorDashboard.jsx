@@ -15,6 +15,7 @@ import {
   MdList,
   MdChevronRight,
   MdBlock,
+  MdHistory,
 } from 'react-icons/md'
 import {
   resumen,
@@ -25,10 +26,14 @@ import {
   formatHoras,
   ESTADOS_FINALES,
   ESTADOS_TRANSITO,
+  actividadPorUsuario,
 } from '../../../utils/dashboardUtils.js'
 import { getBadgeColor } from '../../../utils/estadoColors.js'
+import useUsuarios from '../../../hooks/useUsuarios.js'
+import { useAuth } from '../../../auth/AuthContext.jsx'
 import PedidoDetalleModal from '../../Administrador/Components/modals/PedidoDetalleModal.jsx'
 import PedidosListaModal from '../../Administrador/Components/modals/PedidosListaModal.jsx'
+import ActividadUsuariosModal from '../../Administrador/Components/modals/ActividadUsuariosModal.jsx'
 import {
   Kpi,
   Seccion,
@@ -42,11 +47,25 @@ import {
 export default function ConductorDashboard({ solicitudes }) {
   const [detalle, setDetalle] = useState(null)
   const [pedidosModal, setPedidosModal] = useState(null)
+  const [actividadAbierta, setActividadAbierta] = useState(false)
+  const { usuarios } = useUsuarios(true)
+  const { account, rol } = useAuth()
+  const correoActual = String(account?.username || account?.idTokenClaims?.email || '').trim().toLowerCase()
+  const nombreActual = account?.name || ''
   const r = useMemo(() => resumen(solicitudes), [solicitudes])
   const zonas = useMemo(() => porZona(solicitudes), [solicitudes])
   const tipos = useMemo(() => porTipo(solicitudes), [solicitudes])
   const actividad = useMemo(() => seriesPorDia(solicitudes, 14), [solicitudes])
   const tiempos = useMemo(() => histogramaTiempos(solicitudes), [solicitudes])
+  const usuariosActividad = useMemo(() => {
+    if (!correoActual) return usuarios
+    const ya = usuarios.some((u) => String(u.correo || '').toLowerCase() === correoActual)
+    return ya ? usuarios : [...usuarios, { correo: correoActual, nombre: nombreActual, rol }]
+  }, [usuarios, correoActual, nombreActual, rol])
+  const actividadUsuarios = useMemo(
+    () => actividadPorUsuario(solicitudes, usuariosActividad),
+    [solicitudes, usuariosActividad]
+  )
 
   const abrirDetalle = (id) => setDetalle(solicitudes.find((s) => s.id === id) || null)
 
@@ -83,13 +102,24 @@ export default function ConductorDashboard({ solicitudes }) {
     <>
       <div className="space-y-4 sm:space-y-6">
         {/* Encabezado */}
-        <div>
-          <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep">
-            <MdInsights className="text-brand-cyan" /> Panel de entregas
-          </h2>
-          <p className="text-xs sm:text-sm text-brand-ink/50 mt-1">
-            Solo lo asignado a ti en tránsito, entregado o cancelado.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep">
+              <MdInsights className="text-brand-cyan" /> Panel de entregas
+            </h2>
+            <p className="text-xs sm:text-sm text-brand-ink/50 mt-1">
+              Solo lo asignado a ti en tránsito, entregado o cancelado.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActividadAbierta(true)}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-brand-deep/30 bg-white text-brand-deep px-4 py-2 text-xs sm:text-sm font-bold hover:bg-brand-cyan/15 transition"
+            title="Ver mi actividad"
+          >
+            <MdHistory className="text-base" />
+            Mi actividad
+          </button>
         </div>
 
         {/* KPIs */}
@@ -292,6 +322,18 @@ export default function ConductorDashboard({ solicitudes }) {
         onClose={() => setPedidosModal(null)}
         onVerPedido={(id) => {
           setPedidosModal(null)
+          abrirDetalle(id)
+        }}
+      />
+
+      <ActividadUsuariosModal
+        usuarios={actividadUsuarios}
+        open={actividadAbierta}
+        onClose={() => setActividadAbierta(false)}
+        puedeVerTodos={false}
+        usuarioActual={{ correo: correoActual, nombre: nombreActual, rol }}
+        onVerPedido={(id) => {
+          setActividadAbierta(false)
           abrirDetalle(id)
         }}
       />

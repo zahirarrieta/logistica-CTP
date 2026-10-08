@@ -1,4 +1,5 @@
 import { ESTADOS } from './estadoColors.js'
+import { shortName } from '../auth/user.js'
 
 export const ESTADOS_FINALES = ['Entregado', 'Entregado Parcial']
 // Cierres de la solicitud: entregada o cancelada. Ya no se mueven, no cuentan
@@ -438,6 +439,103 @@ export function topClientesSatisfaccion(solicitudes, n = 8) {
     .map((x) => ({ nombre: x.nombre, promedio: x.puntos / x.votos, votos: x.votos, entregas: x.entregas }))
     .sort((a, b) => b.entregas - a.entregas)
     .slice(0, n)
+}
+
+// Roles que aparecen en la actividad por usuario: solo quienes tramitan
+// (administrador y superadmin) y quienes entregan (conductor). Los solicitantes
+// quedan fuera.
+export const ROLES_ACTIVIDAD = ['administrador', 'superadmin', 'conductor']
+
+// Agrupa la actividad registrada por persona cruzando el `historial` de las
+// solicitudes (cambios de estado, asignaciones de responsable y de conductor)
+// con las creaciones de solicitudes. Solo se incluyen usuarios cuyo rol sea
+// administrador, superadmin o conductor; el listado incluye también a quienes
+// no han hecho ninguna acción (así se ve quién no está trabajando). El
+// `historial` guarda la persona como `shortName`, así que se empareja por ese
+// nombre corto; las creaciones se emparejan por correo. Cada fila trae sus
+// `acciones` ordenadas de la más reciente a la más antigua.
+export function actividadPorUsuario(solicitudes = [], usuarios = []) {
+  const filas = []
+  const porCorreo = new Map()
+  const porCorto = new Map()
+  const porNombre = new Map()
+
+  for (const u of usuarios) {
+    const rol = String(u?.rol || '').trim().toLowerCase()
+    if (!ROLES_ACTIVIDAD.includes(rol)) continue
+    const correo = String(u?.correo || '').trim()
+    if (!correo || porCorreo.has(correo.toLowerCase())) continue
+    const nombre = u.nombre || correo
+    const fila = {
+      clave: `c:${correo}`,
+      correo,
+      nombre,
+      corto: shortName({ name: nombre }),
+      rol,
+      estados: 0,
+      asignaciones: 0,
+      creaciones: 0,
+      total: 0,
+      ultima: null,
+      acciones: [],
+    }
+    filas.push(fila)
+    porCorreo.set(correo.toLowerCase(), fila)
+    if (fila.corto) porCorto.set(fila.corto, fila)
+    if (nombre) porNombre.set(nombre, fila)
+  }
+
+  const registrar = (fila, accion) => {
+    fila.total += 1
+    fila.acciones.push(accion)
+    if (accion.tipo === 'estado') fila.estados += 1
+    else if (accion.tipo === 'creacion') fila.creaciones += 1
+    else fila.asignaciones += 1
+    const ts = parseStamp(accion.fecha, accion.hora)
+    if (ts && (!fila.ultima || ts > fila.ultima.ts)) {
+      fila.ultima = { ts, fecha: accion.fecha || '', hora: accion.hora || '' }
+    }
+  }
+
+  for (const s of solicitudes) {
+    const correoCreador = String(s.correo || '').trim().toLowerCase()
+    const creador = correoCreador ? porCorreo.get(correoCreador) : null
+    if (creador) {
+      registrar(creador, {
+        tipo: 'creacion',
+        solicitud: s.id,
+        cliente: s.cliente || '',
+        fecha: s.fechaSubida || '',
+        hora: s.horaSubida || '',
+      })
+    }
+
+    const historial = Array.isArray(s.historial) ? s.historial : []
+    for (const h of historial) {
+      const persona = String(h.persona || '').trim()
+      if (!persona) continue
+      const fila = porCorto.get(persona) || porNombre.get(persona)
+      if (!fila) continue
+      const tipo = h.campo === 'estado' ? 'estado' : h.campo === 'conductor' ? 'conductor' : 'asignado'
+      registrar(fila, {
+        tipo,
+        solicitud: s.id,
+        cliente: s.cliente || '',
+        anterior: h.anterior || '',
+        nuevo: h.nuevo || '',
+        nota: h.nota || '',
+        fecha: h.fecha || '',
+        hora: h.hora || '',
+      })
+    }
+  }
+
+  for (const fila of filas) {
+    fila.acciones.sort(
+      (a, b) => (parseStamp(b.fecha, b.hora) || 0) - (parseStamp(a.fecha, a.hora) || 0)
+    )
+  }
+  return filas.sort((a, b) => b.total - a.total || a.nombre.localeCompare(b.nombre))
 }
 
 export function lentosActivos(solicitudes, umbralHoras = 48) {
