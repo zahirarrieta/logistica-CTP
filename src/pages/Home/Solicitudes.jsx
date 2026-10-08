@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { MdAdd, MdInbox, MdFilterList } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -21,8 +22,23 @@ export default function Solicitudes() {
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
   const [cancelarSolicitud, setCancelarSolicitud] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   useEffect(() => suscribir(setSolicitudes), [])
+
+  // Al abrir la app desde una notificación (push del navegador) llega con ?s=CODIGO.
+  // Se abre automáticamente el seguimiento de esa solicitud —«de dónde viene»— y se
+  // limpia el parámetro para que no se reabra si el usuario cierra el modal.
+  useEffect(() => {
+    const codigo = (searchParams.get('s') || '').trim()
+    if (!codigo) return
+    const objetivo = solicitudes.find((s) => s.id === codigo)
+    if (!objetivo) return
+    setDetalleSolicitud(objetivo)
+    const siguiente = new URLSearchParams(searchParams)
+    siguiente.delete('s')
+    setSearchParams(siguiente, { replace: true })
+  }, [solicitudes, searchParams, setSearchParams])
 
   // Si llega un cambio en vivo (Realtime) mientras un modal está abierto,
   // re-apunta el objeto del modal a la versión fresca por id; si la solicitud

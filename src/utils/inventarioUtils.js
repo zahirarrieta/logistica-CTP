@@ -140,6 +140,15 @@ export const badgeRango = (rango) => RANGO_BADGE[rango] || 'bg-brand-ink/10 text
 export const dotRango = (rango) => RANGO_DOT[rango] || 'bg-brand-ink/40'
 export const pastelRango = (rango) => RANGO_PASTEL[rango] || 'bg-white'
 
+// Fondo tenue para pintar la fila o la tarjeta completa según el rango.
+const FONDO_RANGO = {
+  'Ok Rotación': 'bg-green-50',
+  'Rotar': 'bg-yellow-50',
+  'Rotar con Prioridad': 'bg-orange-50',
+  'Rotar urgente': 'bg-red-50',
+}
+export const fondoRango = (rango) => FONDO_RANGO[rango] || 'bg-white'
+
 export const formatearEntero = (n) =>
   n === null || n === undefined || n === '' ? '—' : new Intl.NumberFormat('es-CO').format(Math.round(Number(n)))
 

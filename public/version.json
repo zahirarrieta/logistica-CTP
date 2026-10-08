@@ -1,8 +1,12 @@
 {
-  "version": "2026.10.07-13",
+  "version": "2026.10.07-14",
   "fecha": "2026-10-07",
   "cambios": [
-    "Mis solicitudes: el botón de eliminar ahora es «Cambiar estado». Durante los primeros 3 minutos puedes pasar tu solicitud a «Cancelado» indicando el motivo (observaciones obligatorias).",
-    "La cancelación ya no borra la solicitud: queda registrada en el historial y el seguimiento, para que el administrador conserve la trazabilidad."
+    "Inventario: los artículos se muestran en una tabla con N° de artículo, descripción, fecha de vencimiento, cantidad, días de inventario, bodega y comercial. Cada fila abre el detalle del artículo.",
+    "Inventario: cada fila se colorea según los días de rotación y hay una leyenda centrada que explica cada color (Ok Rotación, Rotar, Rotar con Prioridad y Rotar urgente).",
+    "Inventario móvil: en el teléfono los artículos se ven como tarjetas, no como tabla.",
+    "Inventario: el modal de detalle del artículo se rediseñó para mostrar mejor la información (encabezado coloreado, métricas de cantidad/días y datos de ubicación y artículo).",
+    "Inventario: el modal de detalle usa los iconos como marca de agua y resume la ubicación y los datos del artículo.",
+    "Notificaciones: al tocar una notificación la app abre directamente la solicitud de la que viene."
   ]
 }
