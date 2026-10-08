@@ -585,6 +585,26 @@ router.post(
     } finally {
       conexion.release()
     }
+
+    // Aviso general: subir o actualizar el inventario interesa a TODOS los
+    // usuarios, no solo a un rol. Va después del commit y nunca puede tumbar el
+    // guardado (despacharATodos devuelve ceros si faltan las claves VAPID). El
+    // actor queda excluido: ya tiene la pantalla delante con el aviso de éxito.
+    await push.despacharATodos(
+      {
+        titulo: 'Inventario actualizado',
+        cuerpo: `${ctx.nombre || 'Un administrador'} subió ${filas.length} artículo(s) al inventario.`,
+        tag: 'ctp-inventario',
+        url: '/inventario',
+        datos: { tipo: 'inventario' },
+        // Se muestra aunque haya una pestaña visible: el inventario no tiene el
+        // polling sonando que sí tienen las solicitudes, así que sin esto quien
+        // tenga la app abierta no se enteraría.
+        forzar: true,
+      },
+      { excluir: [ctx.correo] }
+    )
+
     res.status(201).json({ ok: true, total: filas.length })
   })
 )

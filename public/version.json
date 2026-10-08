@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.07-11",
+  "version": "2026.10.07-12",
   "fecha": "2026-10-07",
   "cambios": [
-    "Inventario: las marcas de agua (tarjetas de artículos y tarjetas clicables del resumen) ahora usan el azul de la marca (brand-deep #003B73), más claro y visible, en vez del azul casi negro."
+    "Inventario: al subir o actualizar el inventario ahora se envía una notificación push a TODOS los usuarios activos (con las notificaciones activadas), incluso con la app abierta. Quien sube el inventario no recibe su propio aviso.",
+    "Service worker: nueva notificación de inventario con su propio icono y ajuste para mostrarla aunque haya una pestaña visible."
   ]
 }

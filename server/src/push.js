@@ -288,6 +288,40 @@ async function enviar(correos, carga) {
 }
 
 // ---------------------------------------------------------------------------
+// Avisos generales (todos los usuarios)
+//
+// Hay eventos que no van dirigidos a un rol ni a un correo concreto, sino a
+// todo el mundo (p. ej. una subida de inventario). Para esos no sirven las
+// reglas por rol de eventosDe(): hace falta la lista completa de cuentas.
+// ---------------------------------------------------------------------------
+
+// Correos de todas las cuentas activas. No filtra por rol: es la lista entera.
+async function correosActivos() {
+  try {
+    // activo = 1: un usuario desactivado no debe recibir avisos.
+    const [filas] = await pool.execute('SELECT correo FROM usuarios WHERE activo = 1')
+    return filas.map((f) => String(f.correo || '').trim().toLowerCase()).filter(Boolean)
+  } catch (error) {
+    console.error(`[Push] no se pudieron leer los usuarios activos: ${error?.message}`)
+    return []
+  }
+}
+
+// Aviso de interés general para TODOS los usuarios activos, menos los excluidos
+// (normalmente el actor, que ya tiene la pantalla delante). Igual que el resto
+// del módulo, nunca lanza y devuelve ceros si faltan las claves VAPID.
+async function despacharATodos(carga, { excluir = [] } = {}) {
+  if (!configurarServicio()) return { enviados: 0, destinatarios: 0 }
+  const fuera = new Set(
+    (Array.isArray(excluir) ? excluir : [excluir])
+      .map((c) => String(c || '').trim().toLowerCase())
+      .filter(Boolean)
+  )
+  const correos = (await correosActivos()).filter((c) => !fuera.has(c))
+  return enviar(correos, carga)
+}
+
+// ---------------------------------------------------------------------------
 // A quién se avisa
 //
 // Aquí está el corazón del asunto. Las reglas replican las de
@@ -563,6 +597,8 @@ module.exports = {
   desuscribir,
   suscripcionesDe,
   correosQueCumplen,
+  correosActivos,
+  despacharATodos,
   eventosDe,
   despachar,
   enviar,

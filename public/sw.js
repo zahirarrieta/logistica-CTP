@@ -1,4 +1,4 @@
-const CACHE = 'ctp-logistica-v8'
+const CACHE = 'ctp-logistica-v9'
 
 // Shell mínimo para que la app abra sin conexión mientras llegan los assets.
 // Incluye /inicio porque es el start_url del manifest (lo usan los lanzamientos
@@ -91,6 +91,7 @@ const ICONOS = {
   entregado: '/icons/icon-192.png',
   estado: '/icons/icon-192.png',
   calidad: '/icons/icon-192.png',
+  inventario: '/ITitulos/IInventario.png',
 }
 
 self.addEventListener('push', (event) => {
@@ -122,7 +123,10 @@ self.addEventListener('push', (event) => {
         includeUncontrolled: true,
       })
       const algunaVisible = clientes.some((c) => c.visibilityState === 'visible')
-      if (algunaVisible) return
+      // Con `forzar` se muestra igual: hay eventos (inventario) que no tienen el
+      // polling de solicitudes sonando en la pestaña, así que si no se mostrara
+      // aquí, quien tuviera la app abierta no se enteraría de nada.
+      if (algunaVisible && !carga.forzar) return
 
       await self.registration.showNotification(titulo, {
         body: cuerpo,

@@ -73,11 +73,18 @@ const poolFalso = {
       return [[...suscripciones.values()].filter((f) => pedidos.includes(f.correo)), []]
     }
     if (/SELECT correo FROM usuarios/i.test(sql)) {
-      //(active = 1 AND (rol IN (…) OR correo IN (…)))
-      const roles = params.slice(0, (sql.match(/rol IN \(([^)]*)\)/)?.[1].match(/\?/g) || []).length)
-      const correos = params.slice(roles.length)
+      // Dos formas de consulta:
+      //   · con condiciones: activo = 1 AND (rol IN (…) OR correo IN (…))
+      //   · sin condiciones (correosActivos): activo = 1 → todas las cuentas.
+      const tieneRoles = /rol IN \(/.test(sql)
+      const tieneCorreos = /correo IN \(/.test(sql)
+      const roles = tieneRoles
+        ? params.slice(0, (sql.match(/rol IN \(([^)]*)\)/)?.[1].match(/\?/g) || []).length)
+        : []
+      const correos = tieneCorreos ? params.slice(roles.length) : []
       const filas = usuarios.filter((u) => {
         if (!u.activo) return false
+        if (!tieneRoles && !tieneCorreos) return true
         return roles.includes(u.rol) || correos.includes(u.correo)
       })
       return [filas.map((u) => ({ correo: u.correo })), []]
@@ -680,6 +687,59 @@ probar('despachar sin cambios no manda nada', async () => {
   })
   assert.equal(resultado.eventos, 0)
   assert.equal(resultado.enviados, 0)
+})
+
+// ------------------------------------------------------------ todos los avisos
+
+probar('correosActivos trae todas las cuentas activas, sin filtrar por rol', async () => {
+  limpiar()
+  const correos = await push.correosActivos()
+  assert.ok(correos.includes('admin@ctp.com'))
+  assert.ok(correos.includes('cond1@ctp.com'))
+  assert.ok(correos.includes('cliente@acme.com'))
+  // Un usuario dado de baja no debe entrar: no debe recibir avisos.
+  assert.ok(!correos.includes('baja@ctp.com'))
+})
+
+probar('despacharATodos avisa a todos menos al actor', async () => {
+  limpiar()
+  await suscribirFalsa('super@ctp.com', 'movil')
+  await suscribirFalsa('jefe@ctp.com', 'movil')
+  await suscribirFalsa('cond1@ctp.com', 'movil')
+  // El que sube el inventario no debe recibir su propio aviso.
+  await suscribirFalsa('admin@ctp.com', 'movil')
+
+  callar()
+  let resultado
+  try {
+    resultado = await push.despacharATodos(
+      {
+        titulo: 'Inventario actualizado',
+        cuerpo: 'X subió 10 artículo(s) al inventario.',
+        tag: 'ctp-inventario',
+        url: '/inventario',
+        datos: { tipo: 'inventario' },
+        forzar: true,
+      },
+      { excluir: ['admin@ctp.com'] }
+    )
+  } finally {
+    hablar()
+  }
+  assert.equal(resultado.destinatarios, 3)
+  assert.equal(resultado.enviados, 3)
+  assert.ok(!envios.some((e) => e.correo === 'admin@ctp.com'), 'el actor no debe recibir el aviso')
+  // La carga llega tal cual: el service worker usa datos.tipo y forzar.
+  assert.equal(envios[0].carga.datos.tipo, 'inventario')
+  assert.equal(envios[0].carga.forzar, true)
+  assert.equal(envios[0].carga.url, '/inventario')
+})
+
+probar('despacharATodos sin equipos suscritos no rompe', async () => {
+  limpiar()
+  const resultado = await push.despacharATodos({ titulo: 'Inventario actualizado', cuerpo: 'x' })
+  assert.equal(resultado.enviados, 0)
+  assert.equal(resultado.destinatarios, 0)
 })
 
 // ------------------------------------------------------------------ salida
