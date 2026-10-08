@@ -162,7 +162,7 @@ function DocEntregaIcono({ count, onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, ahora, puedeEliminar, restanteEliminar }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCancelarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, ahora, puedeEliminar, restanteEliminar, puedeCancelar, restanteCancelar }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const vencidaDev = devolucionVencida(s, ahora)
@@ -171,7 +171,10 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
     : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
   const mostrarCorregir = Boolean(onCorregirClick) && esDevolucion(s)
   const mostrarEstado = Boolean(onCambiarEstadoClick) && !esEntregado(s) && !esCancelado(s)
-  const hasCardAcciones = Boolean(onAsignarClick || mostrarEstado || onEstadoClick || onSeguimientoClick || onEliminarClick || mostrarCorregir)
+  // El solicitante puede pasar su propia solicitud a «Cancelado» solo durante
+  // los primeros 3 minutos: fuera de esa ventana el botón no se dibuja.
+  const mostrarCancelar = Boolean(onCancelarClick) && (!puedeCancelar || puedeCancelar(s))
+  const hasCardAcciones = Boolean(onAsignarClick || mostrarEstado || onEstadoClick || onSeguimientoClick || onEliminarClick || mostrarCancelar || mostrarCorregir)
   const docsEntrega = mostrarDocEntrega ? documentoEntregable(s) : null
 
   return (
@@ -319,6 +322,27 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Estado
                 </button>
               )}
+              {mostrarCancelar && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onCancelarClick(s)
+                  }}
+                  title="Cambiar estado (solo Cancelado, con motivo obligatorio)"
+                  aria-label="Cambiar estado"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdSwapHoriz className="text-lg" />
+                  Cambiar estado
+                  {restanteCancelar && restanteCancelar(s) > 0 && (
+                    <>
+                      <MdTimer className="text-lg" />
+                      <span>{formatearMs(restanteCancelar(s))}</span>
+                    </>
+                  )}
+                </button>
+              )}
               {onEstadoClick && (
                 <button
                   type="button"
@@ -402,8 +426,11 @@ export default function SolicitudesTable({
   onSeguimientoClick,
   onEntregaDetallesClick,
   onEliminarClick,
+  onCancelarClick,
   onCorregirClick,
   puedeEliminar,
+  puedeCancelar,
+  restanteCancelar,
   cardActions,
   empty,
   colorRowsPorEstado,
@@ -445,7 +472,8 @@ export default function SolicitudesTable({
       (onCambiarEstadoClick && !esEntregado(s) && !esCancelado(s)) ||
         (onEntregaDetallesClick && esEntregado(s)) ||
         onEstadoClick ||
-        (onEliminarClick && (!puedeEliminar || puedeEliminar(s)))
+        (onEliminarClick && (!puedeEliminar || puedeEliminar(s))) ||
+        (onCancelarClick && (!puedeCancelar || puedeCancelar(s)))
     )
 
   const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1
@@ -465,7 +493,7 @@ export default function SolicitudesTable({
   // La columna de acciones solo se dibuja si al menos una fila de la página
   // actual muestra algún botón; así no queda una columna en blanco junto a Estado.
   const hasAcciones =
-    Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick || onEntregaDetallesClick) &&
+    Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick || onCancelarClick || onEntregaDetallesClick) &&
     currentItems.some(filaConAccion)
 
   if (items.length === 0) {
@@ -484,6 +512,7 @@ export default function SolicitudesTable({
       <div className="md:hidden space-y-3">
         {currentItems.map((s, i) => {
             const restDel = restanteEliminar ? restanteEliminar(s) : null
+            const restCan = restanteCancelar ? restanteCancelar(s) : null
             return (
               <SolicitudCard
                 key={s.id}
@@ -499,6 +528,7 @@ export default function SolicitudesTable({
                 onSeguimientoClick={onSeguimientoClick}
                 onEntregaDetallesClick={onEntregaDetallesClick}
                 onEliminarClick={onEliminarClick}
+                onCancelarClick={onCancelarClick}
                 onCorregirClick={onCorregirClick}
                 onClickObs={openObs}
                 onVerAdjuntosClick={setAdjuntosSolicitud}
@@ -507,6 +537,8 @@ export default function SolicitudesTable({
                 ahora={ahora}
                 puedeEliminar={puedeEliminar}
                 restanteEliminar={restDel}
+                puedeCancelar={puedeCancelar}
+                restanteCancelar={restCan}
               />
             )
           })}
@@ -694,6 +726,28 @@ export default function SolicitudesTable({
                             className="grid place-items-center size-9 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-navy/10 disabled:hover:text-brand-deep"
                           >
                             <MdSwapHoriz className="text-xl" />
+                          </button>
+                        )}
+                        {onCancelarClick && (!puedeCancelar || puedeCancelar(s)) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onCancelarClick(s)
+                            }}
+                            title="Cambiar estado (solo Cancelado, con motivo obligatorio)"
+                            aria-label="Cambiar estado"
+                            className={`inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors ${
+                              restanteCancelar ? 'px-3 py-2 text-xs font-bold' : 'size-9'
+                            }`}
+                          >
+                            <MdSwapHoriz className="text-xl" />
+                            {restanteCancelar && restanteCancelar(s) > 0 && (
+                              <>
+                                <MdTimer className="text-lg" />
+                                <span>{formatearMs(restanteCancelar(s))}</span>
+                              </>
+                            )}
                           </button>
                         )}
                         {onEstadoClick && (

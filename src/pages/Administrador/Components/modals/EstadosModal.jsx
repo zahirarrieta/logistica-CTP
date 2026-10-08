@@ -51,8 +51,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const urlsRef = useRef(new Map())
   const inputRef = useRef(null)
 
-  // Única opción «Cancelado»: caso de una devolución a solicitante con el plazo
-  // de corrección vencido (Administrador pasa permitidos={['Cancelado']}).
+  // Única opción «Cancelado»: la usa el solicitante para cancelar su propia
+  // solicitud dentro de los primeros 3 minutos (Solicitudes pasa
+  // permitidos={['Cancelado']}). No borra: deja historial y seguimiento.
   const soloCancelar = Array.isArray(permitidos) && permitidos.length === 1 && permitidos[0] === ESTADO_CANCELADO
 
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     }
     if (abiertoRef.current || !solicitud) return
     abiertoRef.current = true
-    // Si la única opción es «Cancelado» (devolución vencida) se preselecciona
+    // Si la única opción es «Cancelado» se preselecciona
     // para que el motivo quede a la vista de una vez.
     setEstado(soloCancelar ? ESTADO_CANCELADO : (solicitud.estado || 'Abierto'))
     setNota('')
@@ -320,7 +321,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
             <div className="mb-3 rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-3 py-2.5 text-xs font-bold text-fuchsia-700 inline-flex items-start gap-1.5">
               <MdInfoOutline className="text-base shrink-0" />
               <span>
-                La devolución venció sin que el solicitante corrigiera. Solo puedes cancelar la solicitud.
+                Puedes cancelar tu solicitud durante los primeros 3 minutos. La
+              cancelación queda registrada en el historial y no se puede
+              deshacer; escribe el motivo para continuar.
               </span>
             </div>
           )}

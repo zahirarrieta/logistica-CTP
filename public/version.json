@@ -1,8 +1,8 @@
 {
-  "version": "2026.10.07-12",
+  "version": "2026.10.07-13",
   "fecha": "2026-10-07",
   "cambios": [
-    "Inventario: al subir o actualizar el inventario ahora se envía una notificación push a TODOS los usuarios activos (con las notificaciones activadas), incluso con la app abierta. Quien sube el inventario no recibe su propio aviso.",
-    "Service worker: nueva notificación de inventario con su propio icono y ajuste para mostrarla aunque haya una pestaña visible."
+    "Mis solicitudes: el botón de eliminar ahora es «Cambiar estado». Durante los primeros 3 minutos puedes pasar tu solicitud a «Cancelado» indicando el motivo (observaciones obligatorias).",
+    "La cancelación ya no borra la solicitud: queda registrada en el historial y el seguimiento, para que el administrador conserve la trazabilidad."
   ]
 }

@@ -13,7 +13,7 @@ import {
   MdVerified,
   MdMap,
   MdCheck,
-  MdDeleteOutline,
+  MdSwapHoriz,
   MdTimer,
   MdCancel,
 } from 'react-icons/md'
@@ -65,7 +65,7 @@ const ICONOS_POR_ESTADO = {
   Cancelado: MdCancel,
 }
 
-export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir, onEliminar }) {
+export default function SeguimientoModal({ solicitud, open, onClose, solicitudes, onCorregir, onCambiarEstado }) {
   const { account } = useAuth()
   const correoActual = (account?.username || '').trim().toLowerCase()
 
@@ -89,8 +89,10 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const estado = solicitud.estado || 'Abierto'
   const entrega = buscarEntrega(solicitud)
 
-  // Calcular tiempo restante para eliminar (solo si es del solicitante actual)
-  const tiempoEliminar = restanteEliminar(solicitud, correoActual, ahora)
+  // Ventana de 3 min para cambiar el estado a «Cancelado» (antes era el botón
+  // de eliminar). El tick de `ahora` hace que la cuenta baje en pantalla y que el
+  // botón desaparezca al vencer.
+  const tiempoCancelar = restanteEliminar(solicitud, correoActual, ahora)
   const esDev = estado === 'Devolución a Solicitante'
   // Cancelado: el pedido se cerró sin entrega, así que no hay «avance» que
   // mostrar. Se saca el motivo de la última entrada del historial.
@@ -144,17 +146,18 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
                 {solicitud.id}
               </span>
             </div>
-            {tiempoEliminar !== null && tiempoEliminar > 0 && onEliminar && (
+            {tiempoCancelar !== null && tiempoCancelar > 0 && onCambiarEstado && (
               <button
                 type="button"
-                onClick={() => onEliminar(solicitud)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 text-red-600 hover:bg-red-500/20 px-2.5 py-1.5 text-xs font-bold transition-colors"
-                title="Eliminar solicitud"
-                aria-label="Eliminar solicitud"
+                onClick={() => onCambiarEstado(solicitud)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-cyan hover:bg-brand-cyan hover:text-brand-ink px-2.5 py-1.5 text-xs font-bold transition-colors"
+                title="Cambiar estado (solo Cancelado, con motivo obligatorio)"
+                aria-label="Cambiar estado"
               >
-                <MdDeleteOutline className="text-lg" />
+                <MdSwapHoriz className="text-lg" />
+                <span className="hidden sm:inline">Cambiar estado</span>
                 <MdTimer className="text-lg" />
-                <span className="ml-1">{formatearMs(tiempoEliminar)}</span>
+                <span className="ml-1">{formatearMs(tiempoCancelar)}</span>
               </button>
             )}
             <button
