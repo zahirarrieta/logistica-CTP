@@ -9,6 +9,7 @@ import { useAuth } from '../../../../auth/AuthContext.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
 import AgregarUsuarioModal from './AgregarUsuarioModal.jsx'
 import { subirAdjuntos } from '../../../../services/archivosApi.js'
+import { abrirArchivo } from '../../../../services/visorArchivos.js'
 import { cargarClientes } from '../../../../services/solicitudesApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida } from '../../../../services/notificaciones.jsx'
 import Modal from '../../../../components/Modal.jsx'
@@ -874,16 +875,15 @@ useEffect(() => {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           {esUrl ? (
-                            <a
-                              href={archivo}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => abrirArchivo(archivo, 'nueva')}
                               aria-label={`Abrir ${nombre}`}
                               title="Abrir archivo"
                               className="grid place-items-center size-7 rounded-full text-brand-deep bg-brand-cyan/15 hover:bg-brand-cyan hover:text-brand-ink transition-colors"
                             >
                               <MdOpenInNew className="text-lg" />
-                            </a>
+                            </button>
                           ) : (
                             puedePrevisualizar && (
                               <button

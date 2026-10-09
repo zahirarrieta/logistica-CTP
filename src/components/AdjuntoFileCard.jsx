@@ -12,7 +12,7 @@ import {
 } from 'react-icons/md'
 import { esPdfUrl, nombrePdfFromUrl } from '../utils/pdfUtils.js'
 import { esImagenUrl, esExcelUrl } from '../utils/tipoArchivo.js'
-import { resolverArchivo } from '../services/visorArchivos.js'
+import { resolverArchivo, abrirArchivo } from '../services/visorArchivos.js'
 import VisorImagen from './VisorImagen.jsx'
 import VisorExcel from './VisorExcel.jsx'
 
@@ -40,31 +40,6 @@ function nombreArchivo(url) {
 
 function esUrlAbsoluta(url) {
   return /^https?:\/\//i.test(url)
-}
-
-// Resuelve la URL en el momento del clic y navega/descarga. Necesario para
-// Excel: los enlaces «Abrir» y «Descargar» usaban `url` directo, y si la
-// URL firmada caducó (24 h) el navegador muestra «Enlace inválido o vencido».
-// Imágenes y PDFs no tienen este problema porque sus visores llaman a
-// resolverArchivo antes de pintar.
-async function abrirResuelto(url, modo) {
-  try {
-    const res = await resolverArchivo(url)
-    const a = document.createElement('a')
-    a.href = res.src
-    if (modo === 'nueva') {
-      a.target = '_blank'
-      a.rel = 'noopener noreferrer'
-    } else {
-      a.download = res.nombre || true
-    }
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-  } catch (err) {
-    console.error('[AdjuntoFileCard] no se pudo abrir el archivo:', err?.message)
-    alert(err?.message || 'No se pudo abrir el archivo')
-  }
 }
 
 function iconoDe(url) {
@@ -190,7 +165,7 @@ export default function AdjuntoFileCard({ url, index, onVerPdf, urlsImagenes, on
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); abrirResuelto(url, 'nueva') }}
+                  onClick={(e) => { e.stopPropagation(); abrirArchivo(url, 'nueva') }}
                   className="inline-flex items-center gap-1 rounded-full bg-green-600 text-white hover:bg-green-700 transition-colors px-3 py-1.5 text-xs font-bold"
                 >
                   <MdOpenInNew className="text-sm" />
@@ -198,7 +173,7 @@ export default function AdjuntoFileCard({ url, index, onVerPdf, urlsImagenes, on
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); abrirResuelto(url, 'descarga') }}
+                  onClick={(e) => { e.stopPropagation(); abrirArchivo(url, 'descarga') }}
                   className="inline-flex items-center gap-1 rounded-full bg-green-500/15 text-green-700 hover:bg-green-500 hover:text-white transition-colors px-3 py-1.5 text-xs font-bold"
                 >
                   <MdDownload className="text-sm" />
@@ -212,27 +187,22 @@ export default function AdjuntoFileCard({ url, index, onVerPdf, urlsImagenes, on
                 sin contexto. */}
             {esUrlAbsoluta(url) && !esImg && !esHoja && (
               <>
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); abrirArchivo(url, 'nueva') }}
                   className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white hover:bg-brand-deep transition-colors px-3 py-1.5 text-xs font-bold"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   <MdOpenInNew className="text-sm" />
                   Abrir
-                </a>
-                <a
-                  href={url}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); abrirArchivo(url, 'descarga') }}
                   className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   <MdDownload className="text-sm" />
                   Descargar
-                </a>
+                </button>
               </>
             )}
           </div>

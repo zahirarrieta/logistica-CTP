@@ -2,6 +2,7 @@ import { MdOpenInNew } from 'react-icons/md'
 import AdjuntoFileCard from './AdjuntoFileCard.jsx'
 import { esPdfUrl } from '../utils/pdfUtils.js'
 import { esImagenUrl, esExcelUrl } from '../utils/tipoArchivo.js'
+import { abrirArchivo } from '../services/visorArchivos.js'
 
 export default function AdjuntoEnlace({ adjunto, onVerPdf }) {
   const urls = String(adjunto || '')
@@ -21,16 +22,15 @@ export default function AdjuntoEnlace({ adjunto, onVerPdf }) {
         esPdfUrl(u) || esImagenUrl(u) || esExcelUrl(u) ? (
           <AdjuntoFileCard key={i} url={u} index={i} onVerPdf={onVerPdf} urlsImagenes={imagenes} />
         ) : (
-          <a
+          <button
             key={i}
-            href={u}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-deep underline decoration-brand-cyan underline-offset-2 break-all"
+            type="button"
+            onClick={() => abrirArchivo(u, 'nueva')}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-deep underline decoration-brand-cyan underline-offset-2 break-all text-left"
           >
             <MdOpenInNew className="shrink-0" />
             {u}
-          </a>
+          </button>
         )
       )}
     </div>

@@ -122,3 +122,30 @@ export async function resolverArchivo(url) {
   }
   return { src: firmada, nombre: nombreDesdeUrl(firmada), abrir: firmada }
 }
+
+// Abre o descarga un archivo resolviendo antes su URL. Los botones «Abrir» y
+// «Descargar» no pueden usar la URL guardada directo: si su firma caducó (24 h),
+// el navegador iría a /api/archivos/ver y mostraría «Enlace inválido o vencido»
+// en vez del documento. resolverArchivo re-firma la ruta bajo demanda y aquí solo
+// queda disparar la navegación o la descarga.
+//
+// `modo` es 'nueva' (abrir en otra pestaña) o cualquier otro valor (descargar).
+export async function abrirArchivo(url, modo = 'nueva') {
+  try {
+    const res = await resolverArchivo(url)
+    const a = document.createElement('a')
+    a.href = res.src
+    if (modo === 'nueva') {
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+    } else {
+      a.download = res.nombre || true
+    }
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  } catch (err) {
+    console.error('[visorArchivos] no se pudo abrir el archivo:', err?.message)
+    alert(err?.message || 'No se pudo abrir el archivo')
+  }
+}
