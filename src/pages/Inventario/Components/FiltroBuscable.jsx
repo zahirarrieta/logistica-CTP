@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MdClose, MdSearch, MdSearchOff } from 'react-icons/md'
 import Modal from '../../../components/Modal.jsx'
+import TooltipTexto from '../../../components/TooltipTexto.jsx'
 
 const normalizar = (t) =>
   String(t ?? '')
@@ -22,11 +23,17 @@ function FilaOpcion({ opcion, activo, onClick, onMouseDown }) {
         activo ? 'bg-brand-cyan/10' : 'hover:bg-brand-deep/10 focus:bg-brand-deep/10'
       }`}
     >
-      <span className="block text-sm font-bold text-brand-ink truncate">{opcion.label || opcion.valor}</span>
+      <TooltipTexto texto={opcion.label || opcion.valor}>
+        <span className="block text-sm font-bold text-brand-ink truncate">{opcion.label || opcion.valor}</span>
+      </TooltipTexto>
       {opcion.sub ? (
-        <span className="block text-xs text-brand-deep/70 truncate">{opcion.sub}</span>
+        <TooltipTexto texto={opcion.sub}>
+          <span className="block text-xs text-brand-deep/70 truncate">{opcion.sub}</span>
+        </TooltipTexto>
       ) : (
-        <span className="block text-xs text-brand-deep/50 truncate">{opcion.valor}</span>
+        <TooltipTexto texto={opcion.valor}>
+          <span className="block text-xs text-brand-deep/50 truncate">{opcion.valor}</span>
+        </TooltipTexto>
       )}
     </button>
   )
@@ -42,8 +49,7 @@ export default function FiltroBuscable({ etiqueta, icono, value, onChange, opcio
 
   const sugerencias = useMemo(() => {
     const q = normalizar(value).trim()
-    const base = q ? opciones.filter((o) => coincide(o, q)) : opciones
-    return base.slice(0, 8)
+    return q ? opciones.filter((o) => coincide(o, q)) : opciones
   }, [opciones, value])
 
   const enModal = useMemo(() => {
@@ -77,18 +83,20 @@ export default function FiltroBuscable({ etiqueta, icono, value, onChange, opcio
 
       <div className="relative">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-cyan text-base">{icono}</span>
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value)
-            setAbierto(true)
-          }}
-          onFocus={() => setAbierto(true)}
-          placeholder={placeholder}
-          autoComplete="off"
-          className="w-full rounded-xl border border-brand-ink/15 bg-white py-2.5 pl-9 pr-16 text-sm text-brand-ink placeholder:text-brand-ink/40 outline-none transition focus:border-brand-cyan/70 focus:ring-2 focus:ring-brand-cyan/25"
-        />
+        <TooltipTexto texto={value}>
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value)
+              setAbierto(true)
+            }}
+            onFocus={() => setAbierto(true)}
+            placeholder={placeholder}
+            autoComplete="off"
+            className="w-full rounded-xl border border-brand-ink/15 bg-white py-2.5 pl-9 pr-16 text-sm text-brand-ink placeholder:text-brand-ink/40 outline-none transition focus:border-brand-cyan/70 focus:ring-2 focus:ring-brand-cyan/25"
+          />
+        </TooltipTexto>
         {value && (
           <button
             type="button"
@@ -118,7 +126,7 @@ export default function FiltroBuscable({ etiqueta, icono, value, onChange, opcio
       {/* Sugerencias al escribir */}
       {abierto && sugerencias.length > 0 && (
         <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 overflow-hidden rounded-xl border border-brand-deep/20 bg-white shadow-2xl animate-scaleIn">
-          <div className="max-h-56 divide-y divide-brand-deep/10 overflow-y-auto [scrollbar-width:thin]">
+          <div className="max-h-72 divide-y divide-brand-deep/10 overflow-y-auto [scrollbar-width:thin]">
             {sugerencias.map((o) => (
               <FilaOpcion
                 key={`${etiqueta}-${o.valor}`}

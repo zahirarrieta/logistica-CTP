@@ -452,6 +452,7 @@ async function asegurarInventario() {
         nombre_bodega     VARCHAR(255)  NOT NULL DEFAULT '',
         zona              VARCHAR(120)  NOT NULL DEFAULT '',
         grupo_articulos   VARCHAR(255)  NOT NULL DEFAULT '',
+        proveedor         VARCHAR(255)  NOT NULL DEFAULT '',
         tipo_bodega       VARCHAR(120)  NOT NULL DEFAULT '',
         comercial         VARCHAR(255)  NOT NULL DEFAULT '',
         creado_en         DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -460,6 +461,20 @@ async function asegurarInventario() {
         KEY inventario_articulo_idx (numero_articulo)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `)
+    // Tablas creadas antes de que existiera «proveedor»: se agrega la columna
+    // aquí, de forma idempotente, para no depender de pegar SQL en el hosting.
+    // Si la tabla es nueva el CREATE ya la trae y este ALTER falla con «columna
+    // duplicada» (código 1060), que se ignora.
+    try {
+      await pool.execute(
+        "ALTER TABLE inventario ADD COLUMN proveedor VARCHAR(255) NOT NULL DEFAULT '' AFTER grupo_articulos"
+      )
+    } catch (error) {
+      const codigo = error?.code || error?.errno
+      if (codigo !== 'ER_DUP_FIELDNAME' && codigo !== 1060) {
+        console.error(`[Inventario] no se pudo agregar la columna «proveedor»: ${error?.message}`)
+      }
+    }
     inventarioCreado = true
     return true
   } catch (error) {
@@ -473,7 +488,7 @@ async function asegurarInventario() {
 const COLUMNAS_INVENTARIO = [
   'numero_articulo', 'descripcion', 'lote', 'fecha_vencimiento', 'cantidad',
   'dias_inventario', 'bodega', 'nombre_bodega', 'zona', 'grupo_articulos',
-  'tipo_bodega', 'comercial',
+  'proveedor', 'tipo_bodega', 'comercial',
 ]
 
 const textoInv = (v, max = 500) =>
@@ -515,6 +530,7 @@ function normalizarInventario(cuerpo) {
     textoInv(f && f.nombre_bodega),
     textoInv(f && f.zona, 120),
     textoInv(f && f.grupo_articulos),
+    textoInv(f && f.proveedor),
     textoInv(f && f.tipo_bodega, 120),
     textoInv(f && f.comercial),
   ])
@@ -534,7 +550,7 @@ router.get(
       `SELECT id, numero_articulo, descripcion, lote,
               DATE_FORMAT(fecha_vencimiento, '%Y-%m-%d') AS fecha_vencimiento,
               cantidad, dias_inventario, bodega, nombre_bodega, zona,
-              grupo_articulos, tipo_bodega, comercial
+              grupo_articulos, proveedor, tipo_bodega, comercial
          FROM inventario
         ORDER BY id`
     )

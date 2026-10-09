@@ -290,6 +290,7 @@ CREATE TABLE IF NOT EXISTS inventario (
   nombre_bodega     VARCHAR(255)  NOT NULL DEFAULT '',
   zona              VARCHAR(120)  NOT NULL DEFAULT '',
   grupo_articulos   VARCHAR(255)  NOT NULL DEFAULT '',
+  proveedor         VARCHAR(255)  NOT NULL DEFAULT '',
   tipo_bodega       VARCHAR(120)  NOT NULL DEFAULT '',
   comercial         VARCHAR(255)  NOT NULL DEFAULT '',
   creado_en         DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

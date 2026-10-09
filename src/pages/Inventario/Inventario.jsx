@@ -12,6 +12,8 @@ import {
   MdFilterAlt,
   MdInventory,
   MdInventory2,
+  MdLocalShipping,
+  MdMap,
   MdNavigateBefore,
   MdNavigateNext,
   MdNumbers,
@@ -34,6 +36,7 @@ import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
 import FiltroBuscable from './Components/FiltroBuscable.jsx'
 import LoaderInventario from './Components/LoaderInventario.jsx'
+import MapaZonasModal from './Components/MapaZonasModal.jsx'
 import {
   MARCA_VENCIDO,
   RANGOS_INVENTARIO,
@@ -57,6 +60,7 @@ const FILTROS_INICIALES = {
   tipo: '',
   zona: '',
   bodega: '',
+  proveedor: '',
   rangos: [],
   estados: [],
 }
@@ -70,6 +74,7 @@ const CATEGORIAS = [
   { clave: 'tipo', etiqueta: 'Tipo de bodega', icono: <MdWarehouse className="text-sm" />, placeholder: 'Tipo de bodega' },
   { clave: 'zona', etiqueta: 'Zona', icono: <MdPlace className="text-sm" />, placeholder: 'Zona' },
   { clave: 'bodega', etiqueta: 'Bodega', icono: <MdStorefront className="text-sm" />, placeholder: 'Bodega' },
+  { clave: 'proveedor', etiqueta: 'Proveedor', icono: <MdLocalShipping className="text-sm" />, placeholder: 'Proveedor' },
 ]
 
 // Campo del artículo por el que filtra cada categoría de texto.
@@ -78,6 +83,7 @@ const CAMPO_CATEGORIA = {
   tipo: 'tipo_bodega',
   zona: 'zona',
   bodega: 'bodega',
+  proveedor: 'proveedor',
 }
 
 // Semáforo de rotación: a qué rango de días corresponde cada color.
@@ -128,13 +134,6 @@ const COLUMNAS_TABLA = [
   { key: 'nombre_bodega', label: 'Nombre de la bodega', icon: <MdStorefront />, clase: 'min-w-[13rem]' },
   { key: 'comercial', label: 'Comercial', icon: <MdBusiness /> },
 ]
-
-// Días de inventario como número para ordenar. Lo que no sea número queda al
-// final (se trata como el menor posible).
-function numeroDias(valor) {
-  const n = Number(String(valor ?? '').trim())
-  return Number.isFinite(n) ? n : Number.NEGATIVE_INFINITY
-}
 
 // Espacio que explica qué significa cada color de los «días de rotación».
 function LeyendaRotacion() {
@@ -357,6 +356,7 @@ export default function Inventario() {
   const [filtros, setFiltros] = useState(FILTROS_INICIALES)
   const [pagina, setPagina] = useState(1)
   const [subirAbierto, setSubirAbierto] = useState(false)
+  const [mapaAbierto, setMapaAbierto] = useState(false)
   const [filaDetalle, setFilaDetalle] = useState(null)
 
   const cargar = useCallback(async (esValido = () => true) => {
@@ -392,20 +392,56 @@ export default function Inventario() {
     [filas]
   )
 
+  // ¿La fila pasa todos los filtros activos? `excepto` deja fuera la dimensión
+  // indicada para poder calcular los valores disponibles de un desplegable sin
+  // que su propio filtro los oculte.
+  const pasaFiltros = useCallback(
+    (f, excepto = '') => {
+      const q = filtros.q.trim().toLowerCase()
+      const art = filtros.articulo.trim().toLowerCase()
+      if (excepto !== 'articulo' && art) {
+        const heno = `${f.numero_articulo ?? ''} ${f.descripcion ?? ''}`.toLowerCase()
+        if (!heno.includes(art)) return false
+      }
+      for (const [clave, campo] of Object.entries(CAMPO_CATEGORIA)) {
+        if (clave === excepto) continue
+        const filtro = filtros[clave].trim().toLowerCase()
+        if (filtro && !String(f[campo] ?? '').toLowerCase().includes(filtro)) return false
+      }
+      if (excepto !== 'rangos' && filtros.rangos.length && !filtros.rangos.includes(f._rango)) return false
+      if (excepto !== 'estados' && filtros.estados.length && !filtros.estados.includes(f._estado)) return false
+      if (q) {
+        const heno = [f.numero_articulo, f.descripcion, f.lote, f.bodega, f.nombre_bodega, f.zona, f.grupo_articulos, f.proveedor, f.comercial]
+          .join(' ')
+          .toLowerCase()
+        if (!heno.includes(q)) return false
+      }
+      return true
+    },
+    [filtros]
+  )
+
+  // Opciones de cada desplegable calculadas sobre lo que queda tras los demás
+  // filtros y las tarjetas clicables: si filtras por bodega, «Comercial» solo
+  // ofrece los comerciales que quedan. El valor elegido se conserva aunque deje
+  // de aparecer, para no perder la selección.
   const opciones = useMemo(() => {
-    const unicos = (campo) => {
+    const conSeleccion = (lista, valor) =>
+      valor && !lista.some((o) => o.valor === valor) ? [{ valor, label: valor }, ...lista] : lista
+    const unicos = (campo, excepto, valorElegido) => {
       const s = new Set()
-      for (const f of filas) {
+      for (const f of enriquecidas) {
+        if (!pasaFiltros(f, excepto)) continue
         const v = String(f[campo] ?? '').trim()
         if (v) s.add(v)
       }
-      return [...s]
-        .sort((a, b) => a.localeCompare(b, 'es'))
-        .map((v) => ({ valor: v, label: v }))
+      const lista = [...s].sort((a, b) => a.localeCompare(b, 'es')).map((v) => ({ valor: v, label: v }))
+      return conSeleccion(lista, valorElegido)
     }
     // Un solo registro por artículo (código + descripción), sin repetir lotes.
     const porArticulo = new Map()
-    for (const f of filas) {
+    for (const f of enriquecidas) {
+      if (!pasaFiltros(f, 'articulo')) continue
       const codigo = String(f.numero_articulo ?? '').trim()
       const desc = String(f.descripcion ?? '').trim()
       const clave = codigo || desc
@@ -416,14 +452,16 @@ export default function Inventario() {
         sub: codigo ? `Art. ${codigo}` : '',
       })
     }
+    const articulos = [...porArticulo.values()].sort((a, b) => a.label.localeCompare(b.label, 'es'))
     return {
-      articulo: [...porArticulo.values()].sort((a, b) => a.label.localeCompare(b.label, 'es')),
-      comercial: unicos('comercial'),
-      tipo: unicos('tipo_bodega'),
-      zona: unicos('zona'),
-      bodega: unicos('bodega'),
+      articulo: conSeleccion(articulos, filtros.articulo),
+      comercial: unicos('comercial', 'comercial', filtros.comercial),
+      tipo: unicos('tipo_bodega', 'tipo', filtros.tipo),
+      zona: unicos('zona', 'zona', filtros.zona),
+      bodega: unicos('bodega', 'bodega', filtros.bodega),
+      proveedor: unicos('proveedor', 'proveedor', filtros.proveedor),
     }
-  }, [filas])
+  }, [enriquecidas, filtros, pasaFiltros])
 
   const resumen = useMemo(() => {
     let vencidos = 0
@@ -446,31 +484,22 @@ export default function Inventario() {
   }, [enriquecidas])
 
   const filtradas = useMemo(() => {
-    const q = filtros.q.trim().toLowerCase()
-    const art = filtros.articulo.trim().toLowerCase()
-    const igual = (valor, filtro) => !filtro || String(valor ?? '').toLowerCase().includes(filtro.trim().toLowerCase())
-    const resultado = enriquecidas.filter((f) => {
-      if (art) {
-        const heno = `${f.numero_articulo ?? ''} ${f.descripcion ?? ''}`.toLowerCase()
-        if (!heno.includes(art)) return false
-      }
-      for (const [clave, campo] of Object.entries(CAMPO_CATEGORIA)) {
-        if (!igual(f[campo], filtros[clave])) return false
-      }
-      if (filtros.rangos.length && !filtros.rangos.includes(f._rango)) return false
-      if (filtros.estados.length && !filtros.estados.includes(f._estado)) return false
-      if (q) {
-        const heno = [f.numero_articulo, f.descripcion, f.lote, f.bodega, f.nombre_bodega, f.zona, f.grupo_articulos, f.comercial]
-          .join(' ')
-          .toLowerCase()
-        if (!heno.includes(q)) return false
-      }
-      return true
+    const resultado = enriquecidas.filter((f) => pasaFiltros(f))
+    // Orden por defecto: por fecha de vencimiento, del más próximo a vencer al
+    // más vencido. Los ya vencidos van al final y, entre ellos, el más vencido
+    // queda último. Las filas sin fecha de vencimiento cierran la lista.
+    return resultado.sort((a, b) => {
+      const va = a._vigencia
+      const vb = b._vigencia
+      if (va === null && vb === null) return 0
+      if (va === null) return 1
+      if (vb === null) return -1
+      const aVencido = va < 0
+      const bVencido = vb < 0
+      if (aVencido !== bVencido) return aVencido ? 1 : -1
+      return aVencido ? vb - va : va - vb
     })
-    // Orden por defecto: días de inventario de mayor a menor. Las filas sin
-    // número de días quedan al final.
-    return resultado.sort((a, b) => numeroDias(b.dias_inventario) - numeroDias(a.dias_inventario))
-  }, [enriquecidas, filtros])
+  }, [enriquecidas, pasaFiltros])
 
   useEffect(() => setPagina(1), [filtros])
 
@@ -542,6 +571,16 @@ export default function Inventario() {
                   Subir información
                 </button>
               )}
+              {!cargando && filas.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMapaAbierto(true)}
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-navy text-white px-5 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base font-bold shadow-sm hover:bg-brand-deep hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70"
+                >
+                  <MdMap className="text-lg" />
+                  Ver artículos en el mapa
+                </button>
+              )}
               {actualizadoEn && (
                 <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/5 ring-1 ring-brand-ink/10 px-3 py-1.5 text-xs font-bold text-brand-ink/60">
                   <MdSchedule className="text-sm text-brand-ink/40" />
@@ -584,76 +623,94 @@ export default function Inventario() {
             </div>
           ) : (
             <>
+              {/* Leyenda del semáforo de rotación: debajo del título y encima
+                  de las tarjetas clicables. */}
+              <div className="mb-5 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 sm:px-4 py-3">
+                <LeyendaRotacion />
+              </div>
+
               {/* Tablero: tarjetas clicables que resumen y filtran */}
-              <section aria-label="Resumen del inventario" className="space-y-3 sm:space-y-4 mb-5">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  <TarjetaResumen
-                    icon={MdInventory}
-                    accent="bg-gradient-to-br from-brand-navy to-brand-deep"
-                    label="Artículos"
-                    valor={formatearEntero(resumen.total)}
-                    activa={!hayFiltrosActivos}
-                    onClick={() => setFiltros(FILTROS_INICIALES)}
-                  />
-                  <TarjetaResumen
-                    icon={MdEventBusy}
-                    accent="bg-gradient-to-br from-red-500 to-rose-400"
-                    label="Vencidos"
-                    valor={formatearEntero(resumen.vencidos)}
-                    activa={filtros.estados.length === 1 && filtros.estados[0] === 'Vencido'}
-                    onClick={() => filtroRapido('estados', 'Vencido')}
-                  />
-                  <TarjetaResumen
-                    icon={MdWarning}
-                    accent="bg-gradient-to-br from-amber-500 to-yellow-400"
-                    label="Próximo a vencer"
-                    valor={formatearEntero(resumen.proximos)}
-                    activa={filtros.estados.length === 1 && filtros.estados[0] === 'Próximo a vencer'}
-                    onClick={() => filtroRapido('estados', 'Próximo a vencer')}
-                  />
-                  <TarjetaResumen
-                    icon={MdEventAvailable}
-                    accent="bg-gradient-to-br from-green-500 to-emerald-400"
-                    label="Vigentes"
-                    valor={formatearEntero(resumen.vigentes)}
-                    activa={filtros.estados.length === 1 && filtros.estados[0] === 'Vigente'}
-                    onClick={() => filtroRapido('estados', 'Vigente')}
-                  />
+              <section aria-label="Resumen del inventario" className="space-y-5 sm:space-y-6 mb-5">
+                <div>
+                  <h2 className="mb-2 inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep">
+                    <MdEventBusy className="text-brand-cyan text-lg" />
+                    Estado de vencimiento
+                  </h2>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <TarjetaResumen
+                      icon={MdInventory}
+                      accent="bg-gradient-to-br from-brand-navy to-brand-deep"
+                      label="Artículos"
+                      valor={formatearEntero(resumen.total)}
+                      activa={!hayFiltrosActivos}
+                      onClick={() => setFiltros(FILTROS_INICIALES)}
+                    />
+                    <TarjetaResumen
+                      icon={MdEventBusy}
+                      accent="bg-gradient-to-br from-red-500 to-rose-400"
+                      label="Vencidos"
+                      valor={formatearEntero(resumen.vencidos)}
+                      activa={filtros.estados.length === 1 && filtros.estados[0] === 'Vencido'}
+                      onClick={() => filtroRapido('estados', 'Vencido')}
+                    />
+                    <TarjetaResumen
+                      icon={MdWarning}
+                      accent="bg-gradient-to-br from-amber-500 to-yellow-400"
+                      label="Próximo a vencer"
+                      valor={formatearEntero(resumen.proximos)}
+                      activa={filtros.estados.length === 1 && filtros.estados[0] === 'Próximo a vencer'}
+                      onClick={() => filtroRapido('estados', 'Próximo a vencer')}
+                    />
+                    <TarjetaResumen
+                      icon={MdEventAvailable}
+                      accent="bg-gradient-to-br from-green-500 to-emerald-400"
+                      label="Vigentes"
+                      valor={formatearEntero(resumen.vigentes)}
+                      activa={filtros.estados.length === 1 && filtros.estados[0] === 'Vigente'}
+                      onClick={() => filtroRapido('estados', 'Vigente')}
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  <TarjetaResumen
-                    icon={MdCheckCircle}
-                    accent="bg-gradient-to-br from-green-500 to-emerald-400"
-                    label="Ok Rotación"
-                    valor={formatearEntero(resumen.ok)}
-                    activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Ok Rotación'}
-                    onClick={() => filtroRapido('rangos', 'Ok Rotación')}
-                  />
-                  <TarjetaResumen
-                    icon={MdSwapHoriz}
-                    accent="bg-gradient-to-br from-yellow-500 to-amber-400"
-                    label="Rotar"
-                    valor={formatearEntero(resumen.rotar)}
-                    activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Rotar'}
-                    onClick={() => filtroRapido('rangos', 'Rotar')}
-                  />
-                  <TarjetaResumen
-                    icon={MdSwapHoriz}
-                    accent="bg-gradient-to-br from-orange-500 to-amber-500"
-                    label="Rotar con prioridad"
-                    valor={formatearEntero(resumen.prioridad)}
-                    activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Rotar con Prioridad'}
-                    onClick={() => filtroRapido('rangos', 'Rotar con Prioridad')}
-                  />
-                  <TarjetaResumen
-                    icon={MdWarning}
-                    accent="bg-gradient-to-br from-red-600 to-rose-500"
-                    label="Rotar urgente"
-                    valor={formatearEntero(resumen.urgente)}
-                    activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Rotar urgente'}
-                    onClick={() => filtroRapido('rangos', 'Rotar urgente')}
-                  />
+                <div>
+                  <h2 className="mb-2 inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep">
+                    <MdAccessTime className="text-brand-cyan text-lg" />
+                    Días de rotación
+                  </h2>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <TarjetaResumen
+                      icon={MdCheckCircle}
+                      accent="bg-gradient-to-br from-green-500 to-emerald-400"
+                      label="Ok Rotación"
+                      valor={formatearEntero(resumen.ok)}
+                      activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Ok Rotación'}
+                      onClick={() => filtroRapido('rangos', 'Ok Rotación')}
+                    />
+                    <TarjetaResumen
+                      icon={MdSwapHoriz}
+                      accent="bg-gradient-to-br from-yellow-500 to-amber-400"
+                      label="Rotar"
+                      valor={formatearEntero(resumen.rotar)}
+                      activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Rotar'}
+                      onClick={() => filtroRapido('rangos', 'Rotar')}
+                    />
+                    <TarjetaResumen
+                      icon={MdSwapHoriz}
+                      accent="bg-gradient-to-br from-orange-500 to-amber-500"
+                      label="Rotar con prioridad"
+                      valor={formatearEntero(resumen.prioridad)}
+                      activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Rotar con Prioridad'}
+                      onClick={() => filtroRapido('rangos', 'Rotar con Prioridad')}
+                    />
+                    <TarjetaResumen
+                      icon={MdWarning}
+                      accent="bg-gradient-to-br from-red-600 to-rose-500"
+                      label="Rotar urgente"
+                      valor={formatearEntero(resumen.urgente)}
+                      activa={filtros.rangos.length === 1 && filtros.rangos[0] === 'Rotar urgente'}
+                      onClick={() => filtroRapido('rangos', 'Rotar urgente')}
+                    />
+                  </div>
                 </div>
               </section>
 
@@ -691,7 +748,7 @@ export default function Inventario() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                   {CATEGORIAS.map((cat) => (
                     <FiltroBuscable
                       key={cat.clave}
@@ -735,13 +792,9 @@ export default function Inventario() {
                 )}
               </div>
 
-              {/* Leyenda del semáforo de rotación */}
+              {/* Tabla o tarjetas según el tamaño de pantalla */}
               {filtradas.length > 0 && (
                 <>
-                  <div className="mb-3 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 sm:px-4 py-3">
-                    <LeyendaRotacion />
-                  </div>
-
                   <div className="md:hidden">
                     <TablaInventarioMovil
                       filas={filtradas.slice(inicio, inicio + POR_PAGINA)}
@@ -816,6 +869,8 @@ export default function Inventario() {
       />
 
       <DetalleFilaModal fila={filaDetalle} onClose={() => setFilaDetalle(null)} />
+
+      <MapaZonasModal open={mapaAbierto} onClose={() => setMapaAbierto(false)} filas={filtradas} />
     </div>
   )
 }

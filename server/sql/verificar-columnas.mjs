@@ -63,7 +63,7 @@ const esperadas = {
   inventario: [
     'id', 'numero_articulo', 'descripcion', 'lote', 'fecha_vencimiento',
     'cantidad', 'dias_inventario', 'bodega', 'nombre_bodega', 'zona',
-    'grupo_articulos', 'tipo_bodega', 'comercial', 'creado_en',
+    'grupo_articulos', 'proveedor', 'tipo_bodega', 'comercial', 'creado_en',
   ],
 }
 

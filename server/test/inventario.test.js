@@ -54,6 +54,7 @@ function fila(extra) {
     nombre_bodega: 'PRINCIPAL',
     zona: 'BOGOTA',
     grupo_articulos: 'MEDICAMENTOS',
+    proveedor: 'DISTRIBUIDORA X',
     tipo_bodega: 'SECA',
     comercial: 'SI',
   }, extra)
@@ -68,6 +69,9 @@ async function ejecutar(sql, params) {
   }
   if (s.startsWith('CREATE TABLE IF NOT EXISTS inventario')) {
     estado.creada = true
+    return [[], []]
+  }
+  if (s.startsWith('ALTER TABLE inventario ADD COLUMN proveedor')) {
     return [[], []]
   }
   if (s.startsWith('SELECT id, numero_articulo')) {
@@ -86,7 +90,7 @@ async function ejecutar(sql, params) {
       e.code = 'ER_DATA_TOO_LONG'
       throw e
     }
-    return [{ insertId: 1, affectedRows: params.length / 12 }, []]
+    return [{ insertId: 1, affectedRows: params.length / 13 }, []]
   }
   throw new Error(`Consulta no simulada: ${s}`)
 }
@@ -240,14 +244,14 @@ probar('POST /inventario reemplaza todo: borra y responde { ok, total }', async 
   assert.ok(estado.ejecutadas.some(([sql]) => sql === 'COMMIT'))
 })
 
-probar('POST /inventario guarda las 12 columnas en el orden esperado', async () => {
+probar('POST /inventario guarda las 13 columnas en el orden esperado', async () => {
   reiniciar()
   const r = await pedir('POST', '/api/inventario', { filas: [fila({})] })
   assert.equal(r.estado, 201)
   const insercion = estado.ejecutadas.find(([sql]) => sql.startsWith('INSERT INTO inventario'))
   assert.deepEqual(insercion[1], [
     'A-1', 'ARTICULO', 'L1', '2027-01-15', '10', 120,
-    '1', 'PRINCIPAL', 'BOGOTA', 'MEDICAMENTOS', 'SECA', 'SI',
+    '1', 'PRINCIPAL', 'BOGOTA', 'MEDICAMENTOS', 'DISTRIBUIDORA X', 'SECA', 'SI',
   ])
 })
 

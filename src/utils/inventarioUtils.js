@@ -19,6 +19,7 @@ export const COLUMNAS_ORIGINALES = [
   { key: 'nombre_bodega', etiqueta: 'Nombre bodega' },
   { key: 'zona', etiqueta: 'Zona' },
   { key: 'grupo_articulos', etiqueta: 'Grupo de artículos' },
+  { key: 'proveedor', etiqueta: 'Proveedor' },
   { key: 'tipo_bodega', etiqueta: 'Tipo de bodega' },
   { key: 'comercial', etiqueta: 'Comercial' },
 ]
@@ -205,6 +206,9 @@ const ALIAS_CABECERA = {
   'zona': 'zona',
   'grupo de articulos': 'grupo_articulos',
   'grupo articulos': 'grupo_articulos',
+  'proveedor': 'proveedor',
+  'nombre proveedor': 'proveedor',
+  'proveedor del articulo': 'proveedor',
   'tipo de bodega': 'tipo_bodega',
   'tipo bodega': 'tipo_bodega',
   'comercial': 'comercial',

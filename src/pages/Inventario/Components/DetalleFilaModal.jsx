@@ -197,6 +197,7 @@ export default function DetalleFilaModal({ fila, onClose }) {
                 <Dato etiqueta="Lote" valor={fila.lote} />
                 <Dato etiqueta="Fecha de vencimiento" valor={formatearFecha(fila.fecha_vencimiento)} />
                 <Dato etiqueta="Grupo de artículos" valor={fila.grupo_articulos} />
+                <Dato etiqueta="Proveedor" valor={fila.proveedor} />
                 <Dato etiqueta="Comercial" valor={fila.comercial} />
               </div>
             </div>
