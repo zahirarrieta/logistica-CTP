@@ -1,0 +1,64 @@
+.inv-loader {
+  --inv-loader-bg: #ffffff;
+  position: relative;
+  width: clamp(220px, 60vw, 340px);
+  aspect-ratio: 150 / 73;
+  margin: 0 auto;
+}
+
+.inv-loader svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.inv-loader .inv-fade-in {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-color: var(--inv-loader-bg);
+  top: 0;
+  right: 0;
+  animation: invHeartRateIn 2.5s linear infinite;
+}
+
+.inv-loader .inv-fade-out {
+  position: absolute;
+  width: 120%;
+  height: 100%;
+  background-color: var(--inv-loader-bg);
+  top: 0;
+  right: -120%;
+  animation: invHeartRateOut 2.5s linear infinite;
+}
+
+@keyframes invHeartRateIn {
+  0% {
+    width: 100%;
+  }
+  50% {
+    width: 0;
+  }
+  100% {
+    width: 0;
+  }
+}
+
+@keyframes invHeartRateOut {
+  0% {
+    left: -120%;
+  }
+  30% {
+    left: -120%;
+  }
+  100% {
+    left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-loader .inv-fade-in,
+  .inv-loader .inv-fade-out {
+    animation: none;
+  }
+}

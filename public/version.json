@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.07-15",
+  "version": "2026.10.07-16",
   "fecha": "2026-10-07",
   "cambios": [
+    "Inventario: nuevo loader con animación de electrocardiograma en rojo, centrado, con el texto «Cargando inventario» en los colores corporativos.",
     "Inventario: los artículos se muestran en una tabla con N° de artículo, descripción, fecha de vencimiento, cantidad, días de inventario, bodega y comercial. Cada fila abre el detalle del artículo.",
     "Inventario: cada fila se colorea según los días de rotación y hay una leyenda centrada que explica cada color (Ok Rotación, Rotar, Rotar con Prioridad y Rotar urgente).",
     "Inventario móvil: en el teléfono los artículos se ven como tarjetas, no como tabla.",

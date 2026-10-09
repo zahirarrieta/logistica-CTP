@@ -33,6 +33,7 @@ import { listarInventario } from '../../services/inventarioApi.js'
 import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
 import FiltroBuscable from './Components/FiltroBuscable.jsx'
+import LoaderInventario from './Components/LoaderInventario.jsx'
 import {
   MARCA_VENCIDO,
   RANGOS_INVENTARIO,
@@ -551,9 +552,11 @@ export default function Inventario() {
           </div>
 
           {cargando ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-brand-deep/60">
-              <div className="size-10 animate-spin rounded-full border-4 border-brand-deep/20 border-t-brand-deep" />
-              <p className="text-sm font-semibold">Cargando inventario⬦</p>
+            <div className="flex min-h-[60vh] w-full flex-col items-center justify-center gap-4">
+              <LoaderInventario />
+              <p className="text-sm font-extrabold uppercase tracking-wider text-brand-deep">
+                Cargando inventario…
+              </p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16">
