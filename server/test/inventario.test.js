@@ -4,6 +4,7 @@
 // Lo que se comprueba aquí es la semántica acordada del módulo:
 //   · el conductor NO ve el inventario (403) ni en GET ni en POST,
 //   · subir solo lo pueden los roles privilegiados (administrador/superadmin),
+//     además de las cuentas autorizadas pedidos@ y despachos@ctpmedica.com,
 //   · cada subida REEMPLAZA el inventario completo (DELETE + INSERT),
 //   · lo que no es fecha válida se guarda vacía y no rompe la subida,
 //   · no subir nada (o pasar de 20.000 filas) responde 400,
@@ -33,6 +34,7 @@ const db = require('../src/db')
 // guardadas, errores) los fija cada prueba antes de llamar.
 const estado = {
   rol: 'superadmin',
+  correo: 'x@ctpmedica.com',
   filas: [],
   creada: false,
   actualizadoEn: '2026-10-06 12:34:56.789',
@@ -65,7 +67,7 @@ async function ejecutar(sql, params) {
   const s = sql.replace(/\s+/g, ' ').trim()
 
   if (s.startsWith('SELECT correo, nombre, rol, activo FROM usuarios')) {
-    return [[{ correo: 'x@ctpmedica.com', nombre: 'X', rol: estado.rol, activo: 1 }], []]
+    return [[{ correo: estado.correo, nombre: 'X', rol: estado.rol, activo: 1 }], []]
   }
   if (s.startsWith('CREATE TABLE IF NOT EXISTS inventario')) {
     estado.creada = true
@@ -122,7 +124,7 @@ const app = express()
 app.use(express.json({ limit: '25mb' }))
 // Sustituye a autenticar(): aquí lo que interesa son los permisos, no el token.
 app.use((req, _res, next) => {
-  req.correo = 'x@ctpmedica.com'
+  req.correo = estado.correo
   req.nombreToken = 'X'
   next()
 })
@@ -149,6 +151,7 @@ async function pedir(metodo, ruta, cuerpo) {
 
 function reiniciar() {
   estado.rol = 'superadmin'
+  estado.correo = 'x@ctpmedica.com'
   estado.filas = [fila({})]
   estado.creada = false
   estado.actualizadoEn = '2026-10-06 12:34:56.789'
@@ -211,6 +214,27 @@ probar('POST /inventario: el conductor recibe 403', async () => {
 probar('POST /inventario: el solicitante recibe 403 (solo sube admin/super)', async () => {
   reiniciar()
   estado.rol = 'solicitante'
+  const r = await pedir('POST', '/api/inventario', { filas: [fila({})] })
+  assert.equal(r.estado, 403)
+})
+
+probar('POST /inventario: pedidos@ y despachos@ctpmedica.com suben aunque sean solicitante', async () => {
+  for (const correo of ['PEDIDOS@ctpmedica.com', 'despachos@CTPMEDICA.com']) {
+    reiniciar()
+    estado.rol = 'solicitante'
+    estado.correo = correo
+    const r = await pedir('POST', '/api/inventario', { filas: [fila({})] })
+    assert.equal(r.estado, 201, `${correo} no pudo subir el inventario`)
+    const escribio = estado.ejecutadas.some(([sql]) =>
+      sql.startsWith('DELETE FROM inventario') || sql.startsWith('INSERT INTO inventario'))
+    assert.equal(escribio, true, `${correo} no llegó a la escritura`)
+  }
+})
+
+probar('POST /inventario: otro solicitante (no autorizado) sigue con 403', async () => {
+  reiniciar()
+  estado.rol = 'solicitante'
+  estado.correo = 'alguien@ctpmedica.com'
   const r = await pedir('POST', '/api/inventario', { filas: [fila({})] })
   assert.equal(r.estado, 403)
 })

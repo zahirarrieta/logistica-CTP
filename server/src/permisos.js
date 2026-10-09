@@ -19,6 +19,11 @@ const ESTADOS_ENTREGADAS = ['Entregado', 'Entregado Parcial']
 const ESTADOS_TRAMITE = ['En Trámite', 'En Trámite Parcial']
 const PRIVILEGIADOS = ['administrador', 'superadmin']
 const SUPERADMIN = 'superadmin'
+// Correos que pueden subir el inventario aunque su rol no sea privilegiado: la
+// cuenta corporativa de pedidos la usa el personal de bodega que administra el
+// stock. Normalizados a minúsculas; misma lista que CORREOS_SUBIR_INVENTARIO de
+// src/auth/roles.js.
+const CORREOS_SUBIR_INVENTARIO = ['pedidos@ctpmedica.com', 'despachos@ctpmedica.com']
 
 // Resuelve el contexto del usuario una vez por petición: correo (del token de
 // Microsoft), nombre y rol (de la tabla usuarios). El rol se lee del servidor y
@@ -42,6 +47,15 @@ async function contexto(conexion, correo, nombreToken) {
 
 function esPrivilegiado(rol) {
   return PRIVILEGIADOS.includes(rol)
+}
+
+// Sube inventario quien es privilegiado o está en la lista de correos
+// autorizados (p. ej. pedidos@ctpmedica.com).
+function puedeSubirInventario(ctx) {
+  return (
+    esPrivilegiado(ctx.rol) ||
+    CORREOS_SUBIR_INVENTARIO.includes(String(ctx.correo || '').toLowerCase())
+  )
 }
 
 // El catálogo de clientes es más delicado que el resto: lo consume el selector
@@ -179,6 +193,7 @@ module.exports = {
   contexto,
   esPrivilegiado,
   esSuperAdmin,
+  puedeSubirInventario,
   filtroSolicitudes,
   permiteInsertarSolicitud,
   permiteActualizarSolicitud,

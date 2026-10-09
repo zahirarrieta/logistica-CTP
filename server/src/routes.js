@@ -568,7 +568,7 @@ router.post(
   '/inventario',
   ruta(async (req, res) => {
     const ctx = await conContexto(req)
-    if (!P.esPrivilegiado(ctx.rol)) {
+    if (!P.puedeSubirInventario(ctx)) {
       return res.status(403).json({ error: 'Solo el administrador puede subir el inventario' })
     }
     const filas = normalizarInventario(req.body)

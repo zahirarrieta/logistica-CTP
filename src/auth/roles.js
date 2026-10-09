@@ -58,6 +58,18 @@ export function esPrivilegiado(rol) {
   return rol === ROLES.ADMINISTRADOR || rol === ROLES.SUPERADMIN
 }
 
+// Correos que pueden subir el inventario aunque su rol no sea privilegiado (la
+// cuenta corporativa de pedidos la usa el personal de bodega). Normalizados a
+// minúsculas; misma lista que CORREOS_SUBIR_INVENTARIO de server/src/permisos.js.
+export const CORREOS_SUBIR_INVENTARIO = ['pedidos@ctpmedica.com', 'despachos@ctpmedica.com']
+
+// ¿Este rol+correo puede ver el botón «Subir información» del inventario?
+// Espejo de P.puedeSubirInventario del backend.
+export function puedeSubirInventario(rol, correo) {
+  if (esPrivilegiado(rol)) return true
+  return CORREOS_SUBIR_INVENTARIO.includes(String(correo || '').trim().toLowerCase())
+}
+
 export function esConductor(rol) {
   return rol === ROLES.CONDUCTOR
 }

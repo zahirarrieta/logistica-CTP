@@ -8,6 +8,7 @@
 
 const ZONAS = {
   BOGOTA: { lat: 4.711, lng: -74.072 },
+  COTA: { lat: 4.809, lng: -74.099, etiqueta: 'Cota (Cundinamarca)' },
   PRINCIPAL: { lat: 4.752, lng: -74.055, etiqueta: 'Principal (Bogotá)' },
   BOYACA: { lat: 5.535, lng: -73.367, etiqueta: 'Boyacá (Tunja)' },
   TUNJA: { lat: 5.535, lng: -73.367, etiqueta: 'Boyacá (Tunja)' },
@@ -22,7 +23,8 @@ const ZONAS = {
   NEIVA: { lat: 2.927, lng: -75.281, etiqueta: 'Neiva (Huila)' },
   PASTO: { lat: 1.214, lng: -77.278, etiqueta: 'Pasto (Nariño)' },
   VILLAVICENCIO: { lat: 4.142, lng: -73.626, etiqueta: 'Villavicencio (Meta)' },
-  'ZONA CAFETERA': { lat: 4.813, lng: -75.696, etiqueta: 'Zona Cafetera (Pereira)' },
+  'ZONA CAFETERA': { lat: 4.801, lng: -75.599, etiqueta: 'Zona Cafetera (Armenia y Manizales)' },
+  'EJE CAFETERO': { lat: 4.801, lng: -75.599, etiqueta: 'Eje Cafetero (Armenia y Manizales)' },
   PEREIRA: { lat: 4.813, lng: -75.696 },
   MANIZALES: { lat: 5.068, lng: -75.517 },
   ARMENIA: { lat: 4.533, lng: -75.681 },
@@ -43,27 +45,50 @@ const normalizar = (t) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
 
-// Coordenadas de una zona, o null si no se reconoce.
-export function coordenadasZona(zona) {
+// Clave de ZONAS que corresponde a un texto de zona (exacta o por coincidencia
+// parcial), o null si no se reconoce.
+function claveZona(zona) {
   const clave = normalizar(zona)
   if (!clave) return null
-  if (ZONAS[clave]) return ZONAS[clave]
-  const encontrada = Object.keys(ZONAS).find(
-    (k) => clave.includes(k) || k.includes(clave)
-  )
-  return encontrada ? ZONAS[encontrada] : null
+  if (ZONAS[clave]) return clave
+  return Object.keys(ZONAS).find((k) => clave.includes(k) || k.includes(clave)) || null
 }
 
-// Color estable por zona (mismo texto ⇒ mismo color) para pintar cada pin.
-const COLORES = [
-  '#003B73', '#00B8D4', '#7C3AED', '#DC2626', '#059669', '#D97706',
-  '#DB2777', '#2563EB', '#65A30D', '#9333EA', '#0891B2', '#B45309',
-  '#4F46E5', '#CA8A04',
-]
+// Coordenadas de una zona, o null si no se reconoce.
+export function coordenadasZona(zona) {
+  const k = claveZona(zona)
+  return k ? ZONAS[k] : null
+}
+
+// Un color por UBICACIÓN distinta: las zonas que comparten coordenadas (p. ej.
+// Boyacá/Tunja, Eje Cafetero/Zona Cafetera o Costa/Barranquilla) comparten
+// color. Los tonos se reparten por toda la rueda de color y se alternan en
+// claridad para que dos zonas cualesquiera se distingan bien (antes muchos
+// colores se parecían).
+const COLOR_POR_UBICACION = new Map()
+for (const k of Object.keys(ZONAS)) {
+  const { lat, lng } = ZONAS[k]
+  const ubicacion = `${lat},${lng}`
+  if (!COLOR_POR_UBICACION.has(ubicacion)) {
+    COLOR_POR_UBICACION.set(ubicacion, COLOR_POR_UBICACION.size)
+  }
+}
+const TOTAL_UBICACIONES = COLOR_POR_UBICACION.size
+const COLORES = [...COLOR_POR_UBICACION.values()].map((i) => {
+  const tono = (i * 360) / TOTAL_UBICACIONES
+  const luz = i % 2 === 0 ? 48 : 38
+  return `hsl(${tono.toFixed(1)}, 68%, ${luz}%)`
+})
 
 export function colorZona(zona) {
+  const k = claveZona(zona)
+  if (k) {
+    const { lat, lng } = ZONAS[k]
+    return COLORES[COLOR_POR_UBICACION.get(`${lat},${lng}`)]
+  }
+  // Zona no reconocida: color estable derivado del texto.
   const clave = normalizar(zona)
   let h = 0
   for (let i = 0; i < clave.length; i++) h = (h * 31 + clave.charCodeAt(i)) >>> 0
-  return COLORES[h % COLORES.length]
+  return `hsl(${h % 360}, 55%, 45%)`
 }

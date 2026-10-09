@@ -1,7 +1,16 @@
 {
-  "version": "2026.10.09-20",
+  "version": "2026.10.09-26",
   "fecha": "2026-10-09",
   "cambios": [
+    "Inventario: en el mapa «Artículos por zona» se quitó el botón hamburguesa y el desplegable; la lista de zonas queda siempre visible al lado (con su scroll y cada zona con su color) y al hacer clic en un pin (o en una zona) se abre directo el modal con sus artículos, sin el botón «Ver artículos».",
+    "Inventario: la tabla del modal «artículos de una zona» ahora es idéntica a las demás tablas del inventario (mismos encabezados navy, colores por días de rotación, marca de agua de vencido y filas); en celular también usa las mismas tarjetas.",
+    "Inventario: la zona del Eje Cafetero ahora se ubica en el mapa entre Armenia y Manizales (también reconoce «eje cafetero»).",
+    "Inventario: el botón «Ver artículos en el mapa» quedó junto a «Subir información», el listado de zonas se abre con el botón hamburguesa (cada zona con su color) y el detalle de una zona abre en un modal normal encima del mapa.",
+    "Inventario: el mapa queda limitado a Colombia: no se puede arrastrar ni alejar fuera del país.",
+    "Inventario: el mapa «Artículos por zona» ahora es de pantalla completa. La lista de zonas es clicleable y cada zona abre un modal con todos sus artículos (con buscador dinámico) y desde allí el detalle de cada artículo.",
+    "Inventario: la zona Cota (Cundinamarca) ya se ubica en el mapa.",
+    "Inventario: la cuenta despachos@ctpmedica.com también puede subir el inventario (botón «Subir información»).",
+    "Inventario: la cuenta pedidos@ctpmedica.com ahora puede subir el inventario (botón «Subir información») aunque no sea administrador.",
     "Inventario: nuevo botón «Ver artículos en el mapa» con un mapa de Colombia (OpenStreetMap) que ubica un pin por zona con el número de artículos, coloreado por zona y sincronizado con los filtros y tarjetas activos.",
     "Inventario: nueva columna «Proveedor» en los datos (se agrega sola en la base de datos). Aparece en el detalle del artículo y en los filtros, con búsqueda; la tabla sigue mostrando lo mismo.",
     "Inventario: las listas desplegables de los filtros ahora se sincronizan con las tarjetas y entre sí; cada una muestra solo los valores que quedan según los demás filtros activos.",
