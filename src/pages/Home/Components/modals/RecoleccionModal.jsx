@@ -157,6 +157,8 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   const puedeAdjuntar = archivos.length < 3
   const tituloCodigo = useMemo(() => siguiente || 'Automático', [siguiente])
 
+  if (!open) return null
+
   return (
     <>
       <Modal onClose={loading ? undefined : onClose}>
