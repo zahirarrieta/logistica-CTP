@@ -5,6 +5,7 @@ import {
   MdLockReset,
   MdManageAccounts,
   MdSearch,
+  MdTune,
   MdVisibility,
   MdVisibilityOff,
   MdWarning,
@@ -13,6 +14,8 @@ import Modal from './Modal.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { cargarUsuarios } from '../services/solicitudesApi.js'
 import { restablecerClave } from '../services/usuariosApi.js'
+import { cargarModulosSolicitante, guardarModulosSolicitante } from '../services/ajustesApi.js'
+import { RUTA_INICIO, MODULOS_CONFIGURABLES } from '../auth/roles.js'
 import { claveRestablecida, errorClave } from '../services/notificaciones.jsx'
 
 const CLASES_CAMPO =
@@ -63,6 +66,13 @@ export default function UsuariosClavesModal({ onClose }) {
   const [guardando, setGuardando] = useState(false)
   const [exitos, setExitos] = useState({}) // correo → true tras cambiarla bien
 
+  // Módulos visibles para los solicitantes (ajuste global). Inicio va siempre.
+  const [modulos, setModulos] = useState([RUTA_INICIO])
+  const [modulosCargando, setModulosCargando] = useState(true)
+  const [modulosGuardando, setModulosGuardando] = useState(false)
+  const [modulosError, setModulosError] = useState('')
+  const [modulosOk, setModulosOk] = useState(false)
+
   useEffect(() => {
     let vivo = true
     setCargando(true)
@@ -71,6 +81,18 @@ export default function UsuariosClavesModal({ onClose }) {
       .then((data) => { if (vivo) setUsuarios(data || []) })
       .catch((e) => { if (vivo) setError(e.message || 'No se pudo cargar la lista de usuarios') })
       .finally(() => { if (vivo) setCargando(false) })
+    return () => { vivo = false }
+  }, [])
+
+  // Carga el ajuste global de módulos de solicitantes al abrir el modal.
+  useEffect(() => {
+    let vivo = true
+    setModulosCargando(true)
+    setModulosError('')
+    cargarModulosSolicitante()
+      .then((data) => { if (vivo && Array.isArray(data)) setModulos(data) })
+      .catch((e) => { if (vivo) setModulosError(e.message || 'No se pudieron cargar los módulos') })
+      .finally(() => { if (vivo) setModulosCargando(false) })
     return () => { vivo = false }
   }, [])
 
@@ -134,6 +156,31 @@ export default function UsuariosClavesModal({ onClose }) {
     }
   }
 
+  function alternarModulo(ruta) {
+    setModulosOk(false)
+    setModulos((prev) => {
+      const tiene = prev.includes(ruta)
+      const siguiente = tiene ? prev.filter((m) => m !== ruta) : [...prev, ruta]
+      return [RUTA_INICIO, ...MODULOS_CONFIGURABLES.map((m) => m.ruta).filter((m) => siguiente.includes(m))]
+    })
+  }
+
+  async function guardarModulos() {
+    if (modulosGuardando) return
+    setModulosGuardando(true)
+    setModulosError('')
+    setModulosOk(false)
+    try {
+      const data = await guardarModulosSolicitante(modulos)
+      if (Array.isArray(data)) setModulos(data)
+      setModulosOk(true)
+    } catch (e) {
+      setModulosError(e.message || 'No se pudieron guardar los módulos')
+    } finally {
+      setModulosGuardando(false)
+    }
+  }
+
   return (
     <Modal onClose={guardando ? undefined : onClose}>
       <div
@@ -184,6 +231,77 @@ export default function UsuariosClavesModal({ onClose }) {
               </li>
               <li>Nadie más tiene acceso a esta pantalla.</li>
             </ul>
+          </div>
+
+          {/* Módulos visibles para los solicitantes (ajuste global) */}
+          <div className="rounded-2xl border border-brand-ink/10 p-4">
+            <p className="font-extrabold text-sm text-brand-deep inline-flex items-center gap-2">
+              <MdTune className="text-brand-cyan text-lg" />
+              Módulos de los solicitantes
+            </p>
+            <p className="mt-2 text-sm text-brand-ink/75">
+              Elige qué módulos ven las cuentas con rol{' '}
+              <span className="font-bold text-brand-ink">solicitante</span>. Aplica a todos por
+              igual; <span className="font-bold text-brand-ink">Inicio</span> siempre está visible.
+            </p>
+            {modulosCargando ? (
+              <p className="mt-3 text-xs font-semibold text-brand-ink/50">Cargando módulos…</p>
+            ) : (
+              <>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label className="flex items-center gap-3 rounded-xl px-3 py-2.5 ring-1 ring-brand-ink/10 bg-brand-cyan/5 cursor-not-allowed">
+                    <input type="checkbox" checked readOnly disabled className="size-4 accent-brand-cyan" />
+                    <span className="text-sm font-bold text-brand-ink/60">Inicio</span>
+                    <span className="ml-auto text-[10px] font-extrabold uppercase tracking-wide text-brand-deep/60">
+                      Fijo
+                    </span>
+                  </label>
+                  {MODULOS_CONFIGURABLES.map((m) => {
+                    const activo = modulos.includes(m.ruta)
+                    return (
+                      <label
+                        key={m.ruta}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ring-1 cursor-pointer transition ${
+                          activo
+                            ? 'bg-brand-cyan/10 ring-brand-cyan/40'
+                            : 'ring-brand-ink/10 hover:bg-brand-ink/5'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={activo}
+                          onChange={() => alternarModulo(m.ruta)}
+                          disabled={modulosGuardando}
+                          className="size-4 accent-brand-cyan"
+                        />
+                        <span className="text-sm font-bold text-brand-ink">{m.label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={guardarModulos}
+                    disabled={modulosGuardando}
+                    className={BOTON_PRIMARIO}
+                  >
+                    {modulosGuardando ? 'Guardando…' : 'Guardar módulos'}
+                  </button>
+                  {modulosOk && !modulosGuardando && (
+                    <span className="text-xs font-bold text-green-700 inline-flex items-center gap-1.5">
+                      <MdCheck className="text-sm" />
+                      Guardado
+                    </span>
+                  )}
+                  {modulosError && (
+                    <span role="alert" className="text-xs font-semibold text-red-600">
+                      {modulosError}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Buscador */}

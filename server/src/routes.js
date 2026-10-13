@@ -1162,6 +1162,77 @@ router.post(
 )
 
 // ---------------------------------------------------------------------------
+// Ajustes: módulos visibles para los solicitantes
+// ---------------------------------------------------------------------------
+// Tabla clave/valor creada en el primer uso (mismo criterio que recolecciones e
+// inventario: un hosting desplegado no necesita pegar SQL). Para los solicitantes
+// la lista de módulos es configurable desde «Usuarios y claves»: hay módulos
+// nuevos que se activan para el resto de roles pero se ocultan a los solicitantes.
+let ajustesCreado = false
+
+async function asegurarAjustes() {
+  if (ajustesCreado) return true
+  try {
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS ajustes (
+        clave          VARCHAR(64) NOT NULL,
+        valor          TEXT        NOT NULL,
+        actualizado_en DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+                                    ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (clave)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `)
+    ajustesCreado = true
+    return true
+  } catch (error) {
+    console.error(`[Ajustes] no se pudo crear/verificar la tabla: ${error?.message}`)
+    return false
+  }
+}
+
+const CLAVE_MODULOS_SOLICITANTE = 'modulos_solicitante'
+
+async function leerModulosSolicitante() {
+  await asegurarAjustes()
+  const [filas] = await pool.execute(
+    'SELECT valor FROM ajustes WHERE clave = ? LIMIT 1',
+    [CLAVE_MODULOS_SOLICITANTE]
+  )
+  return P.normalizarModulosSolicitante(filas[0]?.valor)
+}
+
+// La lee cualquier usuario con sesión: el frontend necesita saber qué módulos
+// mostrar antes de pintar el menú y los guards.
+router.get(
+  '/ajustes/modulos-solicitante',
+  ruta(async (_req, res) => {
+    res.json({ modulos: await leerModulosSolicitante() })
+  })
+)
+
+// La escribe un privilegiado o la cuenta de sistemas (la misma que abre el modal
+// «Usuarios y claves»). La lista se normaliza: se descartan valores desconocidos
+// e Inicio nunca se puede quitar.
+router.put(
+  '/ajustes/modulos-solicitante',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (!P.esPrivilegiado(ctx.rol) && ctx.correo !== CORREO_SISTEMAS) {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+    const modulos = P.normalizarModulosSolicitante(req.body?.modulos)
+    await asegurarAjustes()
+    await pool.execute(
+      `INSERT INTO ajustes (clave, valor) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE valor = VALUES(valor)`,
+      [CLAVE_MODULOS_SOLICITANTE, JSON.stringify(modulos)]
+    )
+    console.log(`[Ajustes] módulos de solicitante: ${modulos.join(', ')} (por ${ctx.correo})`)
+    res.json({ ok: true, modulos })
+  })
+)
+
+// ---------------------------------------------------------------------------
 // Solicitudes · lectura
 // ---------------------------------------------------------------------------
 // GET /api/solicitudes?desde=<ISO watermark>

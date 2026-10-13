@@ -12,11 +12,11 @@ import RecoleccionesListado from '../Recolecciones/RecoleccionesListado.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import { loadSolicitudes, saveSolicitud, corregirSolicitud, updateSolicitud, suscribir, puedeEliminarSolicitud, restanteEliminar } from '../../store/solicitudesStore.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
-import { puedeCrearRecoleccion } from '../../auth/roles.js'
+import { puedeRecolectar } from '../../auth/roles.js'
 import { solicitudCreada, solicitudCorregida, estadoActualizado } from '../../services/notificaciones.jsx'
 
 export default function Solicitudes() {
-  const { account, rol } = useAuth()
+  const { account, rol, modulosSolicitante } = useAuth()
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [tab, setTab] = useState('solicitudes')
   const [modalOpen, setModalOpen] = useState(false)
@@ -148,7 +148,7 @@ export default function Solicitudes() {
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 shrink-0">
-              {puedeCrearRecoleccion(rol) && (
+              {puedeRecolectar(rol, modulosSolicitante) && (
                 <button
                   type="button"
                   onClick={() => setRecoleccionModalOpen(true)}
@@ -170,26 +170,28 @@ export default function Solicitudes() {
           </div>
 
           {/* Pestañas: Mis solicitudes / Mis recolecciones */}
-          <div className="mb-5 inline-flex w-full sm:w-auto rounded-full bg-brand-mist p-1 ring-1 ring-brand-ink/10">
-            <button
-              type="button"
-              onClick={() => setTab('solicitudes')}
-              className={`flex-1 sm:flex-none rounded-full px-5 py-2 text-sm font-bold transition-colors ${
-                tab === 'solicitudes' ? 'bg-brand-navy text-white shadow' : 'text-brand-deep hover:bg-white/60'
-              }`}
-            >
-              Mis solicitudes
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('recolecciones')}
-              className={`flex-1 sm:flex-none rounded-full px-5 py-2 text-sm font-bold transition-colors ${
-                tab === 'recolecciones' ? 'bg-brand-navy text-white shadow' : 'text-brand-deep hover:bg-white/60'
-              }`}
-            >
-              Mis recolecciones
-            </button>
-          </div>
+          {puedeRecolectar(rol, modulosSolicitante) && (
+            <div className="mb-5 inline-flex w-full sm:w-auto rounded-full bg-brand-mist p-1 ring-1 ring-brand-ink/10">
+              <button
+                type="button"
+                onClick={() => setTab('solicitudes')}
+                className={`flex-1 sm:flex-none rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+                  tab === 'solicitudes' ? 'bg-brand-navy text-white shadow' : 'text-brand-deep hover:bg-white/60'
+                }`}
+              >
+                Mis solicitudes
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('recolecciones')}
+                className={`flex-1 sm:flex-none rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+                  tab === 'recolecciones' ? 'bg-brand-navy text-white shadow' : 'text-brand-deep hover:bg-white/60'
+                }`}
+              >
+                Mis recolecciones
+              </button>
+            </div>
+          )}
 
           {tab === 'solicitudes' ? (
             <>

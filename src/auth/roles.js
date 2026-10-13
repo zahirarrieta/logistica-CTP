@@ -38,6 +38,25 @@ const MODULOS_POR_ROL = {
   [ROLES.SUPERADMIN]: TODOS,
 }
 
+// Valor del ajuste que apaga el botón «Recolección» y la pestaña «Mis
+// recolecciones» de los solicitantes (no es una ruta: las recolecciones viven
+// dentro de Solicitudes). Espejo de P.MODULO_RECOLECCIONES del backend.
+export const MODULO_RECOLECCIONES = 'recolecciones'
+
+// Módulos que ven los solicitantes cuando no hay ajuste guardado. Espejo de
+// MODULOS_SOLICITANTE_POR_DEFECTO del backend.
+export const MODULOS_SOLICITANTE_POR_DEFECTO = [RUTA_INICIO, RUTA_SOLICITUDES, RUTA_INVENTARIO, MODULO_RECOLECCIONES]
+
+// Módulos que se pueden marcar/desmarcar para los solicitantes desde «Usuarios y
+// claves». Inicio no aparece: es obligatorio (sin él no habría a dónde volver).
+export const MODULOS_CONFIGURABLES = [
+  { ruta: RUTA_SOLICITUDES, label: 'Solicitudes' },
+  { ruta: RUTA_INVENTARIO, label: 'Inventario' },
+  { ruta: RUTA_CONDUCTOR, label: 'Conductor' },
+  { ruta: RUTA_ADMIN, label: 'Administrador' },
+  { ruta: MODULO_RECOLECCIONES, label: 'Recolecciones' },
+]
+
 // Estados del módulo de recolección. Espejo de P.ESTADOS_RECOLECCION del backend.
 export const ESTADOS_RECOLECCION = ['Abierto', 'Trámite', 'Fallido', 'Entregado']
 
@@ -45,6 +64,16 @@ export const ESTADOS_RECOLECCION = ['Abierto', 'Trámite', 'Fallido', 'Entregado
 // de P.permiteCrearRecoleccion.
 export function puedeCrearRecoleccion(rol) {
   return rol === ROLES.SOLICITANTE || esPrivilegiado(rol)
+}
+
+// ¿Se le muestra el módulo de recolección (botón «Recolección» y pestaña «Mis
+// recolecciones»)? A los solicitantes se les puede apagar desde el ajuste global
+// «modulos_solicitante»; el resto de roles que crean recolecciones lo ven siempre.
+export function puedeRecolectar(rol, modulosSolicitante) {
+  if (!puedeCrearRecoleccion(rol)) return false
+  if (rol !== ROLES.SOLICITANTE) return true
+  const lista = Array.isArray(modulosSolicitante) ? modulosSolicitante : MODULOS_SOLICITANTE_POR_DEFECTO
+  return lista.includes(MODULO_RECOLECCIONES)
 }
 
 export function esSuperAdmin(rol) {
@@ -91,22 +120,35 @@ export function esConductorUsuario(usuario) {
 }
 
 // Lista de rutas permitidas para un rol (por defecto, las de solicitante).
-export function modulosPermitidos(rol) {
-  return MODULOS_POR_ROL[rol] || MODULOS_POR_ROL[ROLES.SOLICITANTE]
+// Para los solicitantes la lista sale del ajuste global «modulos_solicitante»
+// (editable en «Usuarios y claves»): Inicio siempre está y el resto se filtra
+// contra MODULOS_CONFIGURABLES. `modulosSolicitante` llega del AuthContext.
+export function modulosPermitidos(rol, modulosSolicitante) {
+  if (rol !== ROLES.SOLICITANTE) {
+    return MODULOS_POR_ROL[rol] || MODULOS_POR_ROL[ROLES.SOLICITANTE]
+  }
+  const lista = Array.isArray(modulosSolicitante) ? modulosSolicitante : MODULOS_SOLICITANTE_POR_DEFECTO
+  const validos = new Set([RUTA_INICIO, ...MODULOS_CONFIGURABLES.map((m) => m.ruta)])
+  const limpio = []
+  for (const modulo of lista) {
+    if (validos.has(modulo) && !limpio.includes(modulo)) limpio.push(modulo)
+  }
+  if (!limpio.includes(RUTA_INICIO)) limpio.unshift(RUTA_INICIO)
+  return limpio
 }
 
 // ¿Puede el rol visitar la ruta dada? «/» y «/inicio» se tratan como Inicio.
 // Configuración es la excepción: la ven todos los roles, así que se comprueba
 // aparte de la lista de módulos.
-export function puedeVer(rol, path) {
+export function puedeVer(rol, path, modulosSolicitante) {
   const ruta = path === '/' ? RUTA_INICIO : path
   if (ruta === RUTA_CONFIGURACION || ruta.startsWith(`${RUTA_CONFIGURACION}/`)) return true
-  return modulosPermitidos(rol).some((m) => ruta === m || ruta.startsWith(`${m}/`))
+  return modulosPermitidos(rol, modulosSolicitante).some((m) => ruta === m || ruta.startsWith(`${m}/`))
 }
 
 // Ruta a la que se envía al usuario cuando intenta entrar a un módulo vetado.
-export function rutaInicial(rol) {
-  const modulos = modulosPermitidos(rol)
+export function rutaInicial(rol, modulosSolicitante) {
+  const modulos = modulosPermitidos(rol, modulosSolicitante)
   return modulos[0] || RUTA_INICIO
 }
 

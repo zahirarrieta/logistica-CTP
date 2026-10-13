@@ -7,6 +7,8 @@ import {
   haySesion,
 } from './sesion.js'
 import { API_URL, apiFetch } from '../services/apiClient.js'
+import { cargarModulosSolicitante } from '../services/ajustesApi.js'
+import { MODULOS_SOLICITANTE_POR_DEFECTO } from './roles.js'
 import { setRolActual, setUsuarioActual } from '../store/solicitudesStore.js'
 import { sesionCerrada } from '../services/notificaciones.jsx'
 import { reasociarSuscripcion } from '../services/push.js'
@@ -74,6 +76,11 @@ export function AuthProvider({ children }) {
   const [errorLogin, setErrorLogin] = useState('')
   const [loginEnCurso, setLoginEnCurso] = useState(false)
   const [sesionCaducada, setSesionCaducada] = useState('')
+  // Módulos que ven los solicitantes (ajuste global, «Usuarios y claves»). Se
+  // carga al abrir sesión; mientras no llegue se usa el valor por defecto, que es
+  // el mismo que tenía la app antes del ajuste.
+  const [modulosSolicitante, setModulosSolicitante] = useState(MODULOS_SOLICITANTE_POR_DEFECTO)
+  const [configLista, setConfigLista] = useState(false)
 
   // Al abrir la app se comprueba que el token guardado SIGA valiendo. Que exista
   // en localStorage no dice nada: pudo pasar SESSION_TTL, o el servidor pudo
@@ -132,6 +139,34 @@ export function AuthProvider({ children }) {
       cancelado = true
     }
   }, [])
+
+  // Ajuste global de módulos para solicitantes. Se recarga cada vez que cambia la
+  // cuenta (login/logout) y deja `configLista` en true para que la app no pinte
+  // las rutas antes de conocer la configuración (evita el parpadeo de un módulo
+  // que en realidad está oculto).
+  const recargarModulos = useCallback(async () => {
+    try {
+      const mods = await cargarModulosSolicitante()
+      if (mods) setModulosSolicitante(mods)
+      return mods
+    } catch {
+      return null
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelado = false
+    if (!account) {
+      setModulosSolicitante(MODULOS_SOLICITANTE_POR_DEFECTO)
+      setConfigLista(true)
+      return () => { cancelado = true }
+    }
+    cargarModulosSolicitante()
+      .then((mods) => { if (!cancelado && mods) setModulosSolicitante(mods) })
+      .catch(() => {})
+      .finally(() => { if (!cancelado) setConfigLista(true) })
+    return () => { cancelado = true }
+  }, [account])
 
   // apiFetch avisa con este evento cuando el backend rechaza el token a
   // mitad de una operación. Se corta la sesión ahí mismo para que la pantalla
@@ -306,6 +341,9 @@ const logout = useCallback((motivo = '') => {
         usuario,
         rol,
         rolListo,
+        modulosSolicitante,
+        recargarModulos,
+        configLista,
         errorLogin,
         loginEnCurso,
         sesionCaducada,

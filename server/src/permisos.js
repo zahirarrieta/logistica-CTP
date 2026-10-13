@@ -212,6 +212,43 @@ function filtroUsuarios(ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// Módulos visibles para los solicitantes (ajuste global)
+// ---------------------------------------------------------------------------
+// El menú y los guards del frontend se gobiernan por la lista de módulos que el
+// rol tiene permitidos. Para los solicitantes esa lista es CONFIGURABLE desde
+// «Usuarios y claves»: hay módulos nuevos (Inventario, y los que vengan) que se
+// activan para el resto de roles pero que a los solicitantes se les quiere
+// ocultar. Inicio nunca se puede quitar —sin él no habría a dónde volver— y el
+// resto (Solicitudes, Inventario, Conductor, Administrador) sí.
+// «recolecciones» no es una ruta: apaga el botón «Recolección» y la pestaña
+// «Mis recolecciones» de los solicitantes sin tocar el resto del módulo.
+const MODULO_RECOLECCIONES = 'recolecciones'
+const MODULOS_CONFIGURABLES = ['/solicitudes', '/inventario', '/conductor', '/administrador', MODULO_RECOLECCIONES]
+const MODULOS_SOLICITANTE_POR_DEFECTO = ['/inicio', '/solicitudes', '/inventario', MODULO_RECOLECCIONES]
+
+// Normaliza lo guardado (JSON o array) a una lista válida, sin duplicados y con
+// Inicio siempre presente. Cualquier valor desconocido se descarta, así que un
+// ajuste corrupto o manipulado no puede habilitar una ruta arbitraria.
+function normalizarModulosSolicitante(valor) {
+  let lista = valor
+  if (typeof valor === 'string') {
+    try {
+      lista = JSON.parse(valor)
+    } catch {
+      lista = null
+    }
+  }
+  if (!Array.isArray(lista)) lista = MODULOS_SOLICITANTE_POR_DEFECTO
+  const permitidos = new Set(['/inicio', ...MODULOS_CONFIGURABLES])
+  const limpio = []
+  for (const modulo of lista) {
+    if (permitidos.has(modulo) && !limpio.includes(modulo)) limpio.push(modulo)
+  }
+  if (!limpio.includes('/inicio')) limpio.unshift('/inicio')
+  return limpio
+}
+
+// ---------------------------------------------------------------------------
 // guardar_solicitud (el RPC que se saltaba RLS)
 // ---------------------------------------------------------------------------
 // Réplica exacta de la comprobación de la función SECURITY DEFINER. Ahora es la
@@ -239,6 +276,10 @@ module.exports = {
   permiteActualizarHistorial,
   filtroUsuarios,
   permiteGuardarSolicitud,
+  MODULO_RECOLECCIONES,
+  MODULOS_CONFIGURABLES,
+  MODULOS_SOLICITANTE_POR_DEFECTO,
+  normalizarModulosSolicitante,
   ESTADOS_TRANSITO,
   ESTADOS_ENTREGADAS,
   ESTADOS_TRAMITE,

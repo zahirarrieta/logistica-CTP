@@ -20,6 +20,7 @@ const TIPO_SOLICITUD_OPTIONS = [
   { value: 'URGENCIA / 4 Horas', label: 'URGENCIA / 4 Horas' },
   { value: 'VENTA DIRECTA', label: 'VENTA DIRECTA' },
   { value: 'ADMINISTRATIVA', label: 'ADMINISTRATIVA' },
+  { value: 'RECOLECCIÓN DE DISPOSITIVOS', label: 'RECOLECCIÓN DE DISPOSITIVOS' },
   { value: 'TOMA DE INVENTARIO', label: 'TOMA DE INVENTARIO' },
 ]
 

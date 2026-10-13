@@ -136,6 +136,21 @@ INSERT INTO contadores (nombre, valor) VALUES ('solicitudes_codigo', 1)
   ON DUPLICATE KEY UPDATE nombre = nombre;
 
 -- ----------------------------------------------------------------------------
+-- 3b. AJUSTES (configuración global editable desde «Usuarios y claves»)
+--     Almacén clave/valor genérico. Hoy guarda una sola clave:
+--       modulos_solicitante → JSON con los módulos que ven los solicitantes
+--     La tabla se crea sola en el primer uso (asegurarAjustes en routes.js), así
+--     que un hosting ya desplegado no necesita pegar SQL.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ajustes (
+  clave          VARCHAR(64) NOT NULL,
+  valor          TEXT        NOT NULL,
+  actualizado_en DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+                              ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (clave)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
 -- 3c. CÓDIGOS RESERVADOS
 --     Una reserva se crea al pedir un código (POST /api/codigos/reservar) y se
 --     consume al crear la solicitud. Sirve para dos cosas:

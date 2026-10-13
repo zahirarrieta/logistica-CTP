@@ -21,15 +21,16 @@ const Administrador = lazy(() => import('./pages/Administrador/Administrador.jsx
 const Conductor = lazy(() => import('./pages/Conductor/Conductor.jsx'))
 const Inventario = lazy(() => import('./pages/Inventario/Inventario.jsx'))
 
-// Bloquea el acceso a módulos que el rol del usuario no tiene permitidos.
+// Bloquea el acceso a módulos que el rol del usuario no tiene permitidos. Para
+// los solicitantes la lista de módulos sale del ajuste global (AuthContext).
 function Protegida({ path, children }) {
-  const { rol } = useAuth()
-  if (!puedeVer(rol, path)) return <Navigate to={rutaInicial(rol)} replace />
+  const { rol, modulosSolicitante } = useAuth()
+  if (!puedeVer(rol, path, modulosSolicitante)) return <Navigate to={rutaInicial(rol, modulosSolicitante)} replace />
   return children
 }
 
 function Root() {
-  const { account, loading, rolListo, logout, rol } = useAuth()
+  const { account, loading, rolListo, logout, rol, configLista } = useAuth()
   const [datosListos, setDatosListos] = useState(false)
   const navigate = useNavigate()
 
@@ -87,7 +88,7 @@ function Root() {
     }
   }, [account])
 
-  if (loading || (account && (!datosListos || !rolListo))) return <Loader />
+  if (loading || (account && (!datosListos || !rolListo || !configLista))) return <Loader />
 
   if (!account) {
     return (

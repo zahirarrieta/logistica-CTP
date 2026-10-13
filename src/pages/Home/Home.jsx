@@ -10,7 +10,7 @@ import { saveSolicitud } from '../../store/solicitudesStore.js'
 import { solicitudCreada } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { shortName } from '../../auth/user.js'
-import { esConductor, puedeCrearRecoleccion } from '../../auth/roles.js'
+import { esConductor, puedeRecolectar } from '../../auth/roles.js'
 
 const ASSETS = {
   logo: '/CTPM.png',
@@ -34,7 +34,7 @@ const ROL_BADGE = {
 }
 
 function Home() {
-  const { account, rol, usuario } = useAuth()
+  const { account, rol, usuario, modulosSolicitante } = useAuth()
   const navigate = useNavigate()
   const conductor = esConductor(rol)
   const [solicitudModalOpen, setSolicitudModalOpen] = useState(false)
@@ -131,7 +131,7 @@ function Home() {
                         </span>
                       </span>
                     </button>
-                    {!conductor && puedeCrearRecoleccion(rol) && (
+                    {puedeRecolectar(rol, modulosSolicitante) && (
                       <button
                         type="button"
                         onClick={() => setRecoleccionModalOpen(true)}

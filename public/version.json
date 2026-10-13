@@ -1,7 +1,10 @@
 {
-  "version": "2026.10.14-38",
+  "version": "2026.10.14-41",
   "fecha": "2026-10-14",
   "cambios": [
+    "Usuarios y claves: nueva casilla «Recolecciones» en la configuración de módulos de los solicitantes. Al desmarcarla se ocultan el botón «Recolección» (en Inicio y Solicitudes) y la pestaña «Mis recolecciones» para todos los solicitantes.",
+    "Solicitudes: el tipo de solicitud «RECOLECCIÓN DE DISPOSITIVOS» vuelve a aparecer en el listado del formulario «Nuevo Pedido».",
+    "Usuarios y claves: nueva sección «Módulos de los solicitantes» con casillas para elegir qué módulos ven las cuentas con rol solicitante (Solicitudes, Inventario, Conductor y Administrador). Aplica a todos por igual y «Inicio» siempre queda visible.",
     "Inicio: el botón «Recolección» ahora tiene la misma animación que «Nuevo Pedido» (el ícono se desliza al pasar el cursor).",
     "Solicitudes: el tipo de solicitud «RECOLECCIÓN DE DISPOSITIVOS» ya no aparece en el listado del formulario (las recolecciones se registran desde el botón «Recolección»).",
     "Solicitudes: las recolecciones ahora viven en una pestaña «Mis recolecciones» dentro de «Mis solicitudes» (junto a la pestaña «Mis solicitudes»), para no llenar el menú de botones. Se quitó el botón «Recolecciones» del encabezado.",

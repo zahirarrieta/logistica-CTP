@@ -21,7 +21,7 @@ const MENU = [
 
 export default function Header() {
   const { pathname } = useLocation()
-  const { logout, account, rol, usuario } = useAuth()
+  const { logout, account, rol, usuario, modulosSolicitante } = useAuth()
   const [abrirMenu, setAbrirMenu] = useState(false)
   const [cambiarClave, setCambiarClave] = useState(false)
   const [configuracion, setConfiguracion] = useState(false)
@@ -38,7 +38,7 @@ export default function Header() {
 
   const nombreUsuario = usuario?.nombre || account?.name || ''
   const greeting = nombreUsuario ? `Hola, ${shortName({ name: nombreUsuario })}` : 'Cerrar sesión'
-  const enlaces = MENU.filter((item) => puedeVer(rol, item.to))
+  const enlaces = MENU.filter((item) => puedeVer(rol, item.to, modulosSolicitante))
   // «Usuarios y claves» (restablecer contraseñas olvidadas) es exclusivo de la
   // cuenta de sistemas: aquí se oculta el menú, y el backend vuelve a pedirlo.
   const esSistemas = String(usuario?.correo || '').toLowerCase() === CORREO_SISTEMAS
