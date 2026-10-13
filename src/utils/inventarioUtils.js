@@ -308,3 +308,13 @@ export function compararInventario(actuales = [], nuevas = []) {
 
   return { agregadas, modificadas, eliminadas, sinCambios }
 }
+
+// ---------------------------------------------------------------------------
+// Bodegas «en C»
+// ---------------------------------------------------------------------------
+// Una bodega «en C» es la que tiene un código terminado en la letra C (p. ej.
+// 103C, 144C). Se excluyen del total de artículos y unidades por zona que se
+// muestra junto al mapa, porque no deben sumar en ese conteo.
+export function esBodegaC(codigo) {
+  return /c$/i.test(String(codigo ?? '').replace(/\s+/g, ''))
+}

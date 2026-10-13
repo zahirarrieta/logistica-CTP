@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   MdClose, MdPerson, MdEmail, MdPlace, MdNotes, MdCloudUpload, MdCancel,
   MdStorefront, MdEvent, MdAccessTime, MdSupportAgent, MdWarehouse, MdCategory,
-  MdSearch, MdPhone, MdTag, MdErrorOutline,
+  MdSearch, MdPhone, MdTag, MdErrorOutline, MdBusiness, MdInventory2, MdFactCheck,
+  MdLocalShipping,
 } from 'react-icons/md'
 import Modal from '../../../../components/Modal.jsx'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
+import ArticulosBodegaModal from './ArticulosBodegaModal.jsx'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import { crearRecoleccion, peekCodigoRecoleccion, peekCodigoRecoleccionSync } from '../../../../services/recoleccionesApi.js'
+import { cargarClientes } from '../../../../services/solicitudesApi.js'
 import { recoleccionCreada, errorRecoleccion } from '../../../../services/notificaciones.jsx'
 
 function formatearBytes(bytes) {
@@ -39,6 +42,36 @@ const TIPOS_POR_ZONA = {
   Nacional: ['24-HORAS', 'ESPECIAL', 'AEROPUERTO', 'TERMINAL', 'MARKETING'],
 }
 
+// Texto del error de la casilla del Reglamento: se compara por igualdad en el
+// bloque de la declaración para pintarlo en rojo.
+const FALTA_DECLARACION = 'Debes aceptar la declaración del Reglamento Interno'
+
+// Etiquetas de los campos obligatorios, agrupadas por bloque y en el orden en
+// que aparecen en el formulario. Sirven a la vez para validar, para el listado
+// de errores del encabezado y para pintar en rojo cada campo y su bloque.
+const CAMPOS_SOLICITANTE = ['Nombre del solicitante', 'Correo del solicitante']
+const CAMPOS_RECOGIDA = [
+  '¿Dónde vamos a recoger?',
+  'Bodega de recogida',
+  'Zona',
+  'Tipo de Servicio',
+  'Fecha de recolección',
+  'Hora de recolección',
+  'Persona de contacto',
+  'Teléfono de contacto',
+  'Qué recogemos',
+]
+const CAMPOS_ENTREGA = ['¿Dónde entregamos?', 'Bodega de entrega']
+const CAMPOS_OBSERVACIONES = ['Observaciones']
+
+// Todo es obligatorio hasta «Observaciones»; los adjuntos no lo son.
+const CAMPOS_OBLIGATORIOS = [
+  ...CAMPOS_SOLICITANTE,
+  ...CAMPOS_RECOGIDA,
+  ...CAMPOS_ENTREGA,
+  ...CAMPOS_OBSERVACIONES,
+]
+
 const FORM_VACIO = {
   fecha_subida: '',
   hora_subida: '',
@@ -60,6 +93,71 @@ const FORM_VACIO = {
   entrega_bodega: '',
 }
 
+// Tarjeta con encabezado e ícono que agrupa los campos de una etapa del
+// formulario (Solicitante, Recogida, Entrega…). `invalid` la pinta en rojo
+// cuando falta algo obligatorio de ese bloque.
+function Bloque({ titulo, icono, opcional = false, requerido = false, invalid = false, children }) {
+  return (
+    <section
+      className={`rounded-2xl border p-4 space-y-3.5 ${
+        invalid ? 'border-red-300 bg-red-50' : 'border-brand-deep/15 bg-brand-mist/30'
+      }`}
+    >
+      <header className="flex items-center justify-between gap-2 border-b border-brand-deep/10 pb-2.5">
+        <h4 className="text-xs font-extrabold uppercase tracking-wider text-brand-deep inline-flex items-center gap-2 min-w-0">
+          <span
+            className={`grid place-items-center size-7 rounded-lg shrink-0 ${
+              invalid ? 'bg-red-100 text-red-600' : 'bg-brand-cyan/15 text-brand-deep'
+            }`}
+          >
+            {icono}
+          </span>
+          <span className="truncate">
+            {titulo}
+            {requerido && <span className="text-red-500 ml-1">*</span>}
+          </span>
+        </h4>
+        {opcional && (
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-brand-ink/45 shrink-0">
+            Opcional
+          </span>
+        )}
+      </header>
+      {children}
+    </section>
+  )
+}
+
+// Área de texto con la misma etiqueta flotante de FormField (que solo cubre
+// inputs), para «Qué recogemos» y «Observaciones».
+function AreaTexto({ label, name, value, onChange, filas = 3, required = false, invalid = false, pista }) {
+  return (
+    <div className="relative">
+      <textarea
+        name={name}
+        value={value}
+        onChange={onChange}
+        rows={filas}
+        placeholder=" "
+        className={`peer w-full px-3 py-2.5 rounded-xl bg-white border shadow-sm focus:outline-none focus:ring-4 focus:shadow-none transition-all text-brand-ink placeholder-transparent resize-y ${
+          invalid
+            ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
+            : 'border-brand-deep/20 focus:border-brand-deep/60 focus:ring-brand-deep/10'
+        }`}
+      />
+      <label
+        className={`pointer-events-none absolute left-2 bg-white px-1 rounded transition-all inline-flex items-center gap-1 ${
+          value ? '-top-2 text-[0.7rem] text-brand-ink' : 'top-2.5 text-[0.78rem] text-brand-ink'
+        } peer-focus:-top-2 text-[0.7rem] peer-focus:text-brand-deep`}
+      >
+        <span className="shrink-0 text-brand-deep"><MdNotes className="text-sm" /></span>
+        <span>{label}{required && <span className="text-red-500 ml-1">*</span>}</span>
+      </label>
+      {pista && <p className="mt-1 text-[11px] text-brand-ink/50">{pista}</p>}
+    </div>
+  )
+}
+
 export default function RecoleccionModal({ open, onClose, onCreated }) {
   const { account } = useAuth()
   const [formData, setFormData] = useState(FORM_VACIO)
@@ -69,6 +167,12 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   const [errorServidor, setErrorServidor] = useState('')
   const [loading, setLoading] = useState(false)
   const [siguiente, setSiguiente] = useState(() => peekCodigoRecoleccionSync() || '')
+  // Catálogo de clientes para el autocompletado de «¿Dónde vamos a recoger?».
+  const [catalogoClientes, setCatalogoClientes] = useState([])
+  const [listaAbierta, setListaAbierta] = useState(false)
+  const [articulosOpen, setArticulosOpen] = useState(false)
+  // Casilla obligatoria: declaración de aceptación del Reglamento Interno.
+  const [aceptaReglamento, setAceptaReglamento] = useState(false)
 
   // Precarga el próximo código al montar (el modal siempre está montado, aunque
   // cerrado) para que la caché ya esté caliente cuando el usuario lo abra: así el
@@ -92,11 +196,40 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
     setErrores([])
     setErrorServidor('')
     setLoading(false)
+    setAceptaReglamento(false)
     // Muestra al instante el último código conocido y lo refresca del servidor.
     setSiguiente(peekCodigoRecoleccionSync() || '')
     void peekCodigoRecoleccion().then((c) => setSiguiente(c || ''))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  // El catálogo de clientes se pide una vez por apertura para el autocompletado.
+  // Si falla, el campo sigue siendo utilizable: se puede escribir a mano y el
+  // botón de la lupa abre el selector completo.
+  useEffect(() => {
+    if (!open || catalogoClientes.length > 0) return undefined
+    let cancelado = false
+    cargarClientes()
+      .then((data) => {
+        if (!cancelado) setCatalogoClientes(data || [])
+      })
+      .catch((err) => {
+        console.error('[Recolección] no se pudo cargar el catálogo de clientes:', err)
+      })
+    return () => { cancelado = true }
+  }, [open, catalogoClientes.length])
+
+  // Sugerencias del cliente mientras se escribe. Se busca en nombre, NIT y
+  // bodega porque quien teclea puede usar cualquiera de los tres.
+  const sugerencias = useMemo(() => {
+    const q = formData.recoge_cliente.trim().toLowerCase()
+    if (!q || catalogoClientes.length === 0) return []
+    const coincide = (c) =>
+      (c.cliente || '').toLowerCase().includes(q) ||
+      (c.nit || '').toLowerCase().includes(q) ||
+      (c.bodega || '').toLowerCase().includes(q)
+    return catalogoClientes.filter(coincide).slice(0, 8)
+  }, [catalogoClientes, formData.recoge_cliente])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -104,6 +237,13 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
       const next = { ...prev, [name]: value }
       // Al cambiar la zona, el tipo de servicio ya no es válido: se limpia.
       if (name === 'zona' && value !== prev.zona) next.tipo_servicio = ''
+      // Al escribir a mano el cliente de recogida, el NIT y la bodega de la
+      // selección anterior dejan de corresponder: se limpian para que el botón
+      // «Seleccionar artículos» no filtre por una bodega equivocada.
+      if (name === 'recoge_cliente' && value !== prev.recoge_cliente) {
+        next.recoge_nit = ''
+        next.recoge_bodega = ''
+      }
       return next
     })
     if (errores.length > 0) setErrores([])
@@ -126,6 +266,19 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
         entrega_bodega: c.bodega,
       }))
     }
+    setListaAbierta(false)
+    if (errores.length > 0) setErrores([])
+  }
+
+  // Elegir una sugerencia del autocompletado: completa cliente, NIT y bodega.
+  const elegirSugerencia = (c) => {
+    setFormData((prev) => ({
+      ...prev,
+      recoge_cliente: c.cliente,
+      recoge_nit: c.nit,
+      recoge_bodega: c.bodega,
+    }))
+    setListaAbierta(false)
     if (errores.length > 0) setErrores([])
   }
 
@@ -146,12 +299,24 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   }
 
   const validar = () => {
-    const faltan = []
-    if (!formData.recoge_cliente.trim()) faltan.push('¿Dónde vamos a recoger?')
-    if (!formData.zona.trim()) faltan.push('Zona')
-    if (!formData.tipo_servicio.trim()) faltan.push('Tipo de Servicio')
-    if (!formData.fecha_recoleccion.trim()) faltan.push('Fecha de recolección')
-    if (!formData.que_recogemos.trim()) faltan.push('Qué recogemos')
+    const valores = {
+      'Nombre del solicitante': formData.nombre_completo,
+      'Correo del solicitante': formData.correo,
+      '¿Dónde vamos a recoger?': formData.recoge_cliente,
+      'Bodega de recogida': formData.recoge_bodega,
+      'Zona': formData.zona,
+      'Tipo de Servicio': formData.tipo_servicio,
+      'Fecha de recolección': formData.fecha_recoleccion,
+      'Hora de recolección': formData.hora_recoleccion,
+      'Persona de contacto': formData.persona_contacto,
+      'Teléfono de contacto': formData.telefono_contacto,
+      'Qué recogemos': formData.que_recogemos,
+      '¿Dónde entregamos?': formData.entrega_cliente,
+      'Bodega de entrega': formData.entrega_bodega,
+      'Observaciones': formData.observaciones,
+    }
+    const faltan = CAMPOS_OBLIGATORIOS.filter((campo) => !String(valores[campo] ?? '').trim())
+    if (!aceptaReglamento) faltan.push(FALTA_DECLARACION)
     return faltan
   }
 
@@ -188,6 +353,9 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
     () => (TIPOS_POR_ZONA[formData.zona] || []).map((t) => ({ value: t, label: t })),
     [formData.zona]
   )
+  // Los campos se pintan en rojo solo después de intentar guardar.
+  const falta = (campo) => errores.includes(campo)
+  const faltanEn = (campos) => campos.some(falta)
 
   if (!open) return null
 
@@ -235,8 +403,8 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
-            <div className="overflow-y-auto p-4 sm:p-6 space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="flex flex-col min-h-0 flex-1">
+            <div className="overflow-y-auto p-4 sm:p-6 space-y-4">
               {errorServidor && (
                 <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm text-red-700 flex items-start gap-2">
                   <MdErrorOutline className="text-lg shrink-0" />
@@ -250,57 +418,110 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <FormField
-                  label="Nombre Completo"
-                  type="text"
-                  name="nombre_completo"
-                  value={formData.nombre_completo}
-                  onChange={() => {}}
-                  placeholder="Nombre completo"
-                  readOnly
-                  icon={<MdPerson className="text-sm" />}
-                />
-                <FormField
-                  label="Correo"
-                  type="email"
-                  name="correo"
-                  value={formData.correo}
-                  onChange={() => {}}
-                  placeholder="correo@CTP.com"
-                  readOnly
-                  icon={<MdEmail className="text-sm" />}
-                />
-              </div>
+              {/* Bloque: solicitante (datos de la sesión, no se editan) */}
+              <Bloque
+                titulo="Solicitante"
+                icono={<MdPerson className="text-base" />}
+                invalid={faltanEn(CAMPOS_SOLICITANTE)}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    label="Nombre Completo"
+                    type="text"
+                    name="nombre_completo"
+                    value={formData.nombre_completo}
+                    onChange={() => {}}
+                    placeholder="Nombre completo"
+                    readOnly
+                    required
+                    icon={<MdPerson className="text-sm" />}
+                    invalid={falta('Nombre del solicitante')}
+                  />
+                  <FormField
+                    label="Correo"
+                    type="email"
+                    name="correo"
+                    value={formData.correo}
+                    onChange={() => {}}
+                    placeholder="correo@CTP.com"
+                    readOnly
+                    required
+                    icon={<MdEmail className="text-sm" />}
+                    invalid={falta('Correo del solicitante')}
+                  />
+                </div>
+              </Bloque>
 
-              {/* Bloque: dónde recogemos */}
-              <div className="rounded-2xl border border-brand-deep/15 bg-brand-mist/30 p-4 space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-brand-deep inline-flex items-center gap-2">
-                  <MdStorefront /> Datos de la recolección
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div className="relative">
+              {/* Bloque: recogida */}
+              <Bloque
+                titulo="Recogida"
+                icono={<MdStorefront className="text-base" />}
+                invalid={faltanEn(CAMPOS_RECOGIDA)}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="relative" onBlur={() => setListaAbierta(false)}>
                     <FormField
                       label="¿Dónde vamos a recoger?"
                       type="text"
                       name="recoge_cliente"
                       value={formData.recoge_cliente}
-                      onChange={() => {}}
-                      placeholder="Selecciona el cliente"
+                      onChange={handleChange}
+                      onFocus={() => setListaAbierta(true)}
+                      placeholder="Escribe el nombre, NIT o bodega"
+                      autoComplete="off"
                       required
-                      readOnly
-                      icon={<MdStorefront className="text-sm" />}
-                      invalid={errores.includes('¿Dónde vamos a recoger?')}
+                      icon={<MdBusiness className="text-sm" />}
+                      invalid={falta('¿Dónde vamos a recoger?')}
                     />
                     <button
                       type="button"
                       onClick={() => setPicker('recoge')}
-                      title="Buscar cliente"
+                      title="Buscar y seleccionar cliente"
                       aria-label="Buscar cliente a recoger"
                       className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
                     >
                       <MdSearch className="text-lg" />
                     </button>
+
+                    {/* Sugerencias mientras se escribe. Cada opción usa onMouseDown
+                        con preventDefault, que se dispara ANTES que el blur del
+                        contenedor: así la lista no se cierra antes del click. */}
+                    {listaAbierta && sugerencias.length > 0 && (
+                      <div className="absolute z-30 left-0 right-0 top-[calc(100%+4px)] rounded-xl border border-brand-deep/20 bg-white shadow-2xl overflow-hidden animate-scaleIn">
+                        <div className="max-h-56 overflow-y-auto divide-y divide-brand-deep/10 [scrollbar-width:thin]">
+                          {sugerencias.map((c) => (
+                            <button
+                              key={c.id ?? `${c.nit}-${c.bodega}`}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => elegirSugerencia(c)}
+                              className="w-full px-3 py-2.5 text-left transition-colors hover:bg-brand-deep/10 focus:bg-brand-deep/10 outline-none"
+                            >
+                              <span className="block text-sm font-bold text-brand-ink truncate">
+                                {c.cliente}
+                              </span>
+                              <span className="block text-xs text-brand-deep/70 truncate">
+                                NIT {c.nit} · Bodega {c.bodega}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="bg-brand-mist/70 px-3 py-1.5 text-[0.65rem] text-brand-deep/70">
+                          {sugerencias.length === 8
+                            ? 'Mostrando los primeros 8. Usa la lupa para ver todos.'
+                            : 'Toca uno para completar la bodega.'}
+                        </div>
+                      </div>
+                    )}
+
+                    {listaAbierta && sugerencias.length === 0 &&
+                      catalogoClientes.length > 0 &&
+                      formData.recoge_cliente.trim() !== '' && (
+                        <div className="absolute z-30 left-0 right-0 top-[calc(100%+4px)] rounded-xl border border-brand-deep/20 bg-white shadow-2xl px-3 py-2.5 text-xs text-brand-ink/70">
+                          Sin coincidencias. Escribe el nombre, el NIT o la bodega, o
+                          usa la lupa para ver el catálogo completo.
+                        </div>
+                      )}
                   </div>
                   <FormField
                     label="Bodega"
@@ -310,7 +531,9 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                     onChange={() => {}}
                     placeholder="Se completa con el cliente"
                     readOnly
+                    required
                     icon={<MdWarehouse className="text-sm" />}
+                    invalid={falta('Bodega de recogida')}
                   />
                   <FormField
                     label="Zona"
@@ -322,7 +545,7 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                     placeholder="Seleccionar zona…"
                     required
                     icon={<MdPlace className="text-sm" />}
-                    invalid={errores.includes('Zona')}
+                    invalid={falta('Zona')}
                   />
                   <FormField
                     label="Tipo de Servicio"
@@ -335,27 +558,28 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                     required
                     disabled={!formData.zona}
                     icon={<MdCategory className="text-sm" />}
-                    invalid={errores.includes('Tipo de Servicio')}
+                    invalid={falta('Tipo de Servicio')}
                   />
-                  <div className="grid grid-cols-2 gap-3 sm:col-span-2">
-                    <FormField
-                      label="Fecha de recolección"
-                      type="date"
-                      name="fecha_recoleccion"
-                      value={formData.fecha_recoleccion}
-                      onChange={handleChange}
-                      icon={<MdEvent className="text-sm" />}
-                      invalid={errores.includes('Fecha de recolección')}
-                    />
-                    <FormField
-                      label="Hora de recolección"
-                      type="time"
-                      name="hora_recoleccion"
-                      value={formData.hora_recoleccion}
-                      onChange={handleChange}
-                      icon={<MdAccessTime className="text-sm" />}
-                    />
-                  </div>
+                  <FormField
+                    label="Fecha de recolección"
+                    type="date"
+                    name="fecha_recoleccion"
+                    value={formData.fecha_recoleccion}
+                    onChange={handleChange}
+                    required
+                    icon={<MdEvent className="text-sm" />}
+                    invalid={falta('Fecha de recolección')}
+                  />
+                  <FormField
+                    label="Hora de recolección"
+                    type="time"
+                    name="hora_recoleccion"
+                    value={formData.hora_recoleccion}
+                    onChange={handleChange}
+                    required
+                    icon={<MdAccessTime className="text-sm" />}
+                    invalid={falta('Hora de recolección')}
+                  />
                   <FormField
                     label="Persona de contacto"
                     type="text"
@@ -363,7 +587,9 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                     value={formData.persona_contacto}
                     onChange={handleChange}
                     placeholder="Quién nos atiende"
+                    required
                     icon={<MdSupportAgent className="text-sm" />}
+                    invalid={falta('Persona de contacto')}
                   />
                   <FormField
                     label="Teléfono de contacto"
@@ -372,34 +598,56 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                     value={formData.telefono_contacto}
                     onChange={handleChange}
                     placeholder="Número de contacto"
+                    required
                     icon={<MdPhone className="text-sm" />}
+                    invalid={falta('Teléfono de contacto')}
                   />
                 </div>
 
-                <div className="relative">
-                  <textarea
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] text-brand-ink/60 inline-flex items-center gap-1 min-w-0">
+                      <MdWarehouse className="text-sm text-brand-deep/60 shrink-0" />
+                      <span className="truncate">
+                        {formData.recoge_bodega.trim()
+                          ? `Artículos de la bodega ${formData.recoge_bodega.trim()}`
+                          : 'Selecciona el cliente para filtrar los artículos por su bodega'}
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setArticulosOpen(true)}
+                      disabled={!formData.recoge_bodega.trim()}
+                      title={
+                        formData.recoge_bodega.trim()
+                          ? `Seleccionar artículos de la bodega ${formData.recoge_bodega.trim()}`
+                          : 'Primero selecciona el cliente de recogida'
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/15 px-3 py-1.5 text-xs font-bold text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <MdInventory2 className="text-base" />
+                      Seleccionar artículos
+                    </button>
+                  </div>
+                  <AreaTexto
+                    label="Qué recogemos"
                     name="que_recogemos"
                     value={formData.que_recogemos}
                     onChange={(e) => handleChange({ target: { name: 'que_recogemos', value: e.target.value } })}
-                    rows={3}
-                    placeholder=" "
-                    className="peer w-full px-3 py-2.5 rounded-xl bg-white border border-brand-deep/20 shadow-sm focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:shadow-none transition-all text-brand-ink placeholder-transparent resize-y"
+                    required
+                    invalid={falta('Qué recogemos')}
+                    pista="Puedes escribirlo a mano o tomarlo del inventario con «Seleccionar artículos»."
                   />
-                  <label className={`pointer-events-none absolute left-2 bg-white px-1 rounded transition-all inline-flex items-center gap-1 ${
-                    formData.que_recogemos ? '-top-2 text-[0.7rem] text-brand-ink' : 'top-2.5 text-[0.78rem] text-brand-ink'
-                  } peer-focus:-top-2 text-[0.7rem] peer-focus:text-brand-deep`}>
-                    <span className="shrink-0 text-brand-deep"><MdNotes className="text-sm" /></span>
-                    <span>Qué recogemos <span className="text-red-500">*</span></span>
-                  </label>
                 </div>
-              </div>
+              </Bloque>
 
-              {/* Bloque: dónde entregamos */}
-              <div className="rounded-2xl border border-brand-deep/15 bg-brand-mist/30 p-4 space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-brand-deep inline-flex items-center gap-2">
-                  <MdWarehouse /> Dónde entregamos
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* Bloque: entrega */}
+              <Bloque
+                titulo="Entrega"
+                icono={<MdLocalShipping className="text-base" />}
+                invalid={faltanEn(CAMPOS_ENTREGA)}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="relative">
                     <FormField
                       label="¿Dónde entregamos?"
@@ -409,7 +657,9 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                       onChange={() => {}}
                       placeholder="Selecciona el cliente"
                       readOnly
-                      icon={<MdWarehouse className="text-sm" />}
+                      required
+                      icon={<MdBusiness className="text-sm" />}
+                      invalid={falta('¿Dónde entregamos?')}
                     />
                     <button
                       type="button"
@@ -429,75 +679,110 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                     onChange={() => {}}
                     placeholder="Se completa con el cliente"
                     readOnly
+                    required
                     icon={<MdWarehouse className="text-sm" />}
+                    invalid={falta('Bodega de entrega')}
                   />
                 </div>
-              </div>
+              </Bloque>
 
-              {/* Observaciones */}
-              <div className="relative">
-                <textarea
+              {/* Bloque: observaciones */}
+              <Bloque
+                titulo="Observaciones"
+                icono={<MdNotes className="text-base" />}
+                invalid={faltanEn(CAMPOS_OBSERVACIONES)}
+              >
+                <AreaTexto
+                  label="Instrucción especial / observaciones"
                   name="observaciones"
                   value={formData.observaciones}
-                  onChange={(e) => handleChange({ target: { name: 'observaciones', value: e.target.value } })}
-                  rows={3}
-                  placeholder=" "
-                  className="peer w-full px-3 py-2.5 rounded-xl bg-white border border-brand-deep/20 shadow-sm focus:outline-none focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:shadow-none transition-all text-brand-ink placeholder-transparent resize-y"
+                  onChange={(e) =>
+                    handleChange({
+                      target: { name: 'observaciones', value: e.target.value.toUpperCase() },
+                    })
+                  }
+                  required
+                  invalid={falta('Observaciones')}
+                  pista="Si no hay ninguna instrucción especial, escribe N/A."
                 />
-                <label className={`pointer-events-none absolute left-2 bg-white px-1 rounded transition-all inline-flex items-center gap-1 ${
-                  formData.observaciones ? '-top-2 text-[0.7rem] text-brand-ink' : 'top-2.5 text-[0.78rem] text-brand-ink'
-                } peer-focus:-top-2 text-[0.7rem] peer-focus:text-brand-deep`}>
-                  <span className="shrink-0 text-brand-deep"><MdNotes className="text-sm" /></span>
-                  <span>Instrucción especial / observaciones</span>
-                </label>
-              </div>
+              </Bloque>
 
-              {/* Adjuntos */}
-              <div>
-                <label className="block text-sm font-semibold text-brand-deep mb-1.5">
-                  Adjuntos{' '}
-                  <span className="text-xs font-medium text-brand-ink/50">(opcional)</span>
-                  {archivos.length > 0 && <span className="text-brand-cyan"> ({archivos.length}/3)</span>}
-                </label>
-                {puedeAdjuntar && (
-                  <label className="flex flex-col items-center justify-center gap-2 w-full px-4 py-5 border-2 border-dashed border-brand-ink/25 rounded-xl bg-brand-mist/30 text-brand-ink/70 cursor-pointer hover:border-brand-cyan hover:bg-brand-mist/50 transition-colors">
-                    <MdCloudUpload className="text-3xl text-brand-cyan" />
-                    <span className="text-sm font-medium">Haz clic para adjuntar archivos</span>
-                    <span className="text-xs text-brand-ink/50">Máximo 3 archivos</span>
-                    <input
-                      type="file"
-                      multiple
-                      onChange={handleFileChange}
-                      className="hidden"
-                      accept="image/*,.pdf,.xls,.xlsx,.doc,.docx"
-                    />
-                  </label>
-                )}
-                {archivos.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {archivos.map((archivo, i) => (
-                      <div
-                        key={`${archivo.name}-${archivo.size}-${i}`}
-                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-brand-mist/50 border border-brand-ink/10"
-                      >
-                        <span className="min-w-0">
-                          <span className="block text-sm text-brand-ink truncate">{archivo.name}</span>
-                          <span className="block text-[11px] text-brand-ink/50">{formatearBytes(archivo.size)}</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => eliminarArchivo(i)}
-                          aria-label={`Eliminar ${archivo.name}`}
-                          title="Eliminar archivo"
-                          className="grid place-items-center size-7 shrink-0 rounded-full text-brand-ink/50 hover:bg-red-100 hover:text-red-600 transition-colors"
+              {/* Bloque: adjuntos (opcionales) */}
+              <Bloque titulo="Adjuntos" icono={<MdCloudUpload className="text-base" />} opcional>
+                <div>
+                  {puedeAdjuntar && (
+                    <label className="flex flex-col items-center justify-center gap-2 w-full px-4 py-5 border-2 border-dashed border-brand-ink/25 rounded-xl bg-white/70 text-brand-ink/70 cursor-pointer hover:border-brand-cyan hover:bg-brand-mist/50 transition-colors">
+                      <MdCloudUpload className="text-3xl text-brand-cyan" />
+                      <span className="text-sm font-medium">Haz clic para adjuntar archivos</span>
+                      <span className="text-xs text-brand-ink/50">
+                        Máximo 3 archivos{archivos.length > 0 && ` · ${archivos.length}/3 usados`}
+                      </span>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={handleFileChange}
+                        className="hidden"
+                        accept="image/*,.pdf,.xls,.xlsx,.doc,.docx"
+                      />
+                    </label>
+                  )}
+                  {archivos.length > 0 && (
+                    <div className={`${puedeAdjuntar ? 'mt-3 ' : ''}space-y-2`}>
+                      {archivos.map((archivo, i) => (
+                        <div
+                          key={`${archivo.name}-${archivo.size}-${i}`}
+                          className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white/70 border border-brand-ink/10"
                         >
-                          <MdCancel className="text-lg" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                          <span className="min-w-0">
+                            <span className="block text-sm text-brand-ink truncate">{archivo.name}</span>
+                            <span className="block text-[11px] text-brand-ink/50">{formatearBytes(archivo.size)}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => eliminarArchivo(i)}
+                            aria-label={`Eliminar ${archivo.name}`}
+                            title="Eliminar archivo"
+                            className="grid place-items-center size-7 shrink-0 rounded-full text-brand-ink/50 hover:bg-red-100 hover:text-red-600 transition-colors"
+                          >
+                            <MdCancel className="text-lg" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Bloque>
+
+              {/* Bloque: declaración obligatoria del Reglamento Interno */}
+              <Bloque
+                titulo="Declaración"
+                icono={<MdFactCheck className="text-base" />}
+                requerido
+                invalid={falta(FALTA_DECLARACION)}
+              >
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={aceptaReglamento}
+                    onChange={(e) => {
+                      setAceptaReglamento(e.target.checked)
+                      if (errores.length > 0) setErrores([])
+                    }}
+                    aria-required="true"
+                    className="mt-0.5 size-5 shrink-0 rounded border-brand-deep/40 accent-brand-cyan cursor-pointer"
+                  />
+                  <span className="text-xs sm:text-sm leading-relaxed text-brand-ink">
+                    Declaro que he leído y acepto las disposiciones del Reglamento Interno de
+                    Trabajo de CTP MÉDICA, especialmente las obligaciones establecidas en el
+                    Artículo 79, relacionadas con la custodia, el cuidado, la integridad, la
+                    trazabilidad y la devolución de los dispositivos médicos y demás bienes bajo
+                    mi responsabilidad.
+                  </span>
+                </label>
+                <p className="text-[11px] text-brand-ink/50">
+                  Debes marcarla para poder guardar la recolección.
+                </p>
+              </Bloque>
             </div>
 
             {/* Pie */}
@@ -533,6 +818,16 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
         open={picker !== null}
         onClose={() => setPicker(null)}
         onSelect={handleSelectCliente}
+      />
+
+      <ArticulosBodegaModal
+        open={articulosOpen}
+        bodega={formData.recoge_bodega}
+        onClose={() => setArticulosOpen(false)}
+        onConfirm={(texto) => {
+          setFormData((prev) => ({ ...prev, que_recogemos: texto }))
+          if (errores.length > 0) setErrores([])
+        }}
       />
     </>
   )

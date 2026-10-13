@@ -5,6 +5,7 @@ import {
   MdDescription,
   MdInventory2,
   MdNumbers,
+  MdSell,
   MdStorefront,
   MdWarehouse,
 } from 'react-icons/md'
@@ -22,6 +23,7 @@ import {
 const COLUMNAS_TABLA = [
   { key: 'numero_articulo', label: 'N° de artículo', icon: <MdNumbers />, centrada: true },
   { key: 'descripcion', label: 'Descripción del artículo', icon: <MdDescription />, clase: 'min-w-[16rem]' },
+  { key: 'lote', label: 'Lote', icon: <MdSell />, centrada: true },
   { key: 'fecha_vencimiento', label: 'Fecha de vencimiento', icon: <MdCalendarToday />, centrada: true },
   { key: 'cantidad', label: 'Cantidad', icon: <MdInventory2 />, centrada: true },
   { key: 'dias_inventario', label: 'Días de inventario', icon: <MdAccessTime />, centrada: true },
@@ -61,7 +63,7 @@ function DatoMovil({ icon, label, valor }) {
 export default function TablaArticulos({ filas, onVer }) {
   return (
     <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm">
-      <table className="w-full min-w-[1080px] text-sm border-collapse">
+      <table className="w-full min-w-[1180px] text-sm border-collapse">
         <thead>
           <tr className="bg-brand-navy text-white">
             {COLUMNAS_TABLA.map((c) => (
@@ -112,6 +114,9 @@ export default function TablaArticulos({ filas, onVer }) {
                   <span className="relative">
                     {f.descripcion || <span className="text-brand-ink/40">Sin descripción</span>}
                   </span>
+                </td>
+                <td className="border border-brand-ink/10 px-3 py-2.5 text-center whitespace-nowrap text-brand-ink/70">
+                  {String(f.lote ?? '').trim() || <span className="text-brand-ink/40">—</span>}
                 </td>
                 <td className="border border-brand-ink/10 px-3 py-2.5 text-center align-middle text-brand-ink/70">
                   {f.fecha_vencimiento ? (
@@ -172,6 +177,7 @@ export function ListaArticulosMovil({ filas, onVer }) {
               <div className="grid grid-cols-2 gap-1.5">
                 <DatoMovil icon={<MdCalendarToday />} label="Vence" valor={f.fecha_vencimiento ? formatearFecha(f.fecha_vencimiento) : 'Sin fecha de vencimiento'} />
                 <DatoMovil icon={<MdInventory2 />} label="Cantidad" valor={String(f.cantidad ?? '').trim() || '—'} />
+                <DatoMovil icon={<MdSell />} label="Lote" valor={String(f.lote ?? '').trim() || '—'} />
                 <DatoMovil icon={<MdWarehouse />} label="Bodega" valor={f.bodega || '—'} />
                 <DatoMovil icon={<MdStorefront />} label="Nombre bodega" valor={f.nombre_bodega || '—'} />
                 <DatoMovil icon={<MdBusiness />} label="Comercial" valor={f.comercial || '—'} />

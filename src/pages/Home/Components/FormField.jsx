@@ -122,7 +122,7 @@ export default function FormField({
           onChange={onChange}
           placeholder=" "
           name={name}
-          className={baseClasses}
+          className={`${baseClasses} ${invalid ? invalidClasses : ''}`}
           required={required}
         />
         <label className={`${iconLabel} ${alwaysFloatClass}`}>

@@ -7,6 +7,7 @@ import {
   MdErrorOutline,
   MdEventAvailable,
   MdEventBusy,
+  MdFileDownload,
   MdFilterAlt,
   MdInventory,
   MdInventory2,
@@ -28,6 +29,7 @@ import Footer from '../../components/Footer.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { puedeSubirInventario } from '../../auth/roles.js'
 import { listarInventario } from '../../services/inventarioApi.js'
+import { errorInventario } from '../../services/notificaciones.jsx'
 import SubirInventarioModal from './Components/SubirInventarioModal.jsx'
 import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
 import FiltroBuscable from './Components/FiltroBuscable.jsx'
@@ -42,6 +44,7 @@ import {
   dotRango,
   estadoVencimiento,
   formatearEntero,
+  formatearFecha,
   formatearFechaHora,
   rangoInventario,
 } from '../../utils/inventarioUtils.js'
@@ -171,6 +174,7 @@ export default function Inventario() {
   const [subirAbierto, setSubirAbierto] = useState(false)
   const [mapaAbierto, setMapaAbierto] = useState(false)
   const [filaDetalle, setFilaDetalle] = useState(null)
+  const [exportando, setExportando] = useState(false)
 
   const cargar = useCallback(async (esValido = () => true) => {
     setCargando(true)
@@ -348,6 +352,163 @@ export default function Inventario() {
   }
 
   const hayFiltrosActivos = chips.length > 0
+
+  // Exporta a Excel los artículos que se están viendo (con los filtros activos,
+  // todas las páginas) con el diseño de la marca: título navy, subtítulo azul,
+  // encabezados cian, filas cebra y semáforo de colores en la fecha de
+  // vencimiento y en los días de inventario. `xlsx` (el visor) no permite
+  // estilos, por eso se usa exceljs solo para escribir.
+  const exportarExcel = async () => {
+    if (exportando || filtradas.length === 0) return
+    setExportando(true)
+    try {
+      const ExcelJS = (await import('exceljs')).default
+      const CABECERAS = [
+        ['N° de artículo', 16],
+        ['Descripción del artículo', 46],
+        ['Lote', 14],
+        ['Fecha de vencimiento', 19],
+        ['Cantidad', 12],
+        ['Días de inventario', 15],
+        ['Bodega', 12],
+        ['Nombre de la bodega', 26],
+        ['Zona', 16],
+        ['Grupo de artículos', 22],
+        ['Proveedor', 26],
+        ['Tipo de bodega', 16],
+        ['Comercial', 20],
+      ]
+      const NC = CABECERAS.length
+      const BORDE = { style: 'thin', color: { argb: 'FFB9CFE0' } }
+      const bordeCompleto = { top: BORDE, left: BORDE, bottom: BORDE, right: BORDE }
+      const relleno = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } })
+
+      // Colores de semáforo, mismos estados y rangos que los filtros del módulo.
+      const ESTADO_ESTILO = {
+        Vencido: { fg: 'FFFADBD8', letra: 'FF922B21' },
+        'Próximo a vencer': { fg: 'FFFDEBD0', letra: 'FF9C6400' },
+        Vigente: { fg: 'FFD5F5E3', letra: 'FF1E8449' },
+      }
+      const RANGO_ESTILO = {
+        'Ok Rotación': { fg: 'FFD5F5E3', letra: 'FF1E8449' },
+        Rotar: { fg: 'FFFCF3CF', letra: 'FF9C6400' },
+        'Rotar con Prioridad': { fg: 'FFFDEBD0', letra: 'FFAF6017' },
+        'Rotar urgente': { fg: 'FFFADBD8', letra: 'FF922B21' },
+      }
+
+      const libro = new ExcelJS.Workbook()
+      libro.creator = 'Logística CTP'
+      libro.created = new Date()
+      const hoja = libro.addWorksheet('Artículos', {
+        views: [{ state: 'frozen', ySplit: 4 }],
+      })
+
+      CABECERAS.forEach(([texto, ancho], i) => {
+        hoja.getColumn(i + 1).width = ancho
+        hoja.getCell(4, i + 1).value = texto
+      })
+
+      // Fila 1: título con el navy de la marca
+      hoja.mergeCells(1, 1, 1, NC)
+      const titulo = hoja.getCell(1, 1)
+      titulo.value = 'INVENTARIO CTP MÉDICA · ARTÍCULOS'
+      titulo.font = { bold: true, size: 15, color: { argb: 'FFFFFFFF' } }
+      titulo.fill = relleno('FF071A3D')
+      titulo.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
+      hoja.getRow(1).height = 30
+
+      // Fila 2: fecha del reporte y cuántos artículos lleva
+      hoja.mergeCells(2, 1, 2, NC)
+      const subtitulo = hoja.getCell(2, 1)
+      subtitulo.value = `Exportado el ${new Date().toLocaleString('es-CO')} · ${filtradas.length.toLocaleString('es-CO')} artículo(s) con los filtros activos`
+      subtitulo.font = { size: 10, italic: true, color: { argb: 'FFFFFFFF' } }
+      subtitulo.fill = relleno('FF003B73')
+      subtitulo.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
+      hoja.getRow(2).height = 20
+
+      hoja.getRow(3).height = 6
+
+      // Fila 4: encabezados cian, congelados junto con el título
+      const filaCabecera = hoja.getRow(4)
+      filaCabecera.height = 24
+      filaCabecera.eachCell((celda) => {
+        celda.font = { bold: true, size: 10, color: { argb: 'FF0A0027' } }
+        celda.fill = relleno('FF00E5FF')
+        celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+        celda.border = bordeCompleto
+      })
+
+      filtradas.forEach((f, i) => {
+        const fila = hoja.addRow([
+          f.numero_articulo ?? '',
+          f.descripcion ?? '',
+          f.lote ?? '',
+          f.fecha_vencimiento ? formatearFecha(f.fecha_vencimiento) : '',
+          f.cantidad ?? '',
+          f.dias_inventario ?? '',
+          f.bodega ?? '',
+          f.nombre_bodega ?? '',
+          f.zona ?? '',
+          f.grupo_articulos ?? '',
+          f.proveedor ?? '',
+          f.tipo_bodega ?? '',
+          f.comercial ?? '',
+        ])
+        const cebra = i % 2 === 1
+        fila.eachCell({ includeEmpty: true }, (celda, col) => {
+          celda.font = { size: 10, color: { argb: 'FF1B2A41' } }
+          celda.fill = relleno(cebra ? 'FFEAF4F7' : 'FFFFFFFF')
+          celda.border = bordeCompleto
+          celda.alignment = {
+            vertical: 'middle',
+            horizontal: col === 2 || col === 8 || col === 10 || col === 11 || col === 13 ? 'left' : 'center',
+            wrapText: col === 2,
+          }
+        })
+        const estiloEstado = ESTADO_ESTILO[f._estado]
+        if (estiloEstado) {
+          const celda = fila.getCell(4)
+          celda.fill = relleno(estiloEstado.fg)
+          celda.font = { size: 10, bold: true, color: { argb: estiloEstado.letra } }
+        }
+        const estiloRango = RANGO_ESTILO[f._rango]
+        if (estiloRango) {
+          const celda = fila.getCell(6)
+          celda.fill = relleno(estiloRango.fg)
+          celda.font = { size: 10, bold: true, color: { argb: estiloRango.letra } }
+        }
+      })
+
+      hoja.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + filtradas.length, column: NC } }
+
+      // Pie con la leyenda de los colores
+      const filaPie = 4 + filtradas.length + 2
+      hoja.mergeCells(filaPie, 1, filaPie, NC)
+      const pie = hoja.getCell(filaPie, 1)
+      pie.value =
+        'Generado por Logística CTP · el color de «Fecha de vencimiento» indica el estado y el de «Días de inventario» la rotación'
+      pie.font = { size: 9, italic: true, color: { argb: 'FF6B7A8F' } }
+      pie.alignment = { horizontal: 'left', indent: 1 }
+
+      const buffer = await libro.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const url = URL.createObjectURL(blob)
+      const enlace = document.createElement('a')
+      enlace.href = url
+      enlace.download = `inventario-articulos-${new Date().toISOString().slice(0, 10)}.xlsx`
+      document.body.appendChild(enlace)
+      enlace.click()
+      enlace.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('[Inventario] error exportando a Excel:', e)
+      errorInventario(e?.message || 'No se pudo exportar a Excel')
+    } finally {
+      setExportando(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white text-brand-ink">
@@ -596,12 +757,24 @@ export default function Inventario() {
                     ? `${formatearEntero(filas.length)} artículo${filas.length === 1 ? '' : 's'}`
                     : `${formatearEntero(filtradas.length)} de ${formatearEntero(filas.length)} artículos`}
                 </p>
-                {filtradas.length === 0 && (
-                  <p className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">
-                    <MdFilterAlt className="text-sm" />
-                    Ningún artículo coincide con los filtros
-                  </p>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {filtradas.length === 0 && (
+                    <p className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700">
+                      <MdFilterAlt className="text-sm" />
+                      Ningún artículo coincide con los filtros
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={exportarExcel}
+                    disabled={exportando || filtradas.length === 0}
+                    title="Exportar a Excel los artículos listados (con los filtros activos)"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-navy text-white px-4 py-2 text-xs font-bold hover:bg-brand-deep transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <MdFileDownload className="text-base" />
+                    {exportando ? 'Exportando…' : 'Exportar a Excel'}
+                  </button>
+                </div>
               </div>
 
               {/* Tabla o tarjetas según el tamaño de pantalla */}

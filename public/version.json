@@ -1,7 +1,12 @@
 {
-  "version": "2026.10.14-42",
+  "version": "2026.10.14-43",
   "fecha": "2026-10-14",
   "cambios": [
+    "Recolección: en «¿Dónde vamos a recoger?» ya se puede escribir y aparece el listado de clientes coincidentes; junto a «Qué recogemos» hay un botón «Seleccionar artículos» que abre el inventario filtrado por la bodega de recogida para elegir artículos con su cantidad (el texto se reemplaza por cantidad · descripción · lote).",
+    "Recolección: en «Artículos de la bodega», si una cantidad escrita supera el disponible la fila se marca en rojo y no se puede agregar; mientras carga se muestra el loader de electrocardiograma del inventario.",
+    "Recolección: el formulario se organizó en bloques con título (Solicitante, Recogida, Entrega, Observaciones, Adjuntos y Declaración) y todo es obligatorio hasta observaciones (los adjuntos no), incluida la declaración del Reglamento Interno de Trabajo (Artículo 79).",
+    "Inventario: nueva columna «Lote» en la tabla, en las tarjetas de celular y en los modales por zona; dentro del recuadro del mapa, bajo el botón «Ver artículos en el mapa», queda la tabla «Total por zonas» (artículos y unidades sin contar bodegas en C), plegable para no tapar los pines.",
+    "Inventario: el botón «Exportar a Excel» genera el archivo con diseño corporativo: título y encabezados con los colores de la marca, filas cebra, autofiltro y colores de semáforo en la fecha de vencimiento y los días de inventario.",
     "Recolección: el formulario «Nueva recolección» ahora pide la Zona (Bogotá o Nacional) y el Tipo de Servicio. Según la zona se muestran los tipos disponibles: Bogotá (Marketing, Maletas, Especial, Dispositivos) y Nacional (24-Horas, Especial, Aeropuerto, Terminal, Marketing).",
     "Recolección: se agregó el campo «Teléfono de contacto» junto a la persona de contacto, y la bodega de recogida y de entrega ahora se muestra sola (sin NIT ni zona).",
     "Recolección: al elegir el cliente (recogida o entrega) el listado y los filtros solo muestran el nombre y la bodega.",

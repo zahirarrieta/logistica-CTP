@@ -54,6 +54,10 @@ export default defineConfig(() => ({
           // prioridad sobre el corte del import dinámico, así que el trozo se
           // cargaría con la app en vez de cuando haga falta.
           if (id.includes('xlsx')) return 'xlsx'
+          // exceljs (la exportación con diseño) también entra por import()
+          // dinámico, solo al exportar: sin esta línea se iría a 'vendor', que se
+          // descarga en cada página aunque nadie exporte nada.
+          if (id.includes('exceljs')) return 'exceljs'
           if (id.includes('react-router')) return 'router'
           if (
             id.includes('node_modules/react/')
