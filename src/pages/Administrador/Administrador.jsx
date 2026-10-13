@@ -341,6 +341,7 @@ export default function Administrador() {
                 onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
                 onEntregaDetallesClick={(s) => setEntregaDetallesSolicitud(s)}
                 onEliminarClick={esSuper ? handleEliminar : undefined}
+                accionesCancelado={esSuper}
                 colorRowsPorEstado
                 empty={
                   hasFilters
@@ -378,6 +379,7 @@ export default function Administrador() {
         onUpdate={handleUpdateEstado}
         onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
         permitidos={ESTADOS_ADMIN}
+        permitirReabrir={esSuper}
       />
 
       <AsignarUsuarioModal

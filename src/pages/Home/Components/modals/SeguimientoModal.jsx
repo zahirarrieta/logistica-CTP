@@ -22,7 +22,6 @@ import { getBadgeColor } from '../../../../utils/estadoColors.js'
 import { formatearMs } from '../../../../utils/dashboardUtils.js'
 import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteEliminar } from '../../../../store/solicitudesStore.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
-import CuentaRegresivaDevolucion from '../../../../components/CuentaRegresivaDevolucion.jsx'
 import NotificationsPanel from '../../../../components/NotificationsPanel.jsx'
 import EntregaInfo from '../../../../components/EntregaInfo.jsx'
 import imgAbierto from '../../../../assets/estado/Abierto.png'
@@ -253,13 +252,10 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
 
             {esDev && (
               <div className="m-4 sm:m-6 rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-fuchsia-700">
-                    <MdAssignmentReturn className="text-base" />
-                    Solicitud devuelta para corrección
-                  </p>
-                  <CuentaRegresivaDevolucion solicitud={solicitud} compacto />
-                </div>
+                <p className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-fuchsia-700">
+                  <MdAssignmentReturn className="text-base" />
+                  Solicitud devuelta para corrección
+                </p>
                 {etiquetasCorregir.length > 0 && (
                   <div className="mt-1.5">
                     <p className="text-[11px] font-extrabold uppercase tracking-wide text-fuchsia-700/80">

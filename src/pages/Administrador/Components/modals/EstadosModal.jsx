@@ -31,7 +31,7 @@ function Requisito({ listo, label }) {
   )
 }
 
-export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsignarConductorClick, permitidos }) {
+export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsignarConductorClick, permitidos, permitirReabrir = false }) {
   const [estado, setEstado] = useState('Abierto')
   const [nota, setNota] = useState('')
   const [camposCorregir, setCamposCorregir] = useState([])
@@ -69,8 +69,16 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     if (abiertoRef.current || !solicitud) return
     abiertoRef.current = true
     // Si la única opción es «Cancelado» se preselecciona
-    // para que el motivo quede a la vista de una vez.
-    setEstado(soloCancelar ? ESTADO_CANCELADO : (solicitud.estado || 'Abierto'))
+    // para que el motivo quede a la vista de una vez. Al reabrir una solicitud
+    // cancelada (super admin) se parte de «Abierto» porque «Cancelado» no está
+    // en la lista de estados disponibles.
+    setEstado(
+      soloCancelar
+        ? ESTADO_CANCELADO
+        : (solicitud.estado || '') === ESTADO_CANCELADO && permitirReabrir
+          ? 'Abierto'
+          : (solicitud.estado || 'Abierto')
+    )
     setNota('')
     setCamposCorregir([])
     setNumeroRef(solicitud.numeroReferencia || '')
@@ -82,7 +90,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setPreviewAbierto(null)
     setBorrando('')
     setConfirmarBorrar('')
-  }, [open, solicitud, soloCancelar])
+  }, [open, solicitud, soloCancelar, permitirReabrir])
 
   // Libera las URLs de vista previa al desmontar el modal.
   useEffect(() => () => {
@@ -169,9 +177,14 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     }
   }
 
-  // Una solicitud cancelada ya está cerrada: el modal no ofrece nada más.
-  const solicitudCancelada = (solicitud.estado || '') === ESTADO_CANCELADO
-  const listaEstados = solicitudCancelada ? [] : (permitidos || ESTADOS)
+  // Una solicitud cancelada ya está cerrada y el modal no ofrece nada más. El
+  // super admin puede reabrirla (`permitirReabrir`): entonces sí se listan los
+  // estados, excluyendo «Cancelado» porque ya está cancelada.
+  const estabaCancelada = (solicitud.estado || '') === ESTADO_CANCELADO
+  const solicitudCancelada = estabaCancelada && !permitirReabrir
+  const listaEstados = solicitudCancelada
+    ? []
+    : (permitidos || ESTADOS).filter((e) => !(estabaCancelada && e === ESTADO_CANCELADO))
 
   const isCurrent = (e) => e === estado
   const esSeleccionado = estado !== (solicitud.estado || 'Abierto')

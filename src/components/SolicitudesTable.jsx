@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   MdTag,
   MdCalendarToday,
@@ -32,9 +32,8 @@ import {
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../utils/estadoColors.js'
 import { pdfsTramite } from '../utils/pdfUtils.js'
-import { nombreDeAsignado, restanteDevolucion, restanteEliminar } from '../store/solicitudesStore.js'
+import { nombreDeAsignado, restanteEliminar } from '../store/solicitudesStore.js'
 import { formatearMs } from '../utils/dashboardUtils.js'
-import CuentaRegresivaDevolucion from './CuentaRegresivaDevolucion.jsx'
 import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'
 import DetalleModal from './DetalleModal.jsx'
@@ -50,8 +49,6 @@ const esDevolucion = (s) => s.estado === 'Devolución a Solicitante'
 // solo queda el historial (igual que una entregada, pero sin detalles de entrega).
 const esCancelado = (s) => s.estado === 'Cancelado'
 const tieneAsignado = (s) => Boolean(s.asignadoA && String(s.asignadoA).trim() !== '')
-// Devolución cuyo tiempo de corrección venció: ya no se tramita.
-const devolucionVencida = (s, ahora) => esDevolucion(s) && restanteDevolucion(s, ahora) === 0
 
 // Cuando la solicitud está en tránsito, el adjunto relevante son las facturas o
 // remisiones que cargó el administrador en cada paso por «En Trámite»/
@@ -162,15 +159,15 @@ function DocEntregaIcono({ count, onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCancelarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, ahora, puedeEliminar, restanteEliminar, puedeCancelar, restanteCancelar }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCancelarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, puedeEliminar, restanteEliminar, puedeCancelar, restanteCancelar, accionesCancelado }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
-  const vencidaDev = devolucionVencida(s, ahora)
   const cardBg = colorRow
-    ? (vencidaDev ? 'bg-slate-200' : getEstadoBg(s.estado))
+    ? getEstadoBg(s.estado)
     : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
   const mostrarCorregir = Boolean(onCorregirClick) && esDevolucion(s)
-  const mostrarEstado = Boolean(onCambiarEstadoClick) && !esEntregado(s) && !esCancelado(s)
+  const puedeTramitarCancelado = !esCancelado(s) || accionesCancelado
+  const mostrarEstado = Boolean(onCambiarEstadoClick) && !esEntregado(s) && puedeTramitarCancelado
   // El solicitante puede pasar su propia solicitud a «Cancelado» solo durante
   // los primeros 3 minutos: fuera de esa ventana el botón no se dibuja.
   const mostrarCancelar = Boolean(onCancelarClick) && (!puedeCancelar || puedeCancelar(s))
@@ -268,9 +265,6 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
             <span className="text-brand-ink/50 w-24 shrink-0">Estado</span>
             <span className="flex flex-wrap items-center gap-2 min-w-0">
               <EstadoBadge estado={s.estado} />
-              {esDevolucion(s) && (
-                <CuentaRegresivaDevolucion solicitud={s} ahora={ahora} compacto />
-              )}
             </span>
           </div>
           {hasCardAcciones && (
@@ -290,7 +284,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Corregir
                 </button>
               )}
-              {onAsignarClick && !esEntregado(s) && !esCancelado(s) && (
+              {onAsignarClick && !esEntregado(s) && puedeTramitarCancelado && (
                 <button
                   type="button"
                   onClick={() => {
@@ -431,6 +425,7 @@ export default function SolicitudesTable({
   puedeEliminar,
   puedeCancelar,
   restanteCancelar,
+  accionesCancelado = false,
   cardActions,
   empty,
   colorRowsPorEstado,
@@ -443,7 +438,6 @@ export default function SolicitudesTable({
   const [detalleSolicitud, setDetalleSolicitud] = useState(null)
   const [adjuntosSolicitud, setAdjuntosSolicitud] = useState(null)
   const [tooltip, setTooltip] = useState(null)
-  const [ahora, setAhora] = useState(() => Date.now())
 
   const handleTipEnter = (e, texto) => {
     if (!texto) return
@@ -452,24 +446,23 @@ export default function SolicitudesTable({
   }
   const handleTipLeave = () => setTooltip(null)
 
-  // Fondo de fila: gris cuando es una devolución vencida (ya no se tramita);
-  // si no, pastel por estado (vista admin) o alternado (vistas simples).
+  // Fondo de fila: pastel por estado (vista admin) o alternado (vistas simples).
   const estiloFila = (s, i) =>
     colorRowsPorEstado
-      ? (devolucionVencida(s, ahora) ? 'bg-slate-200' : getEstadoBg(s.estado))
+      ? getEstadoBg(s.estado)
       : (i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10')
 
   const openObs = (s) => setObsSolicitud(s)
   const openDetalle = (s) => setDetalleSolicitud(s)
 
   // Una fila tiene acción visible si alguno de los botones aplica a su estado.
+  // Con `accionesCancelado` (super admin) los pedidos cancelados vuelven a
+  // ofrecer «Asignar» y «Cambiar estado» para poder reabrirlos.
+  const puedeTramitar = (s) => !esCancelado(s) || accionesCancelado
   const filaConAccion = (s) =>
     Boolean(
-      (onAsignarClick && !esEntregado(s) && !esCancelado(s)) ||
-        // La devolución vencida también ofrece «Cambiar estado»: el modal solo
-      // deja elegir «Cancelado» para cerrar el pedido que el solicitante no
-      // corrigió (ver Administrador).
-      (onCambiarEstadoClick && !esEntregado(s) && !esCancelado(s)) ||
+      (onAsignarClick && !esEntregado(s) && puedeTramitar(s)) ||
+        (onCambiarEstadoClick && !esEntregado(s) && puedeTramitar(s)) ||
         (onEntregaDetallesClick && esEntregado(s)) ||
         onEstadoClick ||
         (onEliminarClick && (!puedeEliminar || puedeEliminar(s))) ||
@@ -480,15 +473,6 @@ export default function SolicitudesTable({
   const page = Math.min(currentPage, totalPages)
   const startIndex = (page - 1) * ITEMS_PER_PAGE
   const currentItems = items.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-
-  // Mientras haya solicitudes devueltas a la vista se mantiene al día la hora,
-  // para que la cuenta regresiva de corrección (5 min) se vea en la lista.
-  const hayDevolucionVisible = currentItems.some(esDevolucion)
-  useEffect(() => {
-    if (!hayDevolucionVisible) return undefined
-    const id = setInterval(() => setAhora(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [hayDevolucionVisible])
 
   // La columna de acciones solo se dibuja si al menos una fila de la página
   // actual muestra algún botón; así no queda una columna en blanco junto a Estado.
@@ -534,7 +518,7 @@ export default function SolicitudesTable({
                 onVerAdjuntosClick={setAdjuntosSolicitud}
                 colorRow={colorRowsPorEstado}
                 mostrarDocEntrega={mostrarDocEntrega}
-                ahora={ahora}
+                accionesCancelado={accionesCancelado}
                 puedeEliminar={puedeEliminar}
                 restanteEliminar={restDel}
                 puedeCancelar={puedeCancelar}
@@ -687,16 +671,13 @@ export default function SolicitudesTable({
                   <td className="px-3 py-3 border-b border-l border-brand-ink/10">
                     <span className="flex flex-col items-start gap-1">
                       <EstadoBadge estado={s.estado} />
-                      {esDevolucion(s) && (
-                        <CuentaRegresivaDevolucion solicitud={s} ahora={ahora} compacto />
-                      )}
                     </span>
                   </td>
                   {hasAcciones && (
                     <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${estiloFila(s, i)}`}>
                       <div className="flex items-center justify-center gap-1.5">
 
-                        {onAsignarClick && !esEntregado(s) && !esCancelado(s) && (
+                        {onAsignarClick && !esEntregado(s) && puedeTramitar(s) && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -712,7 +693,7 @@ export default function SolicitudesTable({
                             <MdPersonAdd className="text-xl" />
                           </button>
                         )}
-                        {onCambiarEstadoClick && !esEntregado(s) && !esCancelado(s) && (
+                        {onCambiarEstadoClick && !esEntregado(s) && puedeTramitar(s) && (
                           <button
                             type="button"
                             onClick={(e) => {
