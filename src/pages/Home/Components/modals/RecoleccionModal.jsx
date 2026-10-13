@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   MdClose, MdPerson, MdEmail, MdPlace, MdNotes, MdCloudUpload, MdCancel,
-  MdStorefront, MdEvent, MdAccessTime, MdSupportAgent, MdWarehouse, MdBadge,
-  MdSearch, MdAssignmentAdd, MdErrorOutline,
+  MdStorefront, MdEvent, MdAccessTime, MdSupportAgent, MdWarehouse, MdCategory,
+  MdSearch, MdPhone, MdTag, MdErrorOutline,
 } from 'react-icons/md'
 import Modal from '../../../../components/Modal.jsx'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
-import { crearRecoleccion, peekCodigoRecoleccion } from '../../../../services/recoleccionesApi.js'
+import { crearRecoleccion, peekCodigoRecoleccion, peekCodigoRecoleccionSync } from '../../../../services/recoleccionesApi.js'
 import { recoleccionCreada, errorRecoleccion } from '../../../../services/notificaciones.jsx'
 
 function formatearBytes(bytes) {
@@ -27,12 +27,25 @@ function ahora() {
   }
 }
 
+// Zona del servicio y sus tipos. La zona es manual (Bogotá / Nacional) y decide
+// qué tipos de servicio se pueden elegir; al cambiar de zona se limpia el tipo.
+const OPCIONES_ZONA = [
+  { value: 'Bogotá', label: 'Bogotá' },
+  { value: 'Nacional', label: 'Nacional' },
+]
+
+const TIPOS_POR_ZONA = {
+  Bogotá: ['MARKETING', 'MALETAS', 'ESPECIAL', 'DISPOSITIVOS'],
+  Nacional: ['24-HORAS', 'ESPECIAL', 'AEROPUERTO', 'TERMINAL', 'MARKETING'],
+}
+
 const FORM_VACIO = {
   fecha_subida: '',
   hora_subida: '',
   nombre_completo: '',
   correo: '',
   zona: '',
+  tipo_servicio: '',
   recoge_cliente: '',
   recoge_nit: '',
   recoge_bodega: '',
@@ -41,6 +54,7 @@ const FORM_VACIO = {
   que_recogemos: '',
   observaciones: '',
   persona_contacto: '',
+  telefono_contacto: '',
   entrega_cliente: '',
   entrega_nit: '',
   entrega_bodega: '',
@@ -54,7 +68,15 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   const [errores, setErrores] = useState([])
   const [errorServidor, setErrorServidor] = useState('')
   const [loading, setLoading] = useState(false)
-  const [siguiente, setSiguiente] = useState('')
+  const [siguiente, setSiguiente] = useState(() => peekCodigoRecoleccionSync() || '')
+
+  // Precarga el próximo código al montar (el modal siempre está montado, aunque
+  // cerrado) para que la caché ya esté caliente cuando el usuario lo abra: así el
+  // badge muestra el número real de inmediato, igual que en Nueva Solicitud, en
+  // vez de un marcador mientras llega la respuesta.
+  useEffect(() => {
+    void peekCodigoRecoleccion().then((c) => { if (c) setSiguiente(c) })
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -70,14 +92,20 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
     setErrores([])
     setErrorServidor('')
     setLoading(false)
-    setSiguiente('')
+    // Muestra al instante el último código conocido y lo refresca del servidor.
+    setSiguiente(peekCodigoRecoleccionSync() || '')
     void peekCodigoRecoleccion().then((c) => setSiguiente(c || ''))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value }
+      // Al cambiar la zona, el tipo de servicio ya no es válido: se limpia.
+      if (name === 'zona' && value !== prev.zona) next.tipo_servicio = ''
+      return next
+    })
     if (errores.length > 0) setErrores([])
     if (errorServidor) setErrorServidor('')
   }
@@ -89,8 +117,6 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
         recoge_cliente: c.cliente,
         recoge_nit: c.nit,
         recoge_bodega: c.bodega,
-        // La zona se autocompleta con la del cliente que se recoge.
-        zona: c.zona || prev.zona,
       }))
     } else {
       setFormData((prev) => ({
@@ -122,6 +148,8 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   const validar = () => {
     const faltan = []
     if (!formData.recoge_cliente.trim()) faltan.push('¿Dónde vamos a recoger?')
+    if (!formData.zona.trim()) faltan.push('Zona')
+    if (!formData.tipo_servicio.trim()) faltan.push('Tipo de Servicio')
     if (!formData.fecha_recoleccion.trim()) faltan.push('Fecha de recolección')
     if (!formData.que_recogemos.trim()) faltan.push('Qué recogemos')
     return faltan
@@ -155,7 +183,11 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   }
 
   const puedeAdjuntar = archivos.length < 3
-  const tituloCodigo = useMemo(() => siguiente || 'Automático', [siguiente])
+  const tituloCodigo = siguiente.toUpperCase()
+  const opcionesTipoServicio = useMemo(
+    () => (TIPOS_POR_ZONA[formData.zona] || []).map((t) => ({ value: t, label: t })),
+    [formData.zona]
+  )
 
   if (!open) return null
 
@@ -171,21 +203,36 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
         >
           {/* Header */}
           <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-brand-navy to-brand-deep flex items-center justify-between gap-3 shrink-0">
-            <h3 className="text-white font-extrabold text-base sm:text-lg inline-flex items-center gap-2">
-              <span className="grid place-items-center size-9 rounded-full bg-white/10">
+            <h3 className="text-white font-extrabold text-base sm:text-lg inline-flex items-center gap-2 min-w-0">
+              <span className="grid place-items-center size-9 rounded-full bg-white/10 shrink-0">
                 <MdStorefront className="text-lg" />
               </span>
-              NUEVA RECOLECCIÓN
+              <span className="truncate">NUEVA RECOLECCIÓN</span>
             </h3>
-            <button
-              type="button"
-              aria-label="Cerrar"
-              onClick={onClose}
-              disabled={loading}
-              className="grid place-items-center size-8 rounded-full bg-white/10 text-white hover:bg-white/20 transition disabled:opacity-50"
-            >
-              <MdClose className="text-lg" />
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <span
+                title="Número de la siguiente recolección"
+                className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 ring-1 ring-brand-cyan/40 text-brand-cyan px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-bold tracking-wide select-none shadow-[0_0_14px_rgba(0,229,255,0.25)]"
+              >
+                <MdTag className="text-xs sm:text-sm" />
+                {tituloCodigo || (
+                  <span className="inline-flex items-center gap-0.5" aria-label="Cargando código">
+                    <span className="size-1 rounded-full bg-brand-cyan animate-pulse" />
+                    <span className="size-1 rounded-full bg-brand-cyan animate-pulse [animation-delay:150ms]" />
+                    <span className="size-1 rounded-full bg-brand-cyan animate-pulse [animation-delay:300ms]" />
+                  </span>
+                )}
+              </span>
+              <button
+                type="button"
+                aria-label="Cerrar"
+                onClick={onClose}
+                disabled={loading}
+                className="grid place-items-center size-8 rounded-full bg-white/10 text-white hover:bg-white/20 transition disabled:opacity-50"
+              >
+                <MdClose className="text-lg" />
+              </button>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
@@ -204,26 +251,6 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <FormField
-                  label="Id"
-                  type="text"
-                  name="codigo"
-                  value={tituloCodigo}
-                  onChange={() => {}}
-                  placeholder="Automático"
-                  readOnly
-                  icon={<MdAssignmentAdd className="text-sm" />}
-                />
-                <FormField
-                  label="Fecha y hora"
-                  type="text"
-                  name="subida"
-                  value={`${formData.fecha_subida} · ${formData.hora_subida}`}
-                  onChange={() => {}}
-                  placeholder="Automática"
-                  readOnly
-                  icon={<MdEvent className="text-sm" />}
-                />
                 <FormField
                   label="Nombre Completo"
                   type="text"
@@ -276,14 +303,39 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                     </button>
                   </div>
                   <FormField
-                    label="Zona"
+                    label="Bodega"
                     type="text"
-                    name="zona"
-                    value={formData.zona}
+                    name="recoge_bodega"
+                    value={formData.recoge_bodega}
                     onChange={() => {}}
                     placeholder="Se completa con el cliente"
                     readOnly
+                    icon={<MdWarehouse className="text-sm" />}
+                  />
+                  <FormField
+                    label="Zona"
+                    type="select"
+                    name="zona"
+                    value={formData.zona}
+                    onChange={handleChange}
+                    options={OPCIONES_ZONA}
+                    placeholder="Seleccionar zona…"
+                    required
                     icon={<MdPlace className="text-sm" />}
+                    invalid={errores.includes('Zona')}
+                  />
+                  <FormField
+                    label="Tipo de Servicio"
+                    type="select"
+                    name="tipo_servicio"
+                    value={formData.tipo_servicio}
+                    onChange={handleChange}
+                    options={opcionesTipoServicio}
+                    placeholder={formData.zona ? 'Seleccionar tipo…' : 'Primero selecciona la zona'}
+                    required
+                    disabled={!formData.zona}
+                    icon={<MdCategory className="text-sm" />}
+                    invalid={errores.includes('Tipo de Servicio')}
                   />
                   <div className="grid grid-cols-2 gap-3 sm:col-span-2">
                     <FormField
@@ -312,6 +364,15 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                     onChange={handleChange}
                     placeholder="Quién nos atiende"
                     icon={<MdSupportAgent className="text-sm" />}
+                  />
+                  <FormField
+                    label="Teléfono de contacto"
+                    type="text"
+                    name="telefono_contacto"
+                    value={formData.telefono_contacto}
+                    onChange={handleChange}
+                    placeholder="Número de contacto"
+                    icon={<MdPhone className="text-sm" />}
                   />
                 </div>
 
@@ -360,26 +421,16 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                       <MdSearch className="text-lg" />
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <FormField
-                      label="NIT"
-                      type="text"
-                      name="entrega_nit"
-                      value={formData.entrega_nit}
-                      onChange={() => {}}
-                      readOnly
-                      icon={<MdBadge className="text-sm" />}
-                    />
-                    <FormField
-                      label="Bodega"
-                      type="text"
-                      name="entrega_bodega"
-                      value={formData.entrega_bodega}
-                      onChange={() => {}}
-                      readOnly
-                      icon={<MdWarehouse className="text-sm" />}
-                    />
-                  </div>
+                  <FormField
+                    label="Bodega"
+                    type="text"
+                    name="entrega_bodega"
+                    value={formData.entrega_bodega}
+                    onChange={() => {}}
+                    placeholder="Se completa con el cliente"
+                    readOnly
+                    icon={<MdWarehouse className="text-sm" />}
+                  />
                 </div>
               </div>
 

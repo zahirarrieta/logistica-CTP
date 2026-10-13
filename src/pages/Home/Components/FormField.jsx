@@ -36,6 +36,7 @@ export default function FormField({
 
   if (type === "select") {
     const selected = options.find((o) => o.value === value)
+    const placeholderText = rest.placeholder || "Seleccionar tipo…"
     return (
       <div className={`relative ${className}`}>
         <button
@@ -50,7 +51,7 @@ export default function FormField({
           {selected?.label ? (
             <span className="block truncate font-medium text-sm text-brand-ink">{selected.label}</span>
           ) : (
-            <span className="block truncate text-sm text-brand-ink/40">Seleccionar tipo…</span>
+            <span className="block truncate text-sm text-brand-ink/40">{placeholderText}</span>
           )}
         </button>
         <label className={`${iconLabel} ${alwaysFloatClass}`}>

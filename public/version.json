@@ -1,7 +1,11 @@
 {
-  "version": "2026.10.14-41",
+  "version": "2026.10.14-42",
   "fecha": "2026-10-14",
   "cambios": [
+    "Recolección: el formulario «Nueva recolección» ahora pide la Zona (Bogotá o Nacional) y el Tipo de Servicio. Según la zona se muestran los tipos disponibles: Bogotá (Marketing, Maletas, Especial, Dispositivos) y Nacional (24-Horas, Especial, Aeropuerto, Terminal, Marketing).",
+    "Recolección: se agregó el campo «Teléfono de contacto» junto a la persona de contacto, y la bodega de recogida y de entrega ahora se muestra sola (sin NIT ni zona).",
+    "Recolección: al elegir el cliente (recogida o entrega) el listado y los filtros solo muestran el nombre y la bodega.",
+    "Recolección: el Id (REC-00001) ahora aparece en el encabezado del formulario y del detalle como una insignia junto al botón de cerrar, con el mismo diseño que «Nueva solicitud». Se quitaron la fecha y la hora del encabezado.",
     "Usuarios y claves: nueva casilla «Recolecciones» en la configuración de módulos de los solicitantes. Al desmarcarla se ocultan el botón «Recolección» (en Inicio y Solicitudes) y la pestaña «Mis recolecciones» para todos los solicitantes.",
     "Solicitudes: el tipo de solicitud «RECOLECCIÓN DE DISPOSITIVOS» vuelve a aparecer en el listado del formulario «Nuevo Pedido».",
     "Usuarios y claves: nueva sección «Módulos de los solicitantes» con casillas para elegir qué módulos ven las cuentas con rol solicitante (Solicitudes, Inventario, Conductor y Administrador). Aplica a todos por igual y «Inicio» siempre queda visible.",

@@ -40,10 +40,21 @@ export async function descargarRecolecciones() {
 }
 
 // Próximo código sin consumirlo (solo para mostrarlo en el formulario).
+// Se cachea a nivel de módulo (igual que `proximoVisible` en el store de
+// solicitudes) para poder pintarlo de forma síncrona al abrir el modal, como en
+// Nueva Solicitud, en vez de mostrar un marcador mientras llega la respuesta.
+let proximoCodigoRec = null
+
+// Lectura síncrona del último código conocido (null si aún no se ha pedido).
+export function peekCodigoRecoleccionSync() {
+  return proximoCodigoRec
+}
+
 export async function peekCodigoRecoleccion() {
   await iniciarSesion()
   try {
     const { codigo } = await apiGet('/api/recolecciones/siguiente')
+    if (codigo) proximoCodigoRec = codigo
     return codigo || null
   } catch {
     return null

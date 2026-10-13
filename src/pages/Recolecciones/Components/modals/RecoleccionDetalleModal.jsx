@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
   MdClose, MdStorefront, MdPlace, MdEvent, MdAccessTime, MdSupportAgent,
-  MdWarehouse, MdNotes, MdPerson, MdEmail, MdBadge, MdAttachFile, MdOpenInNew,
-  MdSave, MdErrorOutline,
+  MdWarehouse, MdNotes, MdPerson, MdEmail, MdCategory, MdPhone, MdAttachFile,
+  MdOpenInNew, MdSave, MdTag, MdErrorOutline,
 } from 'react-icons/md'
 import Modal from '../../../../components/Modal.jsx'
 import { ESTADOS_RECOLECCION } from '../../../../auth/roles.js'
@@ -80,24 +80,33 @@ export default function RecoleccionDetalleModal({ open, recoleccion, puedeEditar
         <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-brand-navy to-brand-deep flex items-center justify-between gap-3 shrink-0">
           <div className="min-w-0">
             <h3 className="text-white font-extrabold text-base sm:text-lg inline-flex items-center gap-2">
-              <span className="grid place-items-center size-9 rounded-full bg-white/10">
+              <span className="grid place-items-center size-9 rounded-full bg-white/10 shrink-0">
                 <MdStorefront className="text-lg" />
               </span>
-              <span className="truncate">{recoleccion.codigo}</span>
+              <span className="truncate">DETALLE DE RECOLECCIÓN</span>
             </h3>
             <p className="text-white/70 text-xs mt-0.5">
               Registrada el {recoleccion.fecha_subida} · {recoleccion.hora_subida}
             </p>
           </div>
-          <button
-            type="button"
-            aria-label="Cerrar"
-            onClick={onClose}
-            disabled={guardando}
-            className="grid place-items-center size-8 rounded-full bg-white/10 text-white hover:bg-white/20 transition disabled:opacity-50"
-          >
-            <MdClose className="text-lg" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <span
+              title="Número de la recolección"
+              className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 ring-1 ring-brand-cyan/40 text-brand-cyan px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-bold tracking-wide select-none shadow-[0_0_14px_rgba(0,229,255,0.25)]"
+            >
+              <MdTag className="text-xs sm:text-sm" />
+              {(recoleccion.codigo || '').toUpperCase()}
+            </span>
+            <button
+              type="button"
+              aria-label="Cerrar"
+              onClick={onClose}
+              disabled={guardando}
+              className="grid place-items-center size-8 rounded-full bg-white/10 text-white hover:bg-white/20 transition disabled:opacity-50"
+            >
+              <MdClose className="text-lg" />
+            </button>
+          </div>
         </div>
 
         <div className="overflow-y-auto p-4 sm:p-6 space-y-5">
@@ -112,7 +121,9 @@ export default function RecoleccionDetalleModal({ open, recoleccion, puedeEditar
             <Dato label="Solicitante" valor={recoleccion.nombre_completo} icon={<MdPerson className="text-sm" />} />
             <Dato label="Correo" valor={recoleccion.correo} icon={<MdEmail className="text-sm" />} />
             <Dato label="Zona" valor={recoleccion.zona} icon={<MdPlace className="text-sm" />} />
+            <Dato label="Tipo de Servicio" valor={recoleccion.tipo_servicio} icon={<MdCategory className="text-sm" />} />
             <Dato label="Persona de contacto" valor={recoleccion.persona_contacto} icon={<MdSupportAgent className="text-sm" />} />
+            <Dato label="Teléfono de contacto" valor={recoleccion.telefono_contacto} icon={<MdPhone className="text-sm" />} />
           </div>
 
           <div className="rounded-2xl border border-brand-deep/15 bg-brand-mist/30 p-4 space-y-4">
@@ -121,7 +132,7 @@ export default function RecoleccionDetalleModal({ open, recoleccion, puedeEditar
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Dato label="¿Dónde recogemos?" valor={recoleccion.recoge_cliente} icon={<MdStorefront className="text-sm" />} />
-              <Dato label="NIT / Bodega" valor={[recoleccion.recoge_nit, recoleccion.recoge_bodega].filter(Boolean).join(' · ')} icon={<MdBadge className="text-sm" />} />
+              <Dato label="Bodega" valor={recoleccion.recoge_bodega} icon={<MdWarehouse className="text-sm" />} />
               <Dato label="Fecha de recolección" valor={recoleccion.fecha_recoleccion} icon={<MdEvent className="text-sm" />} />
               <Dato label="Hora de recolección" valor={recoleccion.hora_recoleccion} icon={<MdAccessTime className="text-sm" />} />
               <Dato label="Qué recogemos" valor={recoleccion.que_recogemos} icon={<MdNotes className="text-sm" />} full />
@@ -134,7 +145,7 @@ export default function RecoleccionDetalleModal({ open, recoleccion, puedeEditar
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Dato label="¿Dónde entregamos?" valor={recoleccion.entrega_cliente} icon={<MdWarehouse className="text-sm" />} />
-              <Dato label="NIT / Bodega" valor={[recoleccion.entrega_nit, recoleccion.entrega_bodega].filter(Boolean).join(' · ')} icon={<MdBadge className="text-sm" />} />
+              <Dato label="Bodega" valor={recoleccion.entrega_bodega} icon={<MdWarehouse className="text-sm" />} />
             </div>
           </div>
 

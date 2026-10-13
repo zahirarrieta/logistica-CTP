@@ -661,6 +661,7 @@ async function asegurarRecolecciones() {
         nombre_completo   VARCHAR(190) NOT NULL DEFAULT '',
         correo            VARCHAR(190) NOT NULL DEFAULT '',
         zona              VARCHAR(120) NOT NULL DEFAULT '',
+        tipo_servicio     VARCHAR(60)  NOT NULL DEFAULT '',
         recoge_cliente    VARCHAR(255) NOT NULL DEFAULT '',
         recoge_nit        VARCHAR(32)  NOT NULL DEFAULT '',
         recoge_bodega     VARCHAR(120) NOT NULL DEFAULT '',
@@ -669,6 +670,7 @@ async function asegurarRecolecciones() {
         que_recogemos     TEXT         NOT NULL,
         observaciones     TEXT         NOT NULL,
         persona_contacto  VARCHAR(190) NOT NULL DEFAULT '',
+        telefono_contacto VARCHAR(40)  NOT NULL DEFAULT '',
         entrega_cliente   VARCHAR(255) NOT NULL DEFAULT '',
         entrega_nit       VARCHAR(32)  NOT NULL DEFAULT '',
         entrega_bodega    VARCHAR(120) NOT NULL DEFAULT '',
@@ -682,6 +684,23 @@ async function asegurarRecolecciones() {
         KEY recolecciones_actualizado_idx (actualizado_en)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `)
+    // Tablas creadas antes de que existieran «tipo_servicio» y
+    // «telefono_contacto»: se agregan aquí de forma idempotente para no depender
+    // de pegar SQL en el hosting. Si la tabla es nueva el CREATE ya las trae y
+    // estos ALTER fallan con «columna duplicada» (código 1060), que se ignora.
+    for (const alter of [
+      "ALTER TABLE recolecciones ADD COLUMN tipo_servicio VARCHAR(60) NOT NULL DEFAULT '' AFTER zona",
+      "ALTER TABLE recolecciones ADD COLUMN telefono_contacto VARCHAR(40) NOT NULL DEFAULT '' AFTER persona_contacto",
+    ]) {
+      try {
+        await pool.execute(alter)
+      } catch (error) {
+        const codigo = error?.code || error?.errno
+        if (codigo !== 'ER_DUP_FIELDNAME' && codigo !== 1060) {
+          console.error(`[Recolecciones] no se pudo agregar una columna: ${error?.message}`)
+        }
+      }
+    }
     await pool.execute(
       `INSERT INTO contadores (nombre, valor) VALUES ('recolecciones_codigo', 1)
          ON DUPLICATE KEY UPDATE nombre = nombre`
@@ -695,10 +714,10 @@ async function asegurarRecolecciones() {
 }
 
 const COLUMNAS_RECOLECCION = [
-  'fecha_subida', 'hora_subida', 'nombre_completo', 'correo', 'zona',
+  'fecha_subida', 'hora_subida', 'nombre_completo', 'correo', 'zona', 'tipo_servicio',
   'recoge_cliente', 'recoge_nit', 'recoge_bodega',
   'fecha_recoleccion', 'hora_recoleccion',
-  'que_recogemos', 'observaciones', 'persona_contacto',
+  'que_recogemos', 'observaciones', 'persona_contacto', 'telefono_contacto',
   'entrega_cliente', 'entrega_nit', 'entrega_bodega',
   'adjuntos', 'estado',
 ]
@@ -718,6 +737,7 @@ function leerRecoleccion(cuerpo) {
     nombre_completo: textoRec(c.nombre_completo, 190),
     correo: textoRec(c.correo, 190).toLowerCase(),
     zona: textoRec(c.zona, 120),
+    tipo_servicio: textoRec(c.tipo_servicio, 60),
     recoge_cliente: textoRec(c.recoge_cliente, 255),
     recoge_nit: textoRec(c.recoge_nit, 32),
     recoge_bodega: textoRec(c.recoge_bodega, 120),
@@ -726,6 +746,7 @@ function leerRecoleccion(cuerpo) {
     que_recogemos: textoLargoRec(c.que_recogemos),
     observaciones: textoLargoRec(c.observaciones),
     persona_contacto: textoRec(c.persona_contacto, 190),
+    telefono_contacto: textoRec(c.telefono_contacto, 40),
     entrega_cliente: textoRec(c.entrega_cliente, 255),
     entrega_nit: textoRec(c.entrega_nit, 32),
     entrega_bodega: textoRec(c.entrega_bodega, 120),
@@ -802,6 +823,9 @@ router.post(
     const datos = leerRecoleccion(req.body)
     if (!datos.recoge_cliente) {
       return res.status(400).json({ error: 'Falta el cliente de recolección' })
+    }
+    if (!datos.tipo_servicio) {
+      return res.status(400).json({ error: 'Falta el tipo de servicio' })
     }
     if (!datos.que_recogemos) {
       return res.status(400).json({ error: 'Falta indicar qué se recoge' })
