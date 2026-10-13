@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { MdHome, MdFolderOpen, MdSettings, MdLogout, MdLockReset, MdExpandMore, MdTune, MdManageAccounts, MdMoveToInbox } from 'react-icons/md'
+import { MdHome, MdFolderOpen, MdSettings, MdLogout, MdLockReset, MdExpandMore, MdTune, MdManageAccounts } from 'react-icons/md'
 import { AiOutlineStock } from 'react-icons/ai'
 import { RiSteering2Line } from 'react-icons/ri'
 import { useAuth } from '../auth/AuthContext.jsx'
@@ -14,7 +14,6 @@ import { createPortal } from 'react-dom'
 const MENU = [
   { to: '/inicio', label: 'Inicio', Icon: MdHome },
   { to: '/solicitudes', label: 'Solicitudes', Icon: MdFolderOpen },
-  { to: '/recolecciones', label: 'Recolecciones', Icon: MdMoveToInbox },
   { to: '/conductor', label: 'Conductor', Icon: RiSteering2Line },
   { to: '/inventario', label: 'Inventario', Icon: AiOutlineStock },
   { to: '/administrador', label: 'Administrador', Icon: MdSettings },

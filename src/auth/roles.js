@@ -18,7 +18,6 @@ export const ROLES = {
 // Rutas de los módulos del menú superior.
 export const RUTA_INICIO = '/inicio'
 export const RUTA_SOLICITUDES = '/solicitudes'
-export const RUTA_RECOLECCIONES = '/recolecciones'
 export const RUTA_INVENTARIO = '/inventario'
 export const RUTA_CONDUCTOR = '/conductor'
 export const RUTA_ADMIN = '/administrador'
@@ -27,14 +26,14 @@ export const RUTA_ADMIN = '/administrador'
 // sería un callejón sin salida cada vez que aparezca un ajuste nuevo.
 export const RUTA_CONFIGURACION = '/configuracion'
 
-const TODOS = [RUTA_INICIO, RUTA_SOLICITUDES, RUTA_RECOLECCIONES, RUTA_INVENTARIO, RUTA_CONDUCTOR, RUTA_ADMIN]
+const TODOS = [RUTA_INICIO, RUTA_SOLICITUDES, RUTA_INVENTARIO, RUTA_CONDUCTOR, RUTA_ADMIN]
 
 // Módulos visibles/permitidos por rol (usado por el Header y por los guards).
-// El conductor queda fuera de Inventario y de Recolecciones: él mueve las
-// entregas, no administra el stock ni registra recogidas.
+// El conductor queda fuera de Inventario: él mueve las entregas, no administra
+// el stock. Las recolecciones viven como pestaña dentro de Solicitudes.
 const MODULOS_POR_ROL = {
   [ROLES.CONDUCTOR]: [RUTA_INICIO, RUTA_CONDUCTOR],
-  [ROLES.SOLICITANTE]: [RUTA_INICIO, RUTA_SOLICITUDES, RUTA_RECOLECCIONES, RUTA_INVENTARIO],
+  [ROLES.SOLICITANTE]: [RUTA_INICIO, RUTA_SOLICITUDES, RUTA_INVENTARIO],
   [ROLES.ADMINISTRADOR]: TODOS,
   [ROLES.SUPERADMIN]: TODOS,
 }

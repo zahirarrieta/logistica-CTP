@@ -135,10 +135,10 @@ function Home() {
                       <button
                         type="button"
                         onClick={() => setRecoleccionModalOpen(true)}
-                        className="group inline-flex items-center justify-center gap-2 rounded-2xl px-8 py-4 max-lg:px-6 max-lg:py-3.5 font-extrabold text-white bg-white/10 ring-1 ring-brand-cyan/40 backdrop-blur-sm transition-all duration-300 hover:bg-brand-cyan/20 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40"
+                        className="group relative inline-flex items-center justify-center gap-3 rounded-2xl px-10 py-4 max-lg:px-8 max-lg:py-3.5 font-extrabold text-brand-ink bg-gradient-to-br from-brand-cyan to-brand-cyanSoft shadow-cyanGlow transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,229,255,0.6)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40"
                       >
-                        <MdStorefront className="text-xl" />
-                        RECOLECCIÓN
+                        <MdStorefront className="text-2xl" />
+                        <span className="tracking-wide">RECOLECCIÓN</span>
                       </button>
                     )}
                   </div>

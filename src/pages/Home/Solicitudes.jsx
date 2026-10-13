@@ -8,6 +8,7 @@ import RecoleccionModal from './Components/modals/RecoleccionModal.jsx'
 import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
 import EstadosModal from '../Administrador/Components/modals/EstadosModal.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
+import RecoleccionesListado from '../Recolecciones/RecoleccionesListado.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import { loadSolicitudes, saveSolicitud, corregirSolicitud, updateSolicitud, suscribir, puedeEliminarSolicitud, restanteEliminar } from '../../store/solicitudesStore.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
@@ -17,6 +18,7 @@ import { solicitudCreada, solicitudCorregida, estadoActualizado } from '../../se
 export default function Solicitudes() {
   const { account, rol } = useAuth()
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
+  const [tab, setTab] = useState('solicitudes')
   const [modalOpen, setModalOpen] = useState(false)
   const [recoleccionModalOpen, setRecoleccionModalOpen] = useState(false)
   const [editarSolicitud, setEditarSolicitud] = useState(null)
@@ -150,7 +152,7 @@ export default function Solicitudes() {
                 <button
                   type="button"
                   onClick={() => setRecoleccionModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-full bg-white text-brand-deep ring-1 ring-brand-deep/25 px-5 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base font-bold hover:bg-brand-mist hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70"
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-cyan text-brand-ink px-5 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base font-bold shadow-cyanGlow hover:shadow-[0_0_30px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70"
                 >
                   <MdStorefront className="text-lg" />
                   Recolección
@@ -167,39 +169,67 @@ export default function Solicitudes() {
             </div>
           </div>
 
-          {mias.length > 0 && (
-            <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
-              <SearchFilters
-                cliente={filtroCliente}
-                zona={filtroZona}
-                onClienteChange={setFiltroCliente}
-                onZonaChange={setFiltroZona}
-              />
-            </div>
-          )}
+          {/* Pestañas: Mis solicitudes / Mis recolecciones */}
+          <div className="mb-5 inline-flex w-full sm:w-auto rounded-full bg-brand-mist p-1 ring-1 ring-brand-ink/10">
+            <button
+              type="button"
+              onClick={() => setTab('solicitudes')}
+              className={`flex-1 sm:flex-none rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+                tab === 'solicitudes' ? 'bg-brand-navy text-white shadow' : 'text-brand-deep hover:bg-white/60'
+              }`}
+            >
+              Mis solicitudes
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('recolecciones')}
+              className={`flex-1 sm:flex-none rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+                tab === 'recolecciones' ? 'bg-brand-navy text-white shadow' : 'text-brand-deep hover:bg-white/60'
+              }`}
+            >
+              Mis recolecciones
+            </button>
+          </div>
 
-          <SolicitudesTable
-            items={filtered}
-            onRowClick={(s) => setDetalleSolicitud(s)}
-            onSeguimientoClick={(s) => setDetalleSolicitud(s)}
-            onCorregirClick={handleCorregir}
-            onCancelarClick={handleCancelar}
-            puedeCancelar={(s) => puedeEliminarSolicitud(s, correoActual)}
-            restanteCancelar={(s) => restanteEliminar(s, correoActual)}
-            empty={
-              hasFilters
-                ? {
-                    icon: <MdFilterList />,
-                    title: 'No hay solicitudes que coincidan con los filtros',
-                    text: 'Ajusta el estado, cliente o zona seleccionados.',
-                  }
-                : {
-                    icon: <MdInbox />,
-                    title: 'Aún no tienes solicitudes',
-                    text: 'Crea tu primera solicitud con el botón «Nuevo Pedido».',
-                  }
-            }
-          />
+          {tab === 'solicitudes' ? (
+            <>
+              {mias.length > 0 && (
+                <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
+                  <SearchFilters
+                    cliente={filtroCliente}
+                    zona={filtroZona}
+                    onClienteChange={setFiltroCliente}
+                    onZonaChange={setFiltroZona}
+                  />
+                </div>
+              )}
+
+              <SolicitudesTable
+                items={filtered}
+                onRowClick={(s) => setDetalleSolicitud(s)}
+                onSeguimientoClick={(s) => setDetalleSolicitud(s)}
+                onCorregirClick={handleCorregir}
+                onCancelarClick={handleCancelar}
+                puedeCancelar={(s) => puedeEliminarSolicitud(s, correoActual)}
+                restanteCancelar={(s) => restanteEliminar(s, correoActual)}
+                empty={
+                  hasFilters
+                    ? {
+                        icon: <MdFilterList />,
+                        title: 'No hay solicitudes que coincidan con los filtros',
+                        text: 'Ajusta el estado, cliente o zona seleccionados.',
+                      }
+                    : {
+                        icon: <MdInbox />,
+                        title: 'Aún no tienes solicitudes',
+                        text: 'Crea tu primera solicitud con el botón «Nuevo Pedido».',
+                      }
+                }
+              />
+            </>
+          ) : (
+            <RecoleccionesListado />
+          )}
         </div>
       </main>
 

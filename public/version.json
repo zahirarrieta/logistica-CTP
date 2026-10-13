@@ -1,7 +1,9 @@
 {
-  "version": "2026.10.14-36",
+  "version": "2026.10.14-37",
   "fecha": "2026-10-14",
   "cambios": [
+    "Solicitudes: las recolecciones ahora viven en una pestaña «Mis recolecciones» dentro de «Mis solicitudes» (junto a la pestaña «Mis solicitudes»), para no llenar el menú de botones. Se quitó el botón «Recolecciones» del encabezado.",
+    "Solicitudes e Inicio: el botón «Recolección» ahora tiene el mismo diseño que «Nuevo Pedido».",
     "Corrección: al abrir la aplicación ya no aparece el formulario de «Nueva recolección» encima del inicio; ahora solo se muestra al pulsar el botón «Recolección».",
     "Recolección: nuevo módulo con página propia «Recolecciones» (con enlace en el menú) para crear y hacer seguimiento a las recolecciones de mercancía. El formulario pide los datos de «¿Dónde vamos a recoger?» y «¿Dónde entregamos?» (se eligen de los clientes y la zona se completa sola), fecha y hora de recolección, qué se recoge, persona de contacto e instrucciones especiales. El Id (Rec-00001) y la fecha/hora se generan automáticamente y se pueden adjuntar hasta 3 archivos.",
     "Recolección: cada recolección tiene un estado (Abierto, Trámite, Fallido o Entregado) que el solicitante puede cambiar desde el detalle; en el listado se puede buscar por código, cliente o zona y filtrar por estado.",
