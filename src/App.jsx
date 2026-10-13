@@ -8,6 +8,7 @@ import { sincronizarInicial, iniciarTiempoReal, detenerTiempoReal } from './stor
 import useInactividadSesion from './hooks/useInactividadSesion.js'
 import AvisoCierreSesion from './components/AvisoCierreSesion.jsx'
 import AvisoNuevaVersion from './components/AvisoNuevaVersion.jsx'
+import FloatingChatBotButton from './components/FloatingChatBotButton.jsx'
 
 // Marca guardada en sessionStorage: la primera vez que esta pestaña abre una
 // sesión (login nuevo o recarga desde cero) se va al Home; después de ese primer
@@ -113,6 +114,7 @@ return (
           restante={restante}
           onContinuar={seguirTrabajando}
         />
+        <FloatingChatBotButton />
       </Suspense>
     )
 }

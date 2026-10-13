@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiTruck } from 'react-icons/fi'
 import { MdStorefront } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
@@ -212,22 +211,6 @@ className={`absolute inset-0 m-auto max-h-full max-w-full object-contain transit
         onClose={() => setRecoleccionModalOpen(false)}
         onCreated={() => setRecoleccionModalOpen(false)}
       />
-      {/* Botón flotante CTP */}
-      <a
-        href="https://www.ctpmedica.net/"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="CTP"
-        className="inline-flex items-center justify-center rounded-full bg-brand-cyan text-brand-ink shadow-[0_15px_30px_rgba(0,0,0,0.4),0_5px_18px_rgba(0,229,255,0.5)] ring-4 ring-brand-cyan/25 hover:scale-110 hover:shadow-[0_20px_40px_rgba(0,0,0,0.5),0_8px_26px_rgba(0,229,255,0.65)] transition-all duration-300 relative pointer-events-auto w-[clamp(2.75rem,6vw,3.5rem)] h-[clamp(2.75rem,6vw,3.5rem)] transform hover:-translate-y-1"
-        style={{ position: 'fixed', right: 'calc(env(safe-area-inset-right, 0px) + clamp(0.5rem, 3vw, 1.5rem))', bottom: 'calc(env(safe-area-inset-bottom, 0px) + clamp(0.5rem, 3vw, 1.5rem))', left: 'auto', top: 'auto', zIndex: 9999 }}
-      >
-        <span className="absolute inset-0 rounded-full bg-brand-cyan opacity-40 animate-ping" />
-        {ASSETS.logo ? (
-          <img src={ASSETS.logo} alt="CTP" className="object-contain w-[75%] h-[75%]" />
-        ) : (
-          <span className="font-extrabold tracking-wide"><FiTruck className="text-2xl" /></span>
-        )}
-      </a>
     </div>
   )
 }

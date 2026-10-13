@@ -1,7 +1,11 @@
 {
-  "version": "2026.10.14-43",
+  "version": "2026.10.14-44",
   "fecha": "2026-10-14",
   "cambios": [
+    "ChatBot: el panel ya no oscurece ni desenfoca el fondo, y se cierra al pulsar por fuera, con la X o con la tecla Esc. El botón flotante muestra el muñeco con su halo pulsante y ahora sirve para abrir y cerrar; el muñeco también aparece en el encabezado del panel, en la bienvenida y como avatar de cada respuesta.",
+    "Inicio y Login: se retiró el botón flotante que enlazaba a ctpmedica.net, porque ese lugar lo ocupa ahora el ChatBot de Inventario.",
+    "Clientes: las etiquetas y los datos del formulario de clientes se escriben en mayúscula, y al abrir «Nuevo cliente» o al editar uno el cursor se ubica solo en el primer campo.",
+    "Nuevo ChatBot de Inventario (botón flotante): responde preguntas en lenguaje natural sobre el inventario —ej.: «¿Cuántas unidades hay en Cota?», «Artículos de marketing», «Total en bodega Principal», «Promedio de unidades»—. Incluye endpoint /api/chatbot/inventario, logging de consultas y modal con historial y detalles.",
     "Recolección: en «¿Dónde vamos a recoger?» ya se puede escribir y aparece el listado de clientes coincidentes; junto a «Qué recogemos» hay un botón «Seleccionar artículos» que abre el inventario filtrado por la bodega de recogida para elegir artículos con su cantidad (el texto se reemplaza por cantidad · descripción · lote).",
     "Recolección: en «Artículos de la bodega», si una cantidad escrita supera el disponible la fila se marca en rojo y no se puede agregar; mientras carga se muestra el loader de electrocardiograma del inventario.",
     "Recolección: el formulario se organizó en bloques con título (Solicitante, Recogida, Entrega, Observaciones, Adjuntos y Declaración) y todo es obligatorio hasta observaciones (los adjuntos no), incluida la declaración del Reglamento Interno de Trabajo (Artículo 79).",

@@ -638,6 +638,261 @@ router.post(
 )
 
 // ---------------------------------------------------------------------------
+// ChatBot Inventario
+// ---------------------------------------------------------------------------
+// Endpoint para responder preguntas en lenguaje natural sobre el inventario.
+// Recibe: { pregunta: "¿Cuántas unidades de BMX hay en Cota?" }
+// Devuelve: { respuesta: "...", datos: [...] }
+let chatbotCreado = false
+
+async function asegurarChatbot() {
+  if (chatbotCreado) return true
+  try {
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS chatbot_logs (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        correo        VARCHAR(190) NOT NULL,
+        pregunta      TEXT         NOT NULL,
+        respuesta     TEXT         NOT NULL,
+        datos_json    JSON         NULL,
+        creado_en     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `)
+    chatbotCreado = true
+    return true
+  } catch (error) {
+    console.error(`[ChatBot] no se pudo crear/verificar la tabla: ${error?.message}`)
+    return false
+  }
+}
+
+// Patrones de preguntas comunes para consultar el inventario
+function analizarPreguntaInventario(pregunta, filas) {
+  const p = pregunta.toLowerCase().trim()
+  let resultado = { tipo: 'general', filtro: {}, agregacion: 'contar' }
+
+  // Detectar si pregunta por cantidad/unidades
+  if (p.includes('cuant') || p.includes('cuánt') || p.includes('cuantas') || p.includes('cuántas') || p.includes('total') || p.includes('suma')) {
+    resultado.agregacion = 'sumar'
+  } else if (p.includes('promedio') || p.includes('media')) {
+    resultado.agregacion = 'promedio'
+  } else if (p.includes('listar') || p.includes('mostrar') || p.includes('ver') || p.includes('cuales') || p.includes('cuáles') || p.includes('detalle')) {
+    resultado.agregacion = 'listar'
+  } else {
+    resultado.agregacion = 'contar'
+  }
+
+  // Filtrar por bodega/zona (Cota, Bogotá, Nacional, etc.)
+  const bodegasConocidas = [...new Set(filas.map(f => f.bodega).filter(Boolean))]
+  const zonasConocidas = [...new Set(filas.map(f => f.zona).filter(Boolean))]
+  const nombresBodega = [...new Set(filas.map(f => f.nombre_bodega).filter(Boolean))]
+
+  for (const b of bodegasConocidas) {
+    if (p.includes(b.toLowerCase())) {
+      resultado.filtro.bodega = b
+      break
+    }
+  }
+  for (const z of zonasConocidas) {
+    if (p.includes(z.toLowerCase())) {
+      resultado.filtro.zona = z
+      break
+    }
+  }
+  for (const nb of nombresBodega) {
+    if (p.includes(nb.toLowerCase())) {
+      resultado.filtro.nombre_bodega = nb
+      break
+    }
+  }
+
+  // Filtrar por artículo (número o descripción)
+  const articulos = [...new Set(filas.map(f => f.numero_articulo).filter(Boolean))]
+  const descripciones = [...new Set(filas.map(f => f.descripcion).filter(Boolean))]
+  for (const a of articulos) {
+    if (p.includes(a.toLowerCase())) {
+      resultado.filtro.numero_articulo = a
+      break
+    }
+  }
+  for (const d of descripciones) {
+    const palabras = d.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+    for (const pal of palabras) {
+      if (p.includes(pal)) {
+        resultado.filtro.descripcion = d
+        break
+      }
+    }
+    if (resultado.filtro.descripcion) break
+  }
+
+  // Filtrar por grupo de artículos
+  const grupos = [...new Set(filas.map(f => f.grupo_articulos).filter(Boolean))]
+  for (const g of grupos) {
+    if (p.includes(g.toLowerCase())) {
+      resultado.filtro.grupo_articulos = g
+      break
+    }
+  }
+
+  // Filtrar por proveedor
+  const proveedores = [...new Set(filas.map(f => f.proveedor).filter(Boolean))]
+  for (const prov of proveedores) {
+    if (p.includes(prov.toLowerCase())) {
+      resultado.filtro.proveedor = prov
+      break
+    }
+  }
+
+  // Filtrar por lote
+  const lotes = [...new Set(filas.map(f => f.lote).filter(Boolean))]
+  for (const l of lotes) {
+    if (p.includes(l.toLowerCase())) {
+      resultado.filtro.lote = l
+      break
+    }
+  }
+
+  return resultado
+}
+
+function ejecutarConsultaInventario(filas, analisis) {
+  let datos = filas
+
+  // Aplicar filtros
+  if (analisis.filtro.bodega) {
+    datos = datos.filter(f => f.bodega === analisis.filtro.bodega)
+  }
+  if (analisis.filtro.zona) {
+    datos = datos.filter(f => f.zona === analisis.filtro.zona)
+  }
+  if (analisis.filtro.nombre_bodega) {
+    datos = datos.filter(f => f.nombre_bodega === analisis.filtro.nombre_bodega)
+  }
+  if (analisis.filtro.numero_articulo) {
+    datos = datos.filter(f => f.numero_articulo === analisis.filtro.numero_articulo)
+  }
+  if (analisis.filtro.descripcion) {
+    datos = datos.filter(f => f.descripcion === analisis.filtro.descripcion)
+  }
+  if (analisis.filtro.grupo_articulos) {
+    datos = datos.filter(f => f.grupo_articulos === analisis.filtro.grupo_articulos)
+  }
+  if (analisis.filtro.proveedor) {
+    datos = datos.filter(f => f.proveedor === analisis.filtro.proveedor)
+  }
+  if (analisis.filtro.lote) {
+    datos = datos.filter(f => f.lote === analisis.filtro.lote)
+  }
+
+  // Ejecutar agregación
+  let respuesta = ''
+  let resumen = null
+
+  switch (analisis.agregacion) {
+    case 'sumar': {
+      const total = datos.reduce((acc, f) => acc + (Number(f.cantidad) || 0), 0)
+      const partes = []
+      if (analisis.filtro.bodega) partes.push(`en bodega ${analisis.filtro.bodega}`)
+      if (analisis.filtro.zona) partes.push(`en zona ${analisis.filtro.zona}`)
+      if (analisis.filtro.nombre_bodega) partes.push(`en ${analisis.filtro.nombre_bodega}`)
+      if (analisis.filtro.numero_articulo) partes.push(`del artículo ${analisis.filtro.numero_articulo}`)
+      if (analisis.filtro.descripcion) partes.push(`de "${analisis.filtro.descripcion}"`)
+      if (analisis.filtro.grupo_articulos) partes.push(`del grupo ${analisis.filtro.grupo_articulos}`)
+      if (analisis.filtro.proveedor) partes.push(`del proveedor ${analisis.filtro.proveedor}`)
+      if (analisis.filtro.lote) partes.push(`del lote ${analisis.filtro.lote}`)
+      const donde = partes.length ? partes.join(', ') : 'en total'
+      respuesta = `Hay ${total.toLocaleString('es-CO')} unidades ${donde}.`
+      resumen = { total, registros: datos.length }
+      break
+    }
+    case 'promedio': {
+      const cantidades = datos.map(f => Number(f.cantidad) || 0).filter(c => c > 0)
+      const promedio = cantidades.length ? cantidades.reduce((a, b) => a + b, 0) / cantidades.length : 0
+      respuesta = `El promedio de unidades es ${promedio.toFixed(1)}.`
+      resumen = { promedio, registros: datos.length }
+      break
+    }
+    case 'listar': {
+      if (datos.length === 0) {
+        respuesta = 'No hay artículos que coincidan con tu búsqueda.'
+      } else if (datos.length <= 10) {
+        const items = datos.map(f => `• ${f.numero_articulo}: ${f.descripcion} — ${Number(f.cantidad || 0).toLocaleString('es-CO')} unds (${f.bodega}${f.nombre_bodega ? ` / ${f.nombre_bodega}` : ''}${f.zona ? ` / ${f.zona}` : ''})`).join('\n')
+        respuesta = `Encontré ${datos.length} artículo(s):\n${items}`
+      } else {
+        const total = datos.reduce((acc, f) => acc + (Number(f.cantidad) || 0), 0)
+        respuesta = `Encontré ${datos.length} artículos (${total.toLocaleString('es-CO')} unidades totales). Aquí los primeros 10:\n${datos.slice(0, 10).map(f => `• ${f.numero_articulo}: ${f.descripcion} — ${Number(f.cantidad || 0).toLocaleString('es-CO')} unds`).join('\n')}`
+      }
+      resumen = { registros: datos.length, total: datos.reduce((acc, f) => acc + (Number(f.cantidad) || 0), 0) }
+      break
+    }
+    case 'contar':
+    default: {
+      const total = datos.reduce((acc, f) => acc + (Number(f.cantidad) || 0), 0)
+      const partes = []
+      if (analisis.filtro.bodega) partes.push(`bodega ${analisis.filtro.bodega}`)
+      if (analisis.filtro.zona) partes.push(`zona ${analisis.filtro.zona}`)
+      if (analisis.filtro.nombre_bodega) partes.push(`${analisis.filtro.nombre_bodega}`)
+      if (analisis.filtro.numero_articulo) partes.push(`artículo ${analisis.filtro.numero_articulo}`)
+      if (analisis.filtro.descripcion) partes.push(`"${analisis.filtro.descripcion}"`)
+      if (analisis.filtro.grupo_articulos) partes.push(`grupo ${analisis.filtro.grupo_articulos}`)
+      if (analisis.filtro.proveedor) partes.push(`proveedor ${analisis.filtro.proveedor}`)
+      if (analisis.filtro.lote) partes.push(`lote ${analisis.filtro.lote}`)
+      const donde = partes.length ? partes.join(', ') : 'el inventario'
+      respuesta = `En ${donde} hay ${datos.length} registro(s) (${total.toLocaleString('es-CO')} unidades totales).`
+      resumen = { registros: datos.length, total }
+      break
+    }
+  }
+
+  return { respuesta, datos: analisis.agregacion === 'listar' ? datos.slice(0, 20) : [], resumen }
+}
+
+router.post(
+  '/chatbot/inventario',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (ctx.rol === 'conductor') {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+    const pregunta = String(req.body?.pregunta || '').trim()
+    if (!pregunta) {
+      return res.status(400).json({ error: 'Falta la pregunta' })
+    }
+    const tablaLista = await asegurarChatbot()
+    await asegurarInventario()
+
+    // Traer todo el inventario (máx ~20k filas, aceptable para análisis en memoria)
+    const [filas] = await pool.execute(
+      `SELECT id, numero_articulo, descripcion, lote,
+              DATE_FORMAT(fecha_vencimiento, '%Y-%m-%d') AS fecha_vencimiento,
+              cantidad, dias_inventario, bodega, nombre_bodega, zona,
+              grupo_articulos, proveedor, tipo_bodega, comercial
+         FROM inventario`
+    )
+
+    const analisis = analizarPreguntaInventario(pregunta, filas)
+    const { respuesta, datos, resumen } = ejecutarConsultaInventario(filas, analisis)
+
+    // Log de la interacción. Es solo trazabilidad: si la tabla no se pudo crear
+    // (falta de privilegios en el hosting) o el INSERT falla, la respuesta al
+    // usuario no debe caerse por eso.
+    if (tablaLista) {
+      try {
+        await pool.execute(
+          'INSERT INTO chatbot_logs (correo, pregunta, respuesta, datos_json) VALUES (?, ?, ?, ?)',
+          [ctx.correo, pregunta, respuesta, JSON.stringify(resumen || {})]
+        )
+      } catch (error) {
+        console.error(`[ChatBot] no se pudo registrar la consulta: ${error?.message}`)
+      }
+    }
+
+    res.json({ respuesta, datos, analisis: analisis.filtro, resumen })
+  })
+)
+
+// ---------------------------------------------------------------------------
 // Recolecciones
 // ---------------------------------------------------------------------------
 // Módulo propio, hermano del de solicitudes pero con su propia secuencia

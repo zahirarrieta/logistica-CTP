@@ -40,9 +40,9 @@ const CLIENTE_VACIO = { nit: '', nombre: '', bodega: '', zona: '' }
 
 const CAMPOS = [
   { key: 'nit', label: 'NIT', placeholder: '900123456', required: true, autoComplete: 'off' },
-  { key: 'nombre', label: 'Nombre o razón social', placeholder: 'Nombre del cliente', required: true, autoComplete: 'off' },
-  { key: 'bodega', label: 'Bodega', placeholder: 'Bodega o sede', autoComplete: 'off' },
-  { key: 'zona', label: 'Zona', placeholder: 'Ciudad o zona', autoComplete: 'off' },
+  { key: 'nombre', label: 'NOMBRE O RAZÓN SOCIAL', placeholder: 'NOMBRE DEL CLIENTE', required: true, autoComplete: 'off' },
+  { key: 'bodega', label: 'BODEGA', placeholder: 'BODEGA O SEDE', autoComplete: 'off' },
+  { key: 'zona', label: 'ZONA', placeholder: 'CIUDAD O ZONA', autoComplete: 'off' },
 ]
 
 export default function ClientesModal({ open, onClose }) {
@@ -57,6 +57,7 @@ export default function ClientesModal({ open, onClose }) {
   const [editando, setEditando] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [errorForm, setErrorForm] = useState('')
+  const [formAbierto, setFormAbierto] = useState(false) // true solo al abrir, para foco inicial
 
   // Cliente señalado para borrar, a la espera de confirmación.
   const [porBorrar, setPorBorrar] = useState(null)
@@ -88,6 +89,7 @@ export default function ClientesModal({ open, onClose }) {
     let cancelado = false
     setBusqueda('')
     setEditando(null)
+    setFormAbierto(false)
     setPorBorrar(null)
     setErrorForm('')
     cargar(() => !cancelado)
@@ -109,8 +111,11 @@ export default function ClientesModal({ open, onClose }) {
   // Al abrir el formulario el foco va al primer campo, que es lo que se espera
   // de un formulario en vez de tener que cazarlo con el ratón.
   useEffect(() => {
-    if (editando) primerCampoRef.current?.focus()
-  }, [editando])
+    if (formAbierto) {
+      primerCampoRef.current?.focus()
+      setFormAbierto(false)
+    }
+  }, [formAbierto])
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
@@ -122,7 +127,7 @@ export default function ClientesModal({ open, onClose }) {
   }, [clientes, busqueda])
 
   const escribir = (campo) => (e) => {
-    const valor = e.target.value
+    const valor = e.target.value.toUpperCase()
     setEditando((f) => (f ? { ...f, [campo]: valor } : f))
     if (errorForm) setErrorForm('')
   }
@@ -182,12 +187,14 @@ export default function ClientesModal({ open, onClose }) {
     setPorBorrar(null)
     setErrorForm('')
     setEditando({ ...CLIENTE_VACIO })
+    setFormAbierto(true)
   }
 
   const abrirEdicion = (cliente) => {
     setPorBorrar(null)
     setErrorForm('')
     setEditando({ ...cliente })
+    setFormAbierto(true)
   }
 
   if (!open) return null
@@ -256,7 +263,7 @@ export default function ClientesModal({ open, onClose }) {
               </h4>
               <button
                 type="button"
-                onClick={() => setEditando(null)}
+                onClick={() => { setEditando(null); setFormAbierto(false); }}
                 disabled={guardando}
                 className="text-xs font-bold text-brand-ink/50 hover:text-brand-ink transition disabled:opacity-50"
               >
@@ -300,7 +307,7 @@ export default function ClientesModal({ open, onClose }) {
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setEditando(null)}
+                onClick={() => { setEditando(null); setFormAbierto(false); }}
                 disabled={guardando}
                 className={BOTON_NEUTRO}
               >
