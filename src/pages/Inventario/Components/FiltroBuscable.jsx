@@ -125,7 +125,7 @@ export default function FiltroBuscable({ etiqueta, icono, value, onChange, opcio
 
       {/* Sugerencias al escribir */}
       {abierto && sugerencias.length > 0 && (
-        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 overflow-hidden rounded-xl border border-brand-deep/20 bg-white shadow-2xl animate-scaleIn">
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[120] overflow-hidden rounded-xl border border-brand-deep/20 bg-white shadow-2xl animate-scaleIn">
           <div className="max-h-72 divide-y divide-brand-deep/10 overflow-y-auto [scrollbar-width:thin]">
             {sugerencias.map((o) => (
               <FilaOpcion
@@ -140,7 +140,7 @@ export default function FiltroBuscable({ etiqueta, icono, value, onChange, opcio
         </div>
       )}
       {abierto && value.trim() !== '' && sugerencias.length === 0 && (
-        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 rounded-xl border border-brand-deep/20 bg-white px-3 py-2.5 text-xs text-brand-ink/70 shadow-2xl">
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[120] rounded-xl border border-brand-deep/20 bg-white px-3 py-2.5 text-xs text-brand-ink/70 shadow-2xl">
           Sin coincidencias. Usa la lupa para ver el listado completo.
         </div>
       )}

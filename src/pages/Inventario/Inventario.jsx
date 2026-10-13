@@ -11,7 +11,6 @@ import {
   MdInventory,
   MdInventory2,
   MdLocalShipping,
-  MdMap,
   MdNavigateBefore,
   MdNavigateNext,
   MdPlace,
@@ -34,6 +33,7 @@ import DetalleFilaModal from './Components/DetalleFilaModal.jsx'
 import FiltroBuscable from './Components/FiltroBuscable.jsx'
 import LoaderInventario from './Components/LoaderInventario.jsx'
 import MapaZonasModal from './Components/MapaZonasModal.jsx'
+import MapaZonasPanel from './Components/MapaZonasPanel.jsx'
 import TablaArticulos, { ListaArticulosMovil } from './Components/TablaArticulos.jsx'
 import {
   RANGOS_INVENTARIO,
@@ -401,16 +401,6 @@ export default function Inventario() {
                     Subir información
                   </button>
                 )}
-                {!cargando && filas.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setMapaAbierto(true)}
-                    className="inline-flex items-center gap-2 rounded-full bg-brand-navy text-white px-5 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base font-bold shadow-sm hover:bg-brand-deep hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70"
-                  >
-                    <MdMap className="text-lg" />
-                    Ver artículos en el mapa
-                  </button>
-                )}
               </div>
               {actualizadoEn && (
                 <p className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/5 ring-1 ring-brand-ink/10 px-3 py-1.5 text-xs font-bold text-brand-ink/60">
@@ -545,11 +535,13 @@ export default function Inventario() {
                 </div>
               </section>
 
-              {/* Filtros: búsqueda + campos escribibles con lista + activos */}
-              <section
-                aria-label="Filtros"
-                className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-4 sm:p-5 mb-5 space-y-4"
-              >
+              {/* Filtros + mapa: el card de filtros a la izquierda y el mapa de
+                  zonas a la derecha (en celular, el mapa debajo de los filtros). */}
+              <div className="grid gap-4 md:grid-cols-2 items-stretch mb-5">
+                <section
+                  aria-label="Filtros"
+                  className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-4 sm:p-5 space-y-4"
+                >
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep">
                     <MdTune className="text-brand-cyan text-lg" />
@@ -579,7 +571,7 @@ export default function Inventario() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {CATEGORIAS.map((cat) => (
                     <FiltroBuscable
                       key={cat.clave}
@@ -606,7 +598,12 @@ export default function Inventario() {
                     ))}
                   </div>
                 )}
-              </section>
+                </section>
+
+                <div className="relative z-0 rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm p-2 sm:p-3 min-h-[360px] flex">
+                  <MapaZonasPanel filas={filtradas} onAbrir={() => setMapaAbierto(true)} />
+                </div>
+              </div>
 
               {/* Resultados */}
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

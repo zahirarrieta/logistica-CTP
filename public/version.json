@@ -1,8 +1,13 @@
 {
-  "version": "2026.10.09-26",
+  "version": "2026.10.09-31",
   "fecha": "2026-10-09",
   "cambios": [
-    "Inventario: en el mapa «Artículos por zona» se quitó el botón hamburguesa y el desplegable; la lista de zonas queda siempre visible al lado (con su scroll y cada zona con su color) y al hacer clic en un pin (o en una zona) se abre directo el modal con sus artículos, sin el botón «Ver artículos».",
+    "Inventario: el tooltip de las zonas en el mapa ya no se recorta por el borde superior (p. ej. la Costa); ahora se ubica solo, así que se ve en los pines pegados al borde.",
+    "Inventario: el modal «artículos de una zona» que se abre desde un pin del mapa ya no queda por debajo del encabezado (se muestra en pantalla completa por delante de todo).",
+    "Inventario: los pines del mapa ahora usan el ícono de temperatura en vez del ícono de artículos.",
+    "Inventario: las listas desplegables de los filtros vuelven a quedar por encima del encabezado de la página (antes quedaban por debajo al abrir una cerca del borde superior).",
+    "Inventario: los controles del mapa (zoom +/− y el botón «Ver artículos en el mapa») ya no se montan encima de las listas desplegables de los filtros; ahora estas quedan siempre por delante.",
+    "Inventario: el mapa de zonas ahora se muestra dentro de la página, al lado del card de filtros (en celular queda debajo); el botón «Ver artículos en el mapa» se movió a la esquina del recuadro del mapa y abre el modal completo. Los pines usan el ícono de artículos y, al hacer clic, abren los artículos de la zona.",
     "Inventario: la tabla del modal «artículos de una zona» ahora es idéntica a las demás tablas del inventario (mismos encabezados navy, colores por días de rotación, marca de agua de vencido y filas); en celular también usa las mismas tarjetas.",
     "Inventario: la zona del Eje Cafetero ahora se ubica en el mapa entre Armenia y Manizales (también reconoce «eje cafetero»).",
     "Inventario: el botón «Ver artículos en el mapa» quedó junto a «Subir información», el listado de zonas se abre con el botón hamburguesa (cada zona con su color) y el detalle de una zona abre en un modal normal encima del mapa.",

@@ -1,48 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, Marker, TileLayer, Tooltip, useMap } from 'react-leaflet'
-import L from 'leaflet'
+import { useMemo, useState } from 'react'
+import { MapContainer, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MdChevronRight, MdClose, MdInventory2, MdOutlinePlace } from 'react-icons/md'
 import Modal from '../../../components/Modal.jsx'
 import ZonaArticulosModal from './ZonaArticulosModal.jsx'
-import { colorZona, coordenadasZona } from '../../../utils/zonasColombia.js'
-
-// Pin del mapa: el icono del artículo con el número de artículos de la zona,
-// coloreado según la zona. Se construye como HTML porque los marcadores de
-// Leaflet reciben un `divIcon`, no un componente de React.
-function iconoPin(zona, n) {
-  const color = colorZona(zona)
-  const html = `
-    <div style="position:relative;width:46px;height:58px">
-      <div style="position:absolute;left:0;top:0;width:46px;height:46px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style="display:block"><path d="M20 2H4c-1.1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-.9-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4h16v3z"/></svg>
-        <span style="font-size:12px;font-weight:800;line-height:1;margin-top:1px">${n}</span>
-      </div>
-      <div style="position:absolute;left:50%;bottom:0;width:14px;height:14px;background:${color};border-left:2px solid #fff;border-bottom:2px solid #fff;transform:translate(-50%,-2px) rotate(-45deg);"></div>
-    </div>`
-  return L.divIcon({ html, className: 'pin-zona', iconSize: [46, 58], iconAnchor: [23, 58] })
-}
-
-// Ajusta el encuadre del mapa a los pines y recalcula el tamaño (el mapa nace
-// dentro de un modal; sin esto a veces sale con tiles a medias).
-function AjustarVista({ puntos }) {
-  const map = useMap()
-  useEffect(() => {
-    const t = setTimeout(() => map.invalidateSize(), 250)
-    return () => clearTimeout(t)
-  }, [map])
-
-  useEffect(() => {
-    if (puntos.length === 0) return
-    if (puntos.length === 1) {
-      map.setView(puntos[0], 9)
-      return
-    }
-    map.fitBounds(L.latLngBounds(puntos), { padding: [56, 56] })
-  }, [map, puntos])
-
-  return null
-}
+import { AjustarVista, PinesZona } from './MapaZonasComun.jsx'
+import { colorZona } from '../../../utils/zonasColombia.js'
+import { agruparZonas } from '../../../utils/mapaZonas.js'
 
 // Modal de pantalla completa: todo el inventario filtrado por zonas en un mapa
 // de Colombia y, siempre visible al lado, la lista de zonas (sin desplegable).
@@ -51,25 +15,10 @@ function AjustarVista({ puntos }) {
 export default function MapaZonasModal({ open, onClose, filas }) {
   const [zonaAbierta, setZonaAbierta] = useState(null)
 
-  const grupos = useMemo(() => {
-    const m = new Map()
-    for (const f of filas) {
-      const zona = String(f.zona ?? '').trim() || 'Sin zona'
-      const g = m.get(zona) || { zona, filas: [], cantidad: 0 }
-      g.filas.push(f)
-      const n = Number(String(f.cantidad ?? '').replace(/\./g, '').replace(',', '.'))
-      g.cantidad += Number.isFinite(n) ? n : 0
-      m.set(zona, g)
-    }
-    return [...m.values()].sort((a, b) => b.filas.length - a.filas.length)
-  }, [filas])
-
-  const gruposConCoords = useMemo(
-    () => grupos.map((g) => ({ ...g, coords: coordenadasZona(g.zona) })),
-    [grupos]
+  const { grupos, gruposConCoords, ubicables, puntos } = useMemo(
+    () => agruparZonas(filas),
+    [filas]
   )
-  const ubicables = useMemo(() => gruposConCoords.filter((g) => g.coords), [gruposConCoords])
-  const puntos = useMemo(() => ubicables.map((g) => [g.coords.lat, g.coords.lng]), [ubicables])
 
   if (!open) return null
 
@@ -136,23 +85,7 @@ export default function MapaZonasModal({ open, onClose, filas }) {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <AjustarVista puntos={puntos} />
-                {ubicables.map((g) => (
-                  <Marker
-                    key={g.zona}
-                    position={[g.coords.lat, g.coords.lng]}
-                    icon={iconoPin(g.zona, g.filas.length)}
-                    eventHandlers={{ click: () => setZonaAbierta(g) }}
-                  >
-                    <Tooltip direction="top" offset={[0, -46]} opacity={1}>
-                      <span className="block font-extrabold text-brand-ink">{g.zona}</span>
-                      <span className="block text-[11px] font-semibold text-brand-ink/70">
-                        {g.filas.length.toLocaleString('es-CO')} artículo{g.filas.length === 1 ? '' : 's'} ·{' '}
-                        {g.cantidad.toLocaleString('es-CO')} unidades
-                      </span>
-                      <span className="block text-[11px] font-bold text-brand-deep">Clic para ver artículos</span>
-                    </Tooltip>
-                  </Marker>
-                ))}
+                <PinesZona ubicables={ubicables} onZona={setZonaAbierta} />
               </MapContainer>
             </div>
 
