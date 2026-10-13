@@ -114,10 +114,10 @@ export default function ArticulosBodegaModal({ open, onClose, bodega, onConfirm 
       .map(([id, cant]) => {
         const fila = porId[id]
         if (!fila) return null
-        const desc =
-          (fila.descripcion || '').trim() || (fila.numero_articulo || '').trim() || 'Artículo'
+        const articulo = (fila.numero_articulo || '').trim()
+        const desc = (fila.descripcion || '').trim() || articulo || 'Artículo'
         const lote = (fila.lote || '').trim()
-        const base = `${cant} · ${desc}`
+        const base = articulo ? `${cant} · ${articulo} · ${desc}` : `${cant} · ${desc}`
         return lote ? `${base} · Lote ${lote}` : base
       })
       .filter(Boolean)

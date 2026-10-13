@@ -30,16 +30,16 @@ function ahora() {
   }
 }
 
-// Zona del servicio y sus tipos. La zona es manual (Bogotá / Nacional) y decide
+// Zona del servicio y sus tipos. La zona es manual (BOGOTÁ / NACIONAL) y decide
 // qué tipos de servicio se pueden elegir; al cambiar de zona se limpia el tipo.
 const OPCIONES_ZONA = [
-  { value: 'Bogotá', label: 'Bogotá' },
-  { value: 'Nacional', label: 'Nacional' },
+  { value: 'BOGOTÁ', label: 'BOGOTÁ' },
+  { value: 'NACIONAL', label: 'NACIONAL' },
 ]
 
 const TIPOS_POR_ZONA = {
-  Bogotá: ['MARKETING', 'MALETAS', 'ESPECIAL', 'DISPOSITIVOS'],
-  Nacional: ['24-HORAS', 'ESPECIAL', 'AEROPUERTO', 'TERMINAL', 'MARKETING'],
+  BOGOTÁ: ['MARKETING', 'MALETAS', 'ESPECIAL', 'DISPOSITIVOS'],
+  NACIONAL: ['24-HORAS', 'ESPECIAL', 'AEROPUERTO', 'TERMINAL', 'MARKETING'],
 }
 
 // Texto del error de la casilla del Reglamento: se compara por igualdad en el
@@ -170,6 +170,7 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   // Catálogo de clientes para el autocompletado de «¿Dónde vamos a recoger?».
   const [catalogoClientes, setCatalogoClientes] = useState([])
   const [listaAbierta, setListaAbierta] = useState(false)
+  const [listaAbiertaEntrega, setListaAbiertaEntrega] = useState(false)
   const [articulosOpen, setArticulosOpen] = useState(false)
   // Casilla obligatoria: declaración de aceptación del Reglamento Interno.
   const [aceptaReglamento, setAceptaReglamento] = useState(false)
@@ -231,18 +232,37 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
     return catalogoClientes.filter(coincide).slice(0, 8)
   }, [catalogoClientes, formData.recoge_cliente])
 
+  // Sugerencias para el cliente de entrega (misma lógica que recogida)
+  const sugerenciasEntrega = useMemo(() => {
+    const q = formData.entrega_cliente.trim().toLowerCase()
+    if (!q || catalogoClientes.length === 0) return []
+    const coincide = (c) =>
+      (c.cliente || '').toLowerCase().includes(q) ||
+      (c.nit || '').toLowerCase().includes(q) ||
+      (c.bodega || '').toLowerCase().includes(q)
+    return catalogoClientes.filter(coincide).slice(0, 8)
+  }, [catalogoClientes, formData.entrega_cliente])
+
   const handleChange = (e) => {
     const { name, value } = e.target
+    // Persona de contacto, teléfono, zona, qué recogemos y observaciones en mayúscula
+    const mayusculas = ['persona_contacto', 'telefono_contacto', 'zona', 'que_recogemos', 'observaciones']
+    const valor = mayusculas.includes(name) ? value.toUpperCase() : value
     setFormData((prev) => {
-      const next = { ...prev, [name]: value }
+      const next = { ...prev, [name]: valor }
       // Al cambiar la zona, el tipo de servicio ya no es válido: se limpia.
-      if (name === 'zona' && value !== prev.zona) next.tipo_servicio = ''
+      if (name === 'zona' && valor !== prev.zona) next.tipo_servicio = ''
       // Al escribir a mano el cliente de recogida, el NIT y la bodega de la
       // selección anterior dejan de corresponder: se limpian para que el botón
       // «Seleccionar artículos» no filtre por una bodega equivocada.
-      if (name === 'recoge_cliente' && value !== prev.recoge_cliente) {
+      if (name === 'recoge_cliente' && valor !== prev.recoge_cliente) {
         next.recoge_nit = ''
         next.recoge_bodega = ''
+      }
+      // Al escribir a mano el cliente de entrega, limpiar NIT y bodega.
+      if (name === 'entrega_cliente' && valor !== prev.entrega_cliente) {
+        next.entrega_nit = ''
+        next.entrega_bodega = ''
       }
       return next
     })
@@ -279,6 +299,18 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
       recoge_bodega: c.bodega,
     }))
     setListaAbierta(false)
+    if (errores.length > 0) setErrores([])
+  }
+
+  // Elegir sugerencia de entrega: completa cliente, NIT y bodega.
+  const elegirSugerenciaEntrega = (c) => {
+    setFormData((prev) => ({
+      ...prev,
+      entrega_cliente: c.cliente,
+      entrega_nit: c.nit,
+      entrega_bodega: c.bodega,
+    }))
+    setListaAbiertaEntrega(false)
     if (errores.length > 0) setErrores([])
   }
 
@@ -648,15 +680,16 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                 invalid={faltanEn(CAMPOS_ENTREGA)}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="relative">
+                  <div className="relative" onBlur={() => setListaAbiertaEntrega(false)}>
                     <FormField
                       label="¿Dónde entregamos?"
                       type="text"
                       name="entrega_cliente"
                       value={formData.entrega_cliente}
-                      onChange={() => {}}
-                      placeholder="Selecciona el cliente"
-                      readOnly
+                      onChange={handleChange}
+                      onFocus={() => setListaAbiertaEntrega(true)}
+                      placeholder="Escribe el nombre, NIT o bodega"
+                      autoComplete="off"
                       required
                       icon={<MdBusiness className="text-sm" />}
                       invalid={falta('¿Dónde entregamos?')}
@@ -664,12 +697,50 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                     <button
                       type="button"
                       onClick={() => setPicker('entrega')}
-                      title="Buscar cliente"
+                      title="Buscar y seleccionar cliente"
                       aria-label="Buscar cliente de entrega"
                       className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
                     >
                       <MdSearch className="text-lg" />
                     </button>
+
+                    {/* Sugerencias mientras se escribe. */}
+                    {listaAbiertaEntrega && sugerenciasEntrega.length > 0 && (
+                      <div className="absolute z-30 left-0 right-0 top-[calc(100%+4px)] rounded-xl border border-brand-deep/20 bg-white shadow-2xl overflow-hidden animate-scaleIn">
+                        <div className="max-h-56 overflow-y-auto divide-y divide-brand-deep/10 [scrollbar-width:thin]">
+                          {sugerenciasEntrega.map((c) => (
+                            <button
+                              key={c.id ?? `${c.nit}-${c.bodega}`}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => elegirSugerenciaEntrega(c)}
+                              className="w-full px-3 py-2.5 text-left transition-colors hover:bg-brand-deep/10 focus:bg-brand-deep/10 outline-none"
+                            >
+                              <span className="block text-sm font-bold text-brand-ink truncate">
+                                {c.cliente}
+                              </span>
+                              <span className="block text-xs text-brand-deep/70 truncate">
+                                NIT {c.nit} · Bodega {c.bodega}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="bg-brand-mist/70 px-3 py-1.5 text-[0.65rem] text-brand-deep/70">
+                          {sugerenciasEntrega.length === 8
+                            ? 'Mostrando los primeros 8. Usa la lupa para ver todos.'
+                            : 'Toca uno para completar la bodega.'}
+                        </div>
+                      </div>
+                    )}
+
+                    {listaAbiertaEntrega && sugerenciasEntrega.length === 0 &&
+                      catalogoClientes.length > 0 &&
+                      formData.entrega_cliente.trim() !== '' && (
+                        <div className="absolute z-30 left-0 right-0 top-[calc(100%+4px)] rounded-xl border border-brand-deep/20 bg-white shadow-2xl px-3 py-2.5 text-xs text-brand-ink/70">
+                          Sin coincidencias. Escribe el nombre, el NIT o la bodega, o
+                          usa la lupa para ver el catálogo completo.
+                        </div>
+                      )}
                   </div>
                   <FormField
                     label="Bodega"
