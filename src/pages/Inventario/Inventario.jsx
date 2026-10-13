@@ -640,7 +640,7 @@ export default function Inventario() {
 
               {/* Paginación */}
               {totalPaginas > 1 && (
-                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6">
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6 w-full max-w-full">
                   <button
                     type="button"
                     onClick={() => setPagina(Math.max(1, paginaSegura - 1))}
@@ -650,7 +650,7 @@ export default function Inventario() {
                     <MdNavigateBefore className="text-lg" />
                     <span className="hidden sm:inline">Anterior</span>
                   </button>
-                  <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 max-w-full min-w-0">
                     {paginasVisibles(paginaSegura, totalPaginas).map((p, i) =>
                       p === '⬦' ? (
                         <span key={`gap-${i}`} className="px-1 text-sm font-bold text-brand-ink/40">⬦</span>
@@ -659,7 +659,7 @@ export default function Inventario() {
                           key={p}
                           type="button"
                           onClick={() => setPagina(p)}
-                          className={`size-8 sm:size-9 rounded-full font-bold text-sm transition-all ${
+                          className={`size-8 sm:size-9 shrink-0 rounded-full font-bold text-sm transition-all ${
                             paginaSegura === p
                               ? 'bg-brand-cyan text-brand-ink shadow-cyanGlow'
                               : 'bg-white text-brand-ink border border-brand-ink/15 hover:bg-brand-deep/10'

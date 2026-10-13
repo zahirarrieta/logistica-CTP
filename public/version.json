@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.13-32",
+  "version": "2026.10.13-33",
   "fecha": "2026-10-13",
   "cambios": [
+    "Inventario: la paginación ya no se sale de la pantalla en celular (los números se acomodan en varias filas), así que desaparece la franja lateral azul que aparecía al desplazarse.",
     "Solicitudes: un pedido cancelado ahora muestra los botones de acciones (asignar y cambiar estado) solo al superadministrador, para poder asignarlo o reabrirlo cuando haga falta.",
     "Solicitudes: se quitó el contador de 5 minutos de la devolución a solicitante. La solicitud se queda en «Devolución a Solicitante» hasta que el solicitante haga sus cambios, sin vencerse.",
     "Inventario: el tooltip de las zonas en el mapa ya no se recorta por el borde superior (p. ej. la Costa); ahora se ubica solo, así que se ve en los pines pegados al borde.",
