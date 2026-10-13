@@ -1,7 +1,9 @@
 {
-  "version": "2026.10.14-37",
+  "version": "2026.10.14-38",
   "fecha": "2026-10-14",
   "cambios": [
+    "Inicio: el botón «Recolección» ahora tiene la misma animación que «Nuevo Pedido» (el ícono se desliza al pasar el cursor).",
+    "Solicitudes: el tipo de solicitud «RECOLECCIÓN DE DISPOSITIVOS» ya no aparece en el listado del formulario (las recolecciones se registran desde el botón «Recolección»).",
     "Solicitudes: las recolecciones ahora viven en una pestaña «Mis recolecciones» dentro de «Mis solicitudes» (junto a la pestaña «Mis solicitudes»), para no llenar el menú de botones. Se quitó el botón «Recolecciones» del encabezado.",
     "Solicitudes e Inicio: el botón «Recolección» ahora tiene el mismo diseño que «Nuevo Pedido».",
     "Corrección: al abrir la aplicación ya no aparece el formulario de «Nueva recolección» encima del inicio; ahora solo se muestra al pulsar el botón «Recolección».",
