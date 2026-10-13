@@ -45,6 +45,7 @@ import {
   formatearFechaHora,
   rangoInventario,
 } from '../../utils/inventarioUtils.js'
+import { paginasVisibles } from '../../utils/paginacion.js'
 
 const POR_PAGINA = 24
 
@@ -154,23 +155,6 @@ function ChipActivo({ children, onQuitar }) {
       </button>
     </span>
   )
-}
-
-// Páginas visibles alrededor de la actual, con «⬦» cuando se salta.
-function paginasVisibles(pagina, total) {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const cerca = [1, 2, pagina - 1, pagina, pagina + 1, total - 1, total]
-    .filter((p) => p >= 1 && p <= total)
-    .filter((p, i, a) => a.indexOf(p) === i)
-    .sort((a, b) => a - b)
-  const salida = []
-  let anterior = 0
-  for (const p of cerca) {
-    if (p - anterior > 1) salida.push('⬦')
-    salida.push(p)
-    anterior = p
-  }
-  return salida
 }
 
 export default function Inventario() {

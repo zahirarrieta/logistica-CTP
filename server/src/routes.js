@@ -98,6 +98,18 @@ function formatearCodigo(n) {
   return `CTPLOG-${String(n).padStart(5, '0')}`
 }
 
+// Código del módulo de recolección: secuencia propia (Rec-00001) para no
+// mezclarse con los CTPLOG de las solicitudes.
+function formatearCodigoRec(n) {
+  return `Rec-${String(n).padStart(5, '0')}`
+}
+
+const RE_CODIGO_REC = /^Rec-\d{5}$/i
+
+function esCodigoRecValido(c) {
+  return typeof c === 'string' && RE_CODIGO_REC.test(c)
+}
+
 // Todo código que llega del cliente se valida contra este patrón antes de tocar
 // nada: es lo que impide que una fila arbitraria se cuele como clave primaria.
 const RE_CODIGO = /^CTPLOG-\d{5}$/
@@ -622,6 +634,283 @@ router.post(
     )
 
     res.status(201).json({ ok: true, total: filas.length })
+  })
+)
+
+// ---------------------------------------------------------------------------
+// Recolecciones
+// ---------------------------------------------------------------------------
+// Módulo propio, hermano del de solicitudes pero con su propia secuencia
+// (Rec-00001) y su propio ciclo de vida (Abierto → Trámite → Entregado/Fallido).
+// El alta lleva los adjuntos en la MISMA petición (multipart) porque el código
+// lo genera el servidor: así no hace falta reservar antes ni tocar el servicio
+// de archivos de las solicitudes, y el archivo queda bajo
+// {usuario}/Rec-00001/. La tabla se crea sola en el primer uso, igual que
+// inventario, push_suscripciones y correos_enviados: un hosting ya desplegado no
+// necesita pegar SQL.
+let recoleccionesCreado = false
+
+async function asegurarRecolecciones() {
+  if (recoleccionesCreado) return true
+  try {
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS recolecciones (
+        codigo            VARCHAR(32)  NOT NULL,
+        fecha_subida      VARCHAR(40)  NOT NULL DEFAULT '',
+        hora_subida       VARCHAR(40)  NOT NULL DEFAULT '',
+        nombre_completo   VARCHAR(190) NOT NULL DEFAULT '',
+        correo            VARCHAR(190) NOT NULL DEFAULT '',
+        zona              VARCHAR(120) NOT NULL DEFAULT '',
+        recoge_cliente    VARCHAR(255) NOT NULL DEFAULT '',
+        recoge_nit        VARCHAR(32)  NOT NULL DEFAULT '',
+        recoge_bodega     VARCHAR(120) NOT NULL DEFAULT '',
+        fecha_recoleccion VARCHAR(40)  NOT NULL DEFAULT '',
+        hora_recoleccion  VARCHAR(40)  NOT NULL DEFAULT '',
+        que_recogemos     TEXT         NOT NULL,
+        observaciones     TEXT         NOT NULL,
+        persona_contacto  VARCHAR(190) NOT NULL DEFAULT '',
+        entrega_cliente   VARCHAR(255) NOT NULL DEFAULT '',
+        entrega_nit       VARCHAR(32)  NOT NULL DEFAULT '',
+        entrega_bodega    VARCHAR(120) NOT NULL DEFAULT '',
+        adjuntos          JSON         NOT NULL,
+        estado            VARCHAR(40)  NOT NULL DEFAULT 'Abierto',
+        creado_en         DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        actualizado_en    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (codigo),
+        KEY recolecciones_estado_idx (estado),
+        KEY recolecciones_correo_idx (correo),
+        KEY recolecciones_actualizado_idx (actualizado_en)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `)
+    await pool.execute(
+      `INSERT INTO contadores (nombre, valor) VALUES ('recolecciones_codigo', 1)
+         ON DUPLICATE KEY UPDATE nombre = nombre`
+    )
+    recoleccionesCreado = true
+    return true
+  } catch (error) {
+    console.error(`[Recolecciones] no se pudo crear/verificar la tabla: ${error?.message}`)
+    return false
+  }
+}
+
+const COLUMNAS_RECOLECCION = [
+  'fecha_subida', 'hora_subida', 'nombre_completo', 'correo', 'zona',
+  'recoge_cliente', 'recoge_nit', 'recoge_bodega',
+  'fecha_recoleccion', 'hora_recoleccion',
+  'que_recogemos', 'observaciones', 'persona_contacto',
+  'entrega_cliente', 'entrega_nit', 'entrega_bodega',
+  'adjuntos', 'estado',
+]
+
+const textoRec = (v, max = 500) =>
+  String(v === undefined || v === null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max)
+
+// Texto de un textarea: conserva los saltos de línea (no los colapsa como textoRec).
+const textoLargoRec = (v, max = 4000) =>
+  String(v === undefined || v === null ? '' : v).trim().slice(0, max)
+
+function leerRecoleccion(cuerpo) {
+  const c = cuerpo || {}
+  return {
+    fecha_subida: textoRec(c.fecha_subida, 40),
+    hora_subida: textoRec(c.hora_subida, 40),
+    nombre_completo: textoRec(c.nombre_completo, 190),
+    correo: textoRec(c.correo, 190).toLowerCase(),
+    zona: textoRec(c.zona, 120),
+    recoge_cliente: textoRec(c.recoge_cliente, 255),
+    recoge_nit: textoRec(c.recoge_nit, 32),
+    recoge_bodega: textoRec(c.recoge_bodega, 120),
+    fecha_recoleccion: textoRec(c.fecha_recoleccion, 40),
+    hora_recoleccion: textoRec(c.hora_recoleccion, 40),
+    que_recogemos: textoLargoRec(c.que_recogemos),
+    observaciones: textoLargoRec(c.observaciones),
+    persona_contacto: textoRec(c.persona_contacto, 190),
+    entrega_cliente: textoRec(c.entrega_cliente, 255),
+    entrega_nit: textoRec(c.entrega_nit, 32),
+    entrega_bodega: textoRec(c.entrega_bodega, 120),
+    estado: P.ESTADOS_RECOLECCION.includes(c.estado) ? c.estado : 'Abierto',
+  }
+}
+
+function filaRecoleccion(f) {
+  return {
+    ...f,
+    adjuntos: aArrayJson(f.adjuntos),
+    creado_en: iso(f.creado_en),
+    actualizado_en: iso(f.actualizado_en),
+  }
+}
+
+// Nombre en disco del adjunto: marca única + nombre original (el guardado sanea
+// los separadores). Evita que dos archivos con el mismo nombre se pisen.
+function nombreAdjuntoRec(nombre) {
+  const original = String(nombre || 'archivo').replace(/[/\\]+/g, '_').slice(0, 140)
+  const marca = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+  return `adj_${marca}_${original}`
+}
+
+const subidaRec = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: archivos.LIMITE_BYTES, files: 3 },
+})
+
+router.get(
+  '/recolecciones',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (!P.puedeVerRecolecciones(ctx)) {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+    await asegurarRecolecciones()
+    const filtro = P.filtroRecolecciones(ctx)
+    const [filas] = await pool.execute(
+      `SELECT * FROM recolecciones
+        WHERE ${filtro.sql}
+        ORDER BY creado_en DESC, codigo DESC`,
+      filtro.params
+    )
+    res.json(filas.map(filaRecoleccion))
+  })
+)
+
+router.get(
+  '/recolecciones/siguiente',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (!P.puedeVerRecolecciones(ctx)) {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+    await asegurarRecolecciones()
+    const [[fila]] = await pool.execute(
+      'SELECT valor FROM contadores WHERE nombre = ?',
+      ['recolecciones_codigo']
+    )
+    res.json({ codigo: formatearCodigoRec(fila ? fila.valor : 1) })
+  })
+)
+
+router.post(
+  '/recolecciones',
+  subidaRec.array('archivos', 3),
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    if (!P.permiteCrearRecoleccion(ctx)) {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+    await asegurarRecolecciones()
+    const datos = leerRecoleccion(req.body)
+    if (!datos.recoge_cliente) {
+      return res.status(400).json({ error: 'Falta el cliente de recolección' })
+    }
+    if (!datos.que_recogemos) {
+      return res.status(400).json({ error: 'Falta indicar qué se recoge' })
+    }
+    const enviados = Array.isArray(req.files) ? req.files : []
+    const usuario = String(ctx.nombre || ctx.correo || 'recolecciones').trim()
+
+    const conexion = await pool.getConnection()
+    const rutas = []
+    let codigo = ''
+    try {
+      await conexion.beginTransaction()
+      // Asegura la fila del contador antes de bloquearla (sin esto, el
+      // SELECT ... FOR UPDATE no bloquearía nada y dos altas cogerían el mismo).
+      await conexion.execute(
+        `INSERT INTO contadores (nombre, valor) VALUES (?, 1)
+           ON DUPLICATE KEY UPDATE nombre = VALUES(nombre)`,
+        ['recolecciones_codigo']
+      )
+      const [cont] = await conexion.execute(
+        'SELECT valor FROM contadores WHERE nombre = ? FOR UPDATE',
+        ['recolecciones_codigo']
+      )
+      const actual = cont[0] ? Number(cont[0].valor) : 1
+      codigo = formatearCodigoRec(actual)
+      await conexion.execute(
+        'UPDATE contadores SET valor = ? WHERE nombre = ?',
+        [actual + 1, 'recolecciones_codigo']
+      )
+
+      for (const f of enviados) {
+        rutas.push(archivos.guardar(`${usuario}/${codigo}`, nombreAdjuntoRec(f.originalname), f.buffer))
+      }
+
+      const fila = { ...datos, adjuntos: JSON.stringify(rutas) }
+      await conexion.execute(
+        `INSERT INTO recolecciones (codigo, ${COLUMNAS_RECOLECCION.join(', ')})
+         VALUES (?, ${COLUMNAS_RECOLECCION.map(() => '?').join(', ')})`,
+        [codigo, ...COLUMNAS_RECOLECCION.map((c) => fila[c])]
+      )
+      await conexion.commit()
+    } catch (error) {
+      try { await conexion.rollback() } catch { /* sin transacción que deshacer */ }
+      // Los archivos ya escritos no deben quedar huérfanos si la fila no llegó a
+      // guardarse.
+      for (const r of rutas) {
+        try { archivos.borrar(r) } catch { /* basura en disco, no es fatal */ }
+      }
+      throw error
+    } finally {
+      conexion.release()
+    }
+
+    res.status(201).json({ ok: true, codigo, adjuntos: rutas })
+  })
+)
+
+router.put(
+  '/recolecciones/:codigo',
+  ruta(async (req, res) => {
+    const ctx = await conContexto(req)
+    await asegurarRecolecciones()
+    const codigo = String(req.params.codigo || '')
+    if (!esCodigoRecValido(codigo)) {
+      return res.status(400).json({ error: 'Código inválido' })
+    }
+    const [filas] = await pool.execute(
+      'SELECT * FROM recolecciones WHERE codigo = ? LIMIT 1',
+      [codigo]
+    )
+    const actual = filas[0]
+    if (!actual) return res.status(404).json({ error: 'No existe la recolección' })
+    if (!P.permiteActualizarRecoleccion(ctx, actual)) {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+
+    // Solo se actualizan las columnas que llegaron en el cuerpo: así un cambio de
+    // estado no borra el resto de los datos por no reenviarlos.
+    const cuerpo = req.body || {}
+    const cambios = []
+    const params = []
+    for (const col of COLUMNAS_RECOLECCION) {
+      if (!Object.prototype.hasOwnProperty.call(cuerpo, col)) continue
+      let valor
+      if (col === 'adjuntos') {
+        valor = JSON.stringify(aArrayJson(cuerpo[col]))
+      } else if (col === 'estado') {
+        if (!P.ESTADOS_RECOLECCION.includes(cuerpo[col])) {
+          return res.status(400).json({ error: 'Estado inválido' })
+        }
+        valor = cuerpo[col]
+      } else if (col === 'que_recogemos' || col === 'observaciones') {
+        valor = textoLargoRec(cuerpo[col])
+      } else {
+        valor = textoRec(cuerpo[col], 255)
+      }
+      cambios.push(`${col} = ?`)
+      params.push(valor)
+    }
+    if (cambios.length === 0) return res.json({ ok: true })
+
+    params.push(codigo)
+    await pool.execute(
+      `UPDATE recolecciones
+          SET ${cambios.join(', ')}, actualizado_en = CURRENT_TIMESTAMP(3)
+        WHERE codigo = ?`,
+      params
+    )
+    res.json({ ok: true })
   })
 )
 
@@ -1277,7 +1566,26 @@ async function codigosVisibles(ctx, codigos) {
       WHERE ${filtro.sql} AND codigo IN (${marcas})`,
     [...filtro.params, ...unicos]
   )
-  return new Set(filas.map((f) => f.codigo))
+  const visibles = new Set(filas.map((f) => f.codigo))
+
+  // Los adjuntos de una recolección viven bajo su propio código (Rec-xxxxx),
+  // así que se autorizan contra la tabla recolecciones con el mismo criterio de
+  // visibilidad. El try/catch cubre el caso de una instalación recién nacida en
+  // la que la tabla todavía no existe (se crea sola en el primer uso).
+  if (P.puedeVerRecolecciones(ctx)) {
+    try {
+      const filtroRec = P.filtroRecolecciones(ctx)
+      const [recs] = await pool.execute(
+        `SELECT codigo FROM recolecciones
+          WHERE ${filtroRec.sql} AND codigo IN (${marcas})`,
+        [...filtroRec.params, ...unicos]
+      )
+      for (const r of recs) visibles.add(r.codigo)
+    } catch (error) {
+      if (error?.code !== 'ER_NO_SUCH_TABLE' && error?.errno !== 1146) throw error
+    }
+  }
+  return visibles
 }
 
 // Localiza el código de la solicitud dentro de una ruta. Con la estructura
@@ -1287,7 +1595,7 @@ async function codigosVisibles(ctx, codigos) {
 function codigoDeRuta(ruta) {
   const limpio = String(ruta || '').replace(/\\/g, '/').replace(/^\/+/, '')
   const partes = limpio.split('/').filter(Boolean)
-  const encontrado = partes.find((p) => /^CTPLOG-\d+/i.test(p))
+  const encontrado = partes.find((p) => /^(CTPLOG|Rec)-\d+/i.test(p))
   return encontrado || partes[0] || ''
 }
 

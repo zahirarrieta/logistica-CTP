@@ -17,6 +17,7 @@ const CLAVE_SESION_INICIO = 'ctp_sesion_inicio'
 const Login = lazy(() => import('./pages/Login/Login.jsx'))
 const Home = lazy(() => import('./pages/Home/Home.jsx'))
 const Solicitudes = lazy(() => import('./pages/Home/Solicitudes.jsx'))
+const Recolecciones = lazy(() => import('./pages/Recolecciones/Recolecciones.jsx'))
 const Administrador = lazy(() => import('./pages/Administrador/Administrador.jsx'))
 const Conductor = lazy(() => import('./pages/Conductor/Conductor.jsx'))
 const Inventario = lazy(() => import('./pages/Inventario/Inventario.jsx'))
@@ -103,6 +104,7 @@ return (
           <Route path="/" element={<Protegida path="/inicio"><Home /></Protegida>} />
           <Route path="/inicio" element={<Protegida path="/inicio"><Home /></Protegida>} />
           <Route path="/solicitudes" element={<Protegida path="/solicitudes"><Solicitudes /></Protegida>} />
+          <Route path="/recolecciones" element={<Protegida path="/recolecciones"><Recolecciones /></Protegida>} />
           <Route path="/administrador" element={<Protegida path="/administrador"><Administrador /></Protegida>} />
           <Route path="/conductor" element={<Protegida path="/conductor"><Conductor /></Protegida>} />
           <Route path="/inventario" element={<Protegida path="/inventario"><Inventario /></Protegida>} />

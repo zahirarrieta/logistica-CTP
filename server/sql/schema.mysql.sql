@@ -300,6 +300,49 @@ CREATE TABLE IF NOT EXISTS inventario (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
+-- 6c. RECOLECCIONES (módulo propio: recogidas que se piden fuera del flujo de
+--     solicitudes, con su propia secuencia Rec-00001 y su propio ciclo de vida)
+--     Los adjuntos son un array de rutas de archivo en el servidor (JSON), igual
+--     que en solicitudes. `correo` es la cuenta que registró la recolección y es
+--     la que decide quién la ve (el resto de roles privilegiados ven todas).
+--     No hace falta crearla a mano: server/src/routes.js la crea sola en el
+--     primer uso (igual que inventario, push_suscripciones y correos_enviados).
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS recolecciones (
+  codigo            VARCHAR(32)  NOT NULL,
+  fecha_subida      VARCHAR(40)  NOT NULL DEFAULT '',
+  hora_subida       VARCHAR(40)  NOT NULL DEFAULT '',
+  nombre_completo   VARCHAR(190) NOT NULL DEFAULT '',
+  correo            VARCHAR(190) NOT NULL DEFAULT '',
+  zona              VARCHAR(120) NOT NULL DEFAULT '',
+  recoge_cliente    VARCHAR(255) NOT NULL DEFAULT '',
+  recoge_nit        VARCHAR(32)  NOT NULL DEFAULT '',
+  recoge_bodega     VARCHAR(120) NOT NULL DEFAULT '',
+  fecha_recoleccion VARCHAR(40)  NOT NULL DEFAULT '',
+  hora_recoleccion  VARCHAR(40)  NOT NULL DEFAULT '',
+  que_recogemos     TEXT         NOT NULL,
+  observaciones     TEXT         NOT NULL,
+  persona_contacto  VARCHAR(190) NOT NULL DEFAULT '',
+  entrega_cliente   VARCHAR(255) NOT NULL DEFAULT '',
+  entrega_nit       VARCHAR(32)  NOT NULL DEFAULT '',
+  entrega_bodega    VARCHAR(120) NOT NULL DEFAULT '',
+  adjuntos          JSON         NOT NULL,
+  estado            VARCHAR(40)  NOT NULL DEFAULT 'Abierto',
+  creado_en         DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  actualizado_en    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (codigo),
+  KEY recolecciones_estado_idx (estado),
+  KEY recolecciones_correo_idx (correo),
+  KEY recolecciones_actualizado_idx (actualizado_en),
+  CONSTRAINT recolecciones_estado_ck
+    CHECK (estado IN ('Abierto', 'Trámite', 'Fallido', 'Entregado'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contador propio de recolecciones (mismo patrón que solicitudes_codigo).
+INSERT INTO contadores (nombre, valor) VALUES ('recolecciones_codigo', 1)
+  ON DUPLICATE KEY UPDATE nombre = nombre;
+
+-- ----------------------------------------------------------------------------
 -- 7. ROLES INICIALES
 --     El alta ya no se hace por SQL: la pantalla de registro crea las cuentas y
 --     les asigna el rol 'solicitante'. Para la PRIMERA cuenta con permisos de

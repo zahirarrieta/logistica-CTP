@@ -17,6 +17,7 @@ import {
   MdPersonAdd,
   MdRestartAlt,
   MdSend,
+  MdStorefront,
   MdSwapHoriz,
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
@@ -571,6 +572,34 @@ export function errorInventario(mensaje) {
     duration: 7000,
     title: 'No se pudo subir el inventario',
     icon: <MdInventory2 />,
+    description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Módulo Recolección
+// ---------------------------------------------------------------------------
+export function recoleccionCreada(recoleccion = {}) {
+  sileo.success({
+    ...BASE,
+    sonido: 'Abierto',
+    title: titulo(recoleccion.codigo, 'Recolección creada'),
+    icon: <MdStorefront />,
+    description: (
+      <>
+        {linea('Recolección creada correctamente.')}
+        {recoleccion.recoge_cliente && detalle(`Recoge: ${recoleccion.recoge_cliente}`)}
+      </>
+    ),
+  })
+}
+
+export function errorRecoleccion(mensaje) {
+  sileo.error({
+    ...BASE,
+    duration: 7000,
+    title: 'No se pudo completar la recolección',
+    icon: <MdStorefront />,
     description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
   })
 }

@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiTruck } from 'react-icons/fi'
+import { MdStorefront } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
+import RecoleccionModal from './Components/modals/RecoleccionModal.jsx'
 import { saveSolicitud } from '../../store/solicitudesStore.js'
 import { solicitudCreada } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { shortName } from '../../auth/user.js'
-import { esConductor } from '../../auth/roles.js'
+import { esConductor, puedeCrearRecoleccion } from '../../auth/roles.js'
 
 const ASSETS = {
   logo: '/CTPM.png',
@@ -36,6 +38,7 @@ function Home() {
   const navigate = useNavigate()
   const conductor = esConductor(rol)
   const [solicitudModalOpen, setSolicitudModalOpen] = useState(false)
+  const [recoleccionModalOpen, setRecoleccionModalOpen] = useState(false)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const touchStartXRef = useRef(null)
@@ -123,11 +126,21 @@ function Home() {
                           className="order-1 w-7 h-7 object-contain transition-all duration-500 ease-out group-hover:order-2 group-hover:ml-auto group-hover:translate-x-4 group-hover:scale-110 group-hover:drop-shadow-[0_6px_12px_rgba(0,0,0,0.25)] group-hover:animate-truckMove"
                         />
                         <span className="order-2 flex flex-col items-center tracking-wide text-brand-ink">
-                          {conductor ? 'MÓDULO CONDUCTOR' : 'NUEVA SOLICITUD'}
+                          {conductor ? 'MÓDULO CONDUCTOR' : 'NUEVO PEDIDO'}
                           <span className="mt-1 h-[3px] w-0 rounded-full bg-brand-ink/50 transition-all duration-300 group-hover:w-full group-hover:bg-brand-ink" />
                         </span>
                       </span>
                     </button>
+                    {!conductor && puedeCrearRecoleccion(rol) && (
+                      <button
+                        type="button"
+                        onClick={() => setRecoleccionModalOpen(true)}
+                        className="group inline-flex items-center justify-center gap-2 rounded-2xl px-8 py-4 max-lg:px-6 max-lg:py-3.5 font-extrabold text-white bg-white/10 ring-1 ring-brand-cyan/40 backdrop-blur-sm transition-all duration-300 hover:bg-brand-cyan/20 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-cyan/40"
+                      >
+                        <MdStorefront className="text-xl" />
+                        RECOLECCIÓN
+                      </button>
+                    )}
                   </div>
                 </section>
 
@@ -188,6 +201,11 @@ className={`absolute inset-0 m-auto max-h-full max-w-full object-contain transit
         open={solicitudModalOpen}
         onClose={() => setSolicitudModalOpen(false)}
         onSubmit={handleNewSolicitud}
+      />
+      <RecoleccionModal
+        open={recoleccionModalOpen}
+        onClose={() => setRecoleccionModalOpen(false)}
+        onCreated={() => setRecoleccionModalOpen(false)}
       />
       {/* Botón flotante CTP */}
       <a

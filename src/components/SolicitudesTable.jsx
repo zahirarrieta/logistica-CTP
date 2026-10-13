@@ -34,6 +34,7 @@ import { getBadgeColor, getDotColor, getEstadoBg } from '../utils/estadoColors.j
 import { pdfsTramite } from '../utils/pdfUtils.js'
 import { nombreDeAsignado, restanteEliminar } from '../store/solicitudesStore.js'
 import { formatearMs } from '../utils/dashboardUtils.js'
+import { paginasVisibles } from '../utils/paginacion.js'
 import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'
 import DetalleModal from './DetalleModal.jsx'
@@ -786,42 +787,48 @@ export default function SolicitudesTable({
       </div>
 
       {/* Paginación */}
-      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6">
-        <button
-          type="button"
-          onClick={() => setCurrentPage(Math.max(1, page - 1))}
-          disabled={page === 1}
-          className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white font-bold px-3 sm:px-5 py-2 sm:py-2.5 text-sm hover:bg-brand-deep transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <MdNavigateBefore className="text-lg" />
-          <span className="hidden sm:inline">Anterior</span>
-        </button>
-        <div className="flex items-center gap-1 sm:gap-1.5">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setCurrentPage(p)}
-              className={`size-8 sm:size-9 rounded-full font-bold text-sm transition-all ${
-                page === p
-                  ? 'bg-brand-cyan text-brand-ink shadow-cyanGlow'
-                  : 'bg-white text-brand-ink border border-brand-ink/15 hover:bg-brand-deep/10'
-              }`}
-            >
-              {p}
-            </button>
-          ))}
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6 w-full max-w-full">
+          <button
+            type="button"
+            onClick={() => setCurrentPage(Math.max(1, page - 1))}
+            disabled={page === 1}
+            className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white font-bold px-3 sm:px-5 py-2 sm:py-2.5 text-sm hover:bg-brand-deep transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <MdNavigateBefore className="text-lg" />
+            <span className="hidden sm:inline">Anterior</span>
+          </button>
+          <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 max-w-full min-w-0">
+            {paginasVisibles(page, totalPages).map((p, i) =>
+              p === '⬦' ? (
+                <span key={`gap-${i}`} className="px-1 text-sm font-bold text-brand-ink/40">⬦</span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setCurrentPage(p)}
+                  className={`size-8 sm:size-9 shrink-0 rounded-full font-bold text-sm transition-all ${
+                    page === p
+                      ? 'bg-brand-cyan text-brand-ink shadow-cyanGlow'
+                      : 'bg-white text-brand-ink border border-brand-ink/15 hover:bg-brand-deep/10'
+                  }`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
+            disabled={page === totalPages}
+            className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white font-bold px-3 sm:px-5 py-2 sm:py-2.5 text-sm hover:bg-brand-deep transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="hidden sm:inline">Siguiente</span>
+            <MdNavigateNext className="text-lg" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
-          disabled={page === totalPages}
-          className="inline-flex items-center gap-1 rounded-full bg-brand-navy text-white font-bold px-3 sm:px-5 py-2 sm:py-2.5 text-sm hover:bg-brand-deep transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <span className="hidden sm:inline">Siguiente</span>
-          <MdNavigateNext className="text-lg" />
-        </button>
-      </div>
+      )}
 
       <ObservacionesModal
         solicitud={obsSolicitud}

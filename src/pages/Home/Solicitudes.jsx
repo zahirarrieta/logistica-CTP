@@ -1,21 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { MdAdd, MdInbox, MdFilterList } from 'react-icons/md'
+import { MdAdd, MdInbox, MdFilterList, MdStorefront } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
+import RecoleccionModal from './Components/modals/RecoleccionModal.jsx'
 import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
 import EstadosModal from '../Administrador/Components/modals/EstadosModal.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import { loadSolicitudes, saveSolicitud, corregirSolicitud, updateSolicitud, suscribir, puedeEliminarSolicitud, restanteEliminar } from '../../store/solicitudesStore.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
+import { puedeCrearRecoleccion } from '../../auth/roles.js'
 import { solicitudCreada, solicitudCorregida, estadoActualizado } from '../../services/notificaciones.jsx'
 
 export default function Solicitudes() {
-  const { account } = useAuth()
+  const { account, rol } = useAuth()
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [modalOpen, setModalOpen] = useState(false)
+  const [recoleccionModalOpen, setRecoleccionModalOpen] = useState(false)
   const [editarSolicitud, setEditarSolicitud] = useState(null)
   const [detalleSolicitud, setDetalleSolicitud] = useState(null)
   const [plantilla, setPlantilla] = useState(null)
@@ -142,14 +145,24 @@ export default function Solicitudes() {
                 Listado de tus solicitudes registradas
               </p>
             </div>
-            <div className="flex items-center justify-end gap-2 sm:gap-3 shrink-0">
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 shrink-0">
+              {puedeCrearRecoleccion(rol) && (
+                <button
+                  type="button"
+                  onClick={() => setRecoleccionModalOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-full bg-white text-brand-deep ring-1 ring-brand-deep/25 px-5 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base font-bold hover:bg-brand-mist hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70"
+                >
+                  <MdStorefront className="text-lg" />
+                  Recolección
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setModalOpen(true)}
                 className="inline-flex items-center gap-2 rounded-full bg-brand-cyan text-brand-ink px-5 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base font-bold shadow-cyanGlow hover:shadow-[0_0_30px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70"
               >
                 <MdAdd className="text-lg" />
-                Nueva solicitud
+                Nuevo Pedido
               </button>
             </div>
           </div>
@@ -183,7 +196,7 @@ export default function Solicitudes() {
                 : {
                     icon: <MdInbox />,
                     title: 'Aún no tienes solicitudes',
-                    text: 'Crea tu primera solicitud con el botón «Nueva solicitud».',
+                    text: 'Crea tu primera solicitud con el botón «Nuevo Pedido».',
                   }
             }
           />
@@ -225,6 +238,12 @@ export default function Solicitudes() {
         onClose={() => setCancelarSolicitud(null)}
         onUpdate={handleCancelarSubmit}
         permitidos={['Cancelado']}
+      />
+
+      <RecoleccionModal
+        open={recoleccionModalOpen}
+        onClose={() => setRecoleccionModalOpen(false)}
+        onCreated={() => setRecoleccionModalOpen(false)}
       />
     </div>
   )

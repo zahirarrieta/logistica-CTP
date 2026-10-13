@@ -65,6 +65,38 @@ function esSuperAdmin(rol) {
   return rol === SUPERADMIN
 }
 
+// ---------------------------------------------------------------------------
+// recolecciones
+// ---------------------------------------------------------------------------
+// Estados propios del módulo de recolección, independientes de los de las
+// solicitudes: una recolección se abre, pasa a trámite y termina entregada o
+// fallida.
+const ESTADOS_RECOLECCION = ['Abierto', 'Trámite', 'Fallido', 'Entregado']
+
+// El conductor no entra al módulo: mueve entregas de solicitudes, no
+// recolecciones. Mismo criterio que el inventario.
+function puedeVerRecolecciones(ctx) {
+  return ctx.rol !== 'conductor'
+}
+
+// Quién ve qué: los privilegiados todas; el resto solo las que creó (la columna
+// `correo` guarda la cuenta que registró la recolección).
+function filtroRecolecciones(ctx) {
+  if (esPrivilegiado(ctx.rol)) return { sql: '1 = 1', params: [] }
+  return { sql: 'correo = ?', params: [ctx.correo] }
+}
+
+// Crean recolecciones el solicitante, el administrador y el superadmin.
+function permiteCrearRecoleccion(ctx) {
+  return ['solicitante', ...PRIVILEGIADOS].includes(ctx.rol)
+}
+
+// Editan (y cambian el estado de) el dueño de la recolección o un privilegiado.
+function permiteActualizarRecoleccion(ctx, actual) {
+  if (esPrivilegiado(ctx.rol)) return true
+  return (actual.correo || '') === ctx.correo
+}
+
 // Marcadores `?` para un IN de tamaño fijo.
 function marcas(valores) {
   return valores.map(() => '?').join(', ')
@@ -194,6 +226,10 @@ module.exports = {
   esPrivilegiado,
   esSuperAdmin,
   puedeSubirInventario,
+  puedeVerRecolecciones,
+  filtroRecolecciones,
+  permiteCrearRecoleccion,
+  permiteActualizarRecoleccion,
   filtroSolicitudes,
   permiteInsertarSolicitud,
   permiteActualizarSolicitud,
@@ -206,4 +242,5 @@ module.exports = {
   ESTADOS_TRANSITO,
   ESTADOS_ENTREGADAS,
   ESTADOS_TRAMITE,
+  ESTADOS_RECOLECCION,
 }
