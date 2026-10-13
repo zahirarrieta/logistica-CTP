@@ -17,7 +17,13 @@ import { esBodegaC } from '../../../utils/inventarioUtils.js'
 // dentro del mapa, debajo del botón, y se puede plegar para no tapar los pines.
 export default function MapaZonasPanel({ filas, onAbrir }) {
   const [zonaAbierta, setZonaAbierta] = useState(null)
-  const [tablaAbierta, setTablaAbierta] = useState(true)
+  const [tablaAbierta, setTablaAbierta] = useState(() => {
+    // En PC (>= 768px) abierto; en móvil (< 768px) cerrado
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768
+    }
+    return true
+  })
   const { ubicables, puntos } = useMemo(() => agruparZonas(filas), [filas])
 
   // Totales por zona excluyendo las bodegas en C, tal como se pidió: el conteo
@@ -90,24 +96,23 @@ export default function MapaZonasPanel({ filas, onAbrir }) {
                 ) : (
                   <div className="max-h-44 sm:max-h-56 overflow-y-auto [scrollbar-width:thin]">
                     <table className="w-full text-xs border-collapse">
-                      <thead className="sticky top-0 z-10 bg-brand-mist">
+                      <thead className="sticky top-0 z-10 bg-brand-navy text-white uppercase tracking-wider text-[10px]">
                         <tr>
-                          <th className="px-2.5 py-1.5 text-left font-extrabold uppercase tracking-wide text-brand-deep border-b border-brand-ink/10">
+                          <th className="px-2.5 py-1.5 text-left font-extrabold border-r border-white/15">
                             Zona
                           </th>
-                          <th className="px-2.5 py-1.5 text-right font-extrabold uppercase tracking-wide text-brand-deep border-b border-brand-ink/10 whitespace-nowrap">
-                            Art.
-                          </th>
-                          <th className="px-2.5 py-1.5 text-right font-extrabold uppercase tracking-wide text-brand-deep border-b border-brand-ink/10 whitespace-nowrap">
+                          <th className="px-2.5 py-1.5 text-right font-extrabold whitespace-nowrap">
                             Und.
                           </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {totales.grupos.map((g) => (
+                        {totales.grupos.map((g, i) => (
                           <tr
                             key={g.zona}
-                            className="border-b border-brand-ink/5 hover:bg-brand-cyan/10 transition-colors"
+                            className={`border-b border-brand-ink/5 hover:bg-brand-cyan/10 transition-colors ${
+                              i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'
+                            }`}
                           >
                             <td className="px-2.5 py-1.5 font-semibold text-brand-ink">
                               <span className="inline-flex items-center gap-1.5 min-w-0">
@@ -119,23 +124,17 @@ export default function MapaZonasPanel({ filas, onAbrir }) {
                               </span>
                             </td>
                             <td className="px-2.5 py-1.5 text-right tabular-nums font-bold text-brand-ink/80">
-                              {g.filas.length.toLocaleString('es-CO')}
-                            </td>
-                            <td className="px-2.5 py-1.5 text-right tabular-nums font-bold text-brand-ink/80">
                               {Math.round(g.cantidad).toLocaleString('es-CO')}
                             </td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-brand-cyan/15">
-                          <td className="px-2.5 py-1.5 text-left font-extrabold uppercase tracking-wide text-brand-deep">
+                        <tr className="bg-brand-navy text-white">
+                          <td className="px-2.5 py-1.5 text-left font-extrabold uppercase tracking-wide border-r border-white/15">
                             Total
                           </td>
-                          <td className="px-2.5 py-1.5 text-right tabular-nums font-extrabold text-brand-deep">
-                            {totales.articulos.toLocaleString('es-CO')}
-                          </td>
-                          <td className="px-2.5 py-1.5 text-right tabular-nums font-extrabold text-brand-deep">
+                          <td className="px-2.5 py-1.5 text-right tabular-nums font-extrabold">
                             {Math.round(totales.unidades).toLocaleString('es-CO')}
                           </td>
                         </tr>

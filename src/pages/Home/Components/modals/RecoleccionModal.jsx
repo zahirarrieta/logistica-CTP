@@ -894,6 +894,7 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
       <ArticulosBodegaModal
         open={articulosOpen}
         bodega={formData.recoge_bodega}
+        valorActual={formData.que_recogemos}
         onClose={() => setArticulosOpen(false)}
         onConfirm={(texto) => {
           setFormData((prev) => ({ ...prev, que_recogemos: texto }))

@@ -58,6 +58,14 @@ export default function Solicitudes() {
     )
   }, [solicitudes])
 
+  // Leer el parámetro ?tab=recolecciones para abrir directamente esa pestaña
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam === 'recolecciones' || tabParam === 'solicitudes') {
+      setTab(tabParam)
+    }
+  }, [searchParams])
+
   // «MIS SOLICITUDES» solo muestra las solicitudes creadas por el usuario
   // conectado (comparando por su correo). Los admin/superadmin ven el total
   // únicamente en el módulo Administrador.
@@ -275,7 +283,11 @@ export default function Solicitudes() {
       <RecoleccionModal
         open={recoleccionModalOpen}
         onClose={() => setRecoleccionModalOpen(false)}
-        onCreated={() => setRecoleccionModalOpen(false)}
+        onCreated={() => {
+          setRecoleccionModalOpen(false)
+          setTab('recolecciones')
+          setSearchParams({ tab: 'recolecciones' }, { replace: true })
+        }}
       />
     </div>
   )

@@ -24,9 +24,9 @@ function disponibleDe(fila) {
 // Cada fila tiene un campo de cantidad: si es mayor que 0 el artículo queda
 // seleccionado. Si la cantidad supera lo que hay en bodega la fila se marca en
 // rojo y no se puede confirmar. Al confirmar se devuelve el texto con una línea
-// por artículo («cantidad · descripción · Lote lote») para reemplazar «Qué
-// recogemos».
-export default function ArticulosBodegaModal({ open, onClose, bodega, onConfirm }) {
+// por artículo («cantidad · ARTÍCULO · DESCRIPCIÓN · Lote lote») para reemplazar
+// «Qué recogemos».
+export default function ArticulosBodegaModal({ open, onClose, bodega, onConfirm, valorActual = '' }) {
   const [filas, setFilas] = useState([])
   const [cargado, setCargado] = useState(false)
   const [cargando, setCargando] = useState(false)
@@ -52,15 +52,37 @@ export default function ArticulosBodegaModal({ open, onClose, bodega, onConfirm 
       .finally(() => setCargando(false))
   }
 
-  // El inventario se pide una sola vez mientras el modal esté montado; al abrir
-  // se limpia la selección previa y el buscador.
+  // Al abrir: si hay valorActual, parsearlo para pre-poblar la selección y NO borrarla.
+  // Si no hay valorActual, limpiar selección anterior.
   useEffect(() => {
     if (!open) return
-    setSeleccion({})
     setFiltro('')
+    if (valorActual && valorActual.trim()) {
+      // Parsear líneas: "cantidad · ARTÍCULO · DESCRIPCIÓN · Lote LOTE"
+      const lineas = valorActual.trim().split('\n')
+      const nuevaSeleccion = {}
+      for (const linea of lineas) {
+        const partes = linea.split(' · ')
+        if (partes.length >= 2) {
+          const cant = parseInt(partes[0].trim(), 10)
+          const articulo = partes[1].trim()
+          // Buscar el id del artículo en la bodega actual por número de artículo
+          const encontrado = filas.find((f) =>
+            String(f.numero_articulo || '').trim() === articulo &&
+            String(f.bodega || '').trim().toLowerCase() === bodegaNorm
+          )
+          if (encontrado && !isNaN(cant) && cant > 0) {
+            nuevaSeleccion[String(encontrado.id)] = cant
+          }
+        }
+      }
+      setSeleccion(nuevaSeleccion)
+    } else {
+      setSeleccion({})
+    }
     if (!cargado && !cargando) cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, valorActual, bodegaNorm])
 
   const enBodega = useMemo(
     () => filas.filter((f) => String(f.bodega || '').trim().toLowerCase() === bodegaNorm),

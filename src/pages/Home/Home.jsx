@@ -200,18 +200,22 @@ className={`absolute inset-0 m-auto max-h-full max-w-full object-contain transit
         </main>
       </div>
 
-      <Footer />
-      <SolicitudModal
-        open={solicitudModalOpen}
-        onClose={() => setSolicitudModalOpen(false)}
-        onSubmit={handleNewSolicitud}
-      />
-      <RecoleccionModal
-        open={recoleccionModalOpen}
-        onClose={() => setRecoleccionModalOpen(false)}
-        onCreated={() => setRecoleccionModalOpen(false)}
-      />
-    </div>
+<Footer />
+  <SolicitudModal
+    open={solicitudModalOpen}
+    onClose={() => setSolicitudModalOpen(false)}
+    onSubmit={handleNewSolicitud}
+  />
+  <RecoleccionModal
+    open={recoleccionModalOpen}
+    onClose={() => setRecoleccionModalOpen(false)}
+    onCreated={() => {
+      setRecoleccionModalOpen(false)
+      // Redirigir a la pestaña de recolecciones en Solicitudes
+      navigate('/solicitudes?tab=recolecciones')
+    }}
+  />
+</div>
   )
 }
 
