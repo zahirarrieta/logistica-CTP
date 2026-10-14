@@ -3,6 +3,7 @@ import { MdClose, MdCheckCircle, MdAssignmentInd, MdTag, MdPersonAdd, MdCheck } 
 import { nombreDeAsignado } from '../../../../store/solicitudesStore.js'
 import useUsuarios from '../../../../hooks/useUsuarios.js'
 import { esConductorUsuario } from '../../../../auth/roles.js'
+import { RESPONSABLES_RECOLECCION } from '../../../../utils/responsablesRecoleccion.js'
 import Modal from '../../../../components/Modal.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
@@ -17,10 +18,14 @@ function initials(name) {
 }
 
 export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate }) {
+  // Una recolección llega adaptada a forma de solicitud con la bandera
+  // `_esRecoleccion`. Su responsable NO sale de la tabla usuarios: es el listado
+  // operativo cerrado de cuatro cuentas, así que ni siquiera se pide la lista.
+  const esRecoleccion = Boolean(solicitud?._esRecoleccion)
   const asignadoA = nombreDeAsignado(solicitud?.asignadoA)
   const asignadoCorreoActual = String(solicitud?.asignadoCorreo || '').trim().toLowerCase()
   const [seleccion, setSeleccion] = useState('')
-  const { usuarios, cargando, error, recargar } = useUsuarios(open)
+  const { usuarios, cargando, error, recargar } = useUsuarios(open && !esRecoleccion)
 
   useEffect(() => {
     if (open) setSeleccion(asignadoCorreoActual)
@@ -28,10 +33,10 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
 
   if (!open || !solicitud) return null
 
-  const enTransito = ESTADOS_TRANSITO.includes(solicitud.estado)
+  const enTransito = !esRecoleccion && ESTADOS_TRANSITO.includes(solicitud.estado)
   const asignados = usuarios.filter((u) => u.rol === 'administrador' || u.rol === 'superadmin')
   const conductores = usuarios.filter(esConductorUsuario)
-  const lista = enTransito ? conductores : asignados
+  const lista = esRecoleccion ? RESPONSABLES_RECOLECCION : enTransito ? conductores : asignados
 
   const correoDe = (u) => String(u.correo || '').trim().toLowerCase()
   // Un usuario es el asignado actual si coincide su correo, o (registros antiguos
@@ -95,7 +100,9 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
         {/* Lista de usuarios */}
         <div className="p-4 sm:p-6 overflow-y-auto">
           <p className="text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-3">
-            {enTransito ? 'Selecciona el conductor' : 'Selecciona el usuario a asignar'}
+            {esRecoleccion
+              ? 'Selecciona el responsable de la recolección'
+              : enTransito ? 'Selecciona el conductor' : 'Selecciona el usuario a asignar'}
           </p>
           {cargando ? (
             <div className="flex flex-col items-center justify-center gap-3 py-10 text-brand-deep/60">

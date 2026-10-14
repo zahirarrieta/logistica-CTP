@@ -3,13 +3,14 @@ import {
   MdClose, MdPerson, MdEmail, MdPlace, MdNotes, MdCloudUpload, MdCancel,
   MdStorefront, MdEvent, MdAccessTime, MdSupportAgent, MdWarehouse, MdCategory,
   MdSearch, MdPhone, MdTag, MdErrorOutline, MdBusiness, MdInventory2, MdFactCheck,
-  MdLocalShipping, MdDelete,
+  MdLocalShipping, MdDelete, MdAssignmentInd, MdPersonAdd,
 } from 'react-icons/md'
 import Modal from '../../../../components/Modal.jsx'
 import FormField from '../FormField.jsx'
 import Loader from '../../../../loader/Loader.jsx'
 import ClientPickerModal from './ClientPickerModal.jsx'
 import ArticulosBodegaModal from './ArticulosBodegaModal.jsx'
+import AsignarUsuarioModal from '../../../Administrador/Components/modals/AsignarUsuarioModal.jsx'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import { crearRecoleccion, peekCodigoRecoleccion, peekCodigoRecoleccionSync } from '../../../../services/recoleccionesApi.js'
 import { cargarClientes } from '../../../../services/solicitudesApi.js'
@@ -46,6 +47,9 @@ const TIPOS_POR_ZONA = {
 // Texto del error de la casilla del Reglamento: se compara por igualdad en el
 // bloque de la declaración para pintarlo en rojo.
 const FALTA_DECLARACION = 'Debes aceptar la declaración del Reglamento Interno'
+
+// Error del responsable: es obligatorio, se elige con el modal «Asignar a».
+const FALTA_RESPONSABLE = 'Debes asignar un responsable a la recolección'
 
 // Etiquetas de los campos obligatorios, agrupadas por bloque y en el orden en
 // que aparecen en el formulario. Sirven a la vez para validar, para el listado
@@ -172,6 +176,8 @@ const FORM_VACIO = {
   entrega_cliente: '',
   entrega_nit: '',
   entrega_bodega: '',
+  asignado_a: '',
+  asignado_correo: '',
 }
 
 // Tarjeta con encabezado e ícono que agrupa los campos de una etapa del
@@ -257,6 +263,10 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   const [articulosSeleccionados, setArticulosSeleccionados] = useState([])
   // Casilla obligatoria: declaración de aceptación del Reglamento Interno.
   const [aceptaReglamento, setAceptaReglamento] = useState(false)
+  // El responsable se elige con el MISMO modal de «Asignar a» que usa el
+  // administrador (que para recolecciones ya muestra solo los cuatro nombres del
+  // listado cerrado). No se duplica la lista aquí.
+  const [asignarOpen, setAsignarOpen] = useState(false)
 
   // Precarga el próximo código al montar (el modal siempre está montado, aunque
   // cerrado) para que la caché ya esté caliente cuando el usuario lo abra: así el
@@ -281,6 +291,7 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
     setErrorServidor('')
     setLoading(false)
     setAceptaReglamento(false)
+    setAsignarOpen(false)
     // Parsear artículos existentes en «Qué recogemos» al abrir.
     setArticulosSeleccionados(parsearArticulosQueRecogemos(formData.que_recogemos || ''))
     // Muestra al instante el último código conocido y lo refresca del servidor.
@@ -435,6 +446,15 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
     setArchivos((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // El modal de «Asignar a» devuelve nombre y correo del responsable elegido.
+  const handleAsignarUpdate = (_id, cambios) => {
+    setFormData((prev) => ({
+      ...prev,
+      asignado_a: cambios?.asignadoA || '',
+      asignado_correo: cambios?.asignadoCorreo || '',
+    }))
+  }
+
   const validar = () => {
     const valores = {
       'Nombre del solicitante': formData.nombre_completo,
@@ -453,6 +473,7 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
       'Observaciones': formData.observaciones,
     }
     const faltan = CAMPOS_OBLIGATORIOS.filter((campo) => !String(valores[campo] ?? '').trim())
+    if (!String(formData.asignado_correo || '').trim()) faltan.push(FALTA_RESPONSABLE)
     if (!aceptaReglamento) faltan.push(FALTA_DECLARACION)
     return faltan
   }
@@ -872,6 +893,39 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                 </div>
               </Bloque>
 
+              {/* Bloque: responsable de la recolección (obligatorio). Se elige con el
+                  mismo modal de «Asignar a» del administrador, que para recolecciones
+                  muestra solo los cuatro nombres del listado cerrado. */}
+              <Bloque
+                titulo="Responsable"
+                icono={<MdAssignmentInd className="text-base" />}
+                requerido
+                invalid={falta(FALTA_RESPONSABLE)}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    {formData.asignado_a ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-brand-cyan/15 ring-1 ring-brand-cyan/40 px-3 py-1.5 text-sm font-bold text-brand-deep max-w-full">
+                        <MdAssignmentInd className="text-base shrink-0" />
+                        <span className="truncate">{formData.asignado_a}</span>
+                      </span>
+                    ) : (
+                      <p className="text-[11px] text-brand-ink/60">
+                        Pulsa «Asignar a» y elige el responsable de la recolección.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAsignarOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/15 px-3 py-1.5 text-xs font-bold text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition shrink-0"
+                  >
+                    <MdPersonAdd className="text-base" />
+                    Asignar a
+                  </button>
+                </div>
+              </Bloque>
+
               {/* Bloque: observaciones */}
               <Bloque
                 titulo="Observaciones"
@@ -1004,6 +1058,21 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
         open={picker !== null}
         onClose={() => setPicker(null)}
         onSelect={handleSelectCliente}
+      />
+
+      {/* Mismo modal de asignar del administrador, adaptado a recolección: con la
+          bandera `_esRecoleccion` muestra solo los cuatro responsables del listado. */}
+      <AsignarUsuarioModal
+        open={asignarOpen}
+        solicitud={{
+          id: tituloCodigo || 'NUEVA',
+          _esRecoleccion: true,
+          estado: 'Abierto',
+          asignadoA: formData.asignado_a,
+          asignadoCorreo: formData.asignado_correo,
+        }}
+        onClose={() => setAsignarOpen(false)}
+        onUpdate={handleAsignarUpdate}
       />
 
       <ArticulosBodegaModal

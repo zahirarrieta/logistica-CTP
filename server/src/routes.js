@@ -1011,6 +1011,11 @@ const COLUMNAS_RECOLECCION = [
   'adjuntos', 'estado',
 ]
 
+// Columnas del alta: además de las del formulario lleva el responsable que el
+// solicitante eligió. En el UPDATE esas dos se tratan aparte (van con su propia
+// validación y su entrada de historial), por eso no están en la lista base.
+const COLUMNAS_ALTA_RECOLECCION = [...COLUMNAS_RECOLECCION, 'asignado_a', 'asignado_correo']
+
 const textoRec = (v, max = 500) =>
   String(v === undefined || v === null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max)
 
@@ -1060,6 +1065,26 @@ function filaRecoleccionHistorial(h) {
   }
 }
 
+// Historial de varias recolecciones en UNA consulta, agrupado por código. La
+// campana de «Notificaciones de cambio» de la tabla lo necesita en cada fila; ir
+// de a una sería una petición por recolección en cada ciclo de polling.
+async function historialPorRecoleccion(codigos) {
+  if (!Array.isArray(codigos) || codigos.length === 0) return new Map()
+  const [filas] = await pool.execute(
+    `SELECT * FROM recoleccion_historial
+      WHERE recoleccion IN (${codigos.map(() => '?').join(', ')})
+      ORDER BY creado_en DESC`,
+    codigos
+  )
+  const mapa = new Map()
+  for (const f of filas) {
+    const lista = mapa.get(f.recoleccion)
+    if (lista) lista.push(filaRecoleccionHistorial(f))
+    else mapa.set(f.recoleccion, [filaRecoleccionHistorial(f)])
+  }
+  return mapa
+}
+
 // Nombre en disco del adjunto: marca única + nombre original (el guardado sanea
 // los separadores). Evita que dos archivos con el mismo nombre se pisen.
 function nombreAdjuntoRec(nombre) {
@@ -1088,7 +1113,8 @@ router.get(
         ORDER BY creado_en DESC, codigo DESC`,
       filtro.params
     )
-    res.json(filas.map(filaRecoleccion))
+    const historial = await historialPorRecoleccion(filas.map((f) => f.codigo))
+    res.json(filas.map((f) => filaRecoleccion({ ...f, historial: historial.get(f.codigo) || [] })))
   })
 )
 
@@ -1127,6 +1153,18 @@ router.post(
     if (!datos.que_recogemos) {
       return res.status(400).json({ error: 'Falta indicar qué se recoge' })
     }
+    // Responsable obligatorio: el solicitante encarga la recolección a una de las
+    // cuatro cuentas de operación. Si falta, o llega un correo fuera del listado,
+    // se rechaza el alta en vez de guardarla, porque después nadie sabría quién la
+    // tiene.
+    const correoResponsable = textoRec(req.body?.asignado_correo, 190).toLowerCase()
+    if (!correoResponsable) {
+      return res.status(400).json({ error: 'Debes asignar un responsable a la recolección' })
+    }
+    const responsable = P.responsableRecoleccion(correoResponsable)
+    if (!responsable) {
+      return res.status(400).json({ error: 'El responsable no está en el listado permitido' })
+    }
     const enviados = Array.isArray(req.files) ? req.files : []
     const usuario = String(ctx.nombre || ctx.correo || 'recolecciones').trim()
 
@@ -1157,11 +1195,16 @@ router.post(
         rutas.push(archivos.guardar(`${usuario}/${codigo}`, nombreAdjuntoRec(f.originalname), f.buffer))
       }
 
-      const fila = { ...datos, adjuntos: JSON.stringify(rutas) }
+      const fila = {
+        ...datos,
+        asignado_a: responsable.nombre,
+        asignado_correo: responsable.correo,
+        adjuntos: JSON.stringify(rutas),
+      }
       await conexion.execute(
-        `INSERT INTO recolecciones (codigo, ${COLUMNAS_RECOLECCION.join(', ')})
-         VALUES (?, ${COLUMNAS_RECOLECCION.map(() => '?').join(', ')})`,
-        [codigo, ...COLUMNAS_RECOLECCION.map((c) => fila[c])]
+        `INSERT INTO recolecciones (codigo, ${COLUMNAS_ALTA_RECOLECCION.join(', ')})
+         VALUES (?, ${COLUMNAS_ALTA_RECOLECCION.map(() => '?').join(', ')})`,
+        [codigo, ...COLUMNAS_ALTA_RECOLECCION.map((c) => fila[c])]
       )
       await conexion.commit()
     } catch (error) {
@@ -1213,6 +1256,20 @@ router.put(
       return res.status(403).json({ error: 'No autorizado' })
     }
 
+    // El responsable solo puede ser uno del listado cerrado: se valida el correo
+    // y el nombre se toma del listado, para que no quede guardado un par
+    // nombre/correo desalineado.
+    let responsable = null
+    if (Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_correo')) {
+      const correoNuevo = textoRec(cuerpo.asignado_correo, 190).toLowerCase()
+      if (correoNuevo) {
+        responsable = P.responsableRecoleccion(correoNuevo)
+        if (!responsable) {
+          return res.status(400).json({ error: 'El responsable no está en el listado permitido' })
+        }
+      }
+    }
+
     // Prepara entradas de historial para cambios de estado y asignación
     const historialEntradas = []
     const ahora = new Date()
@@ -1251,8 +1308,8 @@ router.put(
     // Cambio de asignación
     const asignadoActual = actual.asignado_a || ''
     const asignadoCorreoActual = actual.asignado_correo || ''
-    const nuevoAsignado = cuerpo.asignado_a
-    const nuevoAsignadoCorreo = cuerpo.asignado_correo
+    const nuevoAsignado = responsable ? responsable.nombre : cuerpo.asignado_a
+    const nuevoAsignadoCorreo = responsable ? responsable.correo : cuerpo.asignado_correo
     if (
       (Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_a') && nuevoAsignado !== asignadoActual) ||
       (Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_correo') && nuevoAsignadoCorreo !== asignadoCorreoActual)
@@ -1297,13 +1354,21 @@ router.put(
       cambios.push(`${col} = ?`)
       params.push(valor)
     }
-    if (Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_a')) {
-      cambios.push('asignado_a = ?')
-      params.push(textoRec(cuerpo.asignado_a, 190))
-    }
-    if (Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_correo')) {
-      cambios.push('asignado_correo = ?')
-      params.push(textoRec(cuerpo.asignado_correo, 190).toLowerCase())
+    // Con responsable válido se escriben las dos columnas juntas (nombre y correo
+    // salen del listado). Sin él se respeta lo que llegó, que puede ser un vacío
+    // para desasignar.
+    if (responsable) {
+      cambios.push('asignado_a = ?', 'asignado_correo = ?')
+      params.push(responsable.nombre, responsable.correo)
+    } else {
+      if (Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_a')) {
+        cambios.push('asignado_a = ?')
+        params.push(textoRec(cuerpo.asignado_a, 190))
+      }
+      if (Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_correo')) {
+        cambios.push('asignado_correo = ?')
+        params.push(textoRec(cuerpo.asignado_correo, 190).toLowerCase())
+      }
     }
     if (cambios.length === 0 && historialEntradas.length === 0) return res.json({ ok: true })
 

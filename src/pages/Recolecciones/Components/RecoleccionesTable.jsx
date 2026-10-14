@@ -4,11 +4,14 @@ import {
   MdPlace, MdAttachFile, MdNotes, MdStorefront, MdWarehouse, MdSupportAgent,
   MdPhone, MdEvent, MdNavigateBefore, MdNavigateNext, MdExpandMore, MdInbox,
   MdListAlt, MdOpenInFull, MdArrowForward, MdPersonAdd, MdSwapHoriz, MdHistory,
-  MdAssignmentInd,
+  MdAssignmentInd, MdNotificationsNone,
 } from 'react-icons/md'
 import { paginasVisibles } from '../../../utils/paginacion.js'
+import { getRecoleccionBadge, getRecoleccionDot } from '../../../utils/estadoRecoleccion.js'
 import AdjuntosModal from '../../../components/AdjuntosModal.jsx'
+import NotificationsPanel from '../../../components/NotificationsPanel.jsx'
 import TablaQueRecogemos from '../../../components/TablaQueRecogemos.jsx'
+import { AsignadoBadge } from '../../../components/SolicitudesTable.jsx'
 import { EstadoBadge } from './modals/RecoleccionDetalleModal.jsx'
 import RecoleccionSeguimientoModal from './modals/RecoleccionSeguimientoModal.jsx'
 
@@ -18,6 +21,32 @@ const adjuntosDe = (r) => (Array.isArray(r?.adjuntos) ? r.adjuntos : [])
 
 const tieneAsignado = (r) =>
   Boolean(String(r?.asignado_a || r?.asignado_correo || '').trim())
+
+// La campana reutiliza el panel de solicitudes, que trabaja con forma de
+// solicitud (id/cliente/zona/historial); la fila de recolección trae los nombres
+// de columna del backend.
+const paraNotificaciones = (r) => ({
+  id: r.codigo,
+  cliente: r.recoge_cliente,
+  zona: r.zona,
+  historial: Array.isArray(r.historial) ? r.historial : [],
+})
+
+function Campana({ r }) {
+  return (
+    <span className="inline-flex justify-center" onClick={(e) => e.stopPropagation()}>
+      <NotificationsPanel
+        solicitudes={[paraNotificaciones(r)]}
+        solicitudId={r.codigo}
+        titulo="Notificaciones de cambio"
+        compacto
+        fixed
+        badgeDe={getRecoleccionBadge}
+        dotDe={getRecoleccionDot}
+      />
+    </span>
+  )
+}
 
 // Estados que cierran la recolección: ya no admiten asignación ni cambio de
 // estado (solo queda el historial), igual que «Entregado» en solicitudes.
@@ -94,7 +123,7 @@ function Row({ icon, label, value }) {
   )
 }
 
-function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, onVerAdjuntos, onAsignarClick, onCambiarEstadoClick, onHistorialClick }) {
+function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, onVerAdjuntos, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones }) {
   const isEven = index % 2 === 0
   const cardBg = isEven ? 'bg-white' : 'bg-brand-cyan/10'
   const adjuntos = adjuntosDe(r)
@@ -134,6 +163,14 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, o
           <Row icon={<MdCategory />} label="Tipo de servicio" value={r.tipo_servicio} />
           <Row icon={<MdPlace />} label="Zona" value={r.zona} />
           <Row icon={<MdAssignmentInd />} label="Asignado a" value={r.asignado_a} />
+
+          {mostrarNotificaciones && (
+            <div className="flex items-center gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
+              <span className="text-brand-cyan shrink-0"><MdNotificationsNone /></span>
+              <span className="text-brand-ink/50 w-28 shrink-0">Notificaciones</span>
+              <Campana r={r} />
+            </div>
+          )}
 
           <div className="pt-3">
             <PanelRecogeEntrega r={r} />
@@ -221,7 +258,7 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, o
   )
 }
 
-export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick }) {
+export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones = false }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [adjuntosRecoleccion, setAdjuntosRecoleccion] = useState(null)
@@ -239,7 +276,13 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
     currentItems.some(
       (r) => onHistorialClick || (!esTerminal(r) && (onAsignarClick || onCambiarEstadoClick))
     )
-  const columnas = hayAcciones ? 11 : 10
+  const columnas = 11 + (mostrarNotificaciones ? 1 : 0) + (hayAcciones ? 1 : 0)
+
+  // Ancho mínimo de la tabla. Las clases van literales (nada de plantillas con el
+  // número calculado) porque Tailwind solo genera las que ve en el código.
+  const minW = hayAcciones
+    ? (mostrarNotificaciones ? 'min-w-[1450px]' : 'min-w-[1380px]')
+    : (mostrarNotificaciones ? 'min-w-[1350px]' : 'min-w-[1280px]')
 
   const toggle = (codigo) => setExpandedId((prev) => (prev === codigo ? null : codigo))
 
@@ -276,6 +319,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
             onAsignarClick={onAsignarClick}
             onCambiarEstadoClick={onCambiarEstadoClick}
             onHistorialClick={onHistorialClick}
+            mostrarNotificaciones={mostrarNotificaciones}
           />
         ))}
       </div>
@@ -283,7 +327,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
       {/* Tabla — visible en tablet y desktop */}
       <div className="hidden md:block">
         <div className="overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
-          <table className={`w-full text-left text-sm border-separate border-spacing-0 ${hayAcciones ? 'min-w-[1260px]' : 'min-w-[1160px]'}`}>
+          <table className={`w-full text-left text-sm border-separate border-spacing-0 ${minW}`}>
             <thead>
               <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-14 text-center">N°</th>
@@ -311,12 +355,20 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdAttachFile className="text-base" /> Adjuntos</span>
                 </th>
-                <th className="px-3 py-4 text-xs font-bold text-center">
+                <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center">
+                  <span className="inline-flex items-center justify-center gap-1.5"><MdAssignmentInd className="text-base" /> Asignado a</span>
+                </th>
+                <th className={`px-3 py-4 text-xs font-bold text-center${mostrarNotificaciones ? ' border-r border-white/15' : ''}`}>
                   <span className="inline-flex items-center justify-center gap-1.5"><MdTag className="text-base" /> Estado</span>
                 </th>
+                {mostrarNotificaciones && (
+                  <th className="px-3 py-4 w-16 text-center">
+                    <span className="inline-flex items-center justify-center"><MdNotificationsNone className="text-base" /><span className="sr-only">Notificaciones de cambio</span></span>
+                  </th>
+                )}
                 {hayAcciones && (
-                  <th className="px-3 py-4 w-32 sticky right-0 z-10 bg-brand-navy text-center">
-                    <span className="inline-flex items-center justify-center gap-1.5"><MdSwapHoriz className="text-base" /> Acciones</span>
+                  <th className="px-3 py-4 w-32 sticky right-0 z-10 bg-brand-navy">
+                    <span className="sr-only">Acciones</span>
                   </th>
                 )}
               </tr>
@@ -393,9 +445,17 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
                           </button>
                         ) : '—'}
                       </td>
+                      <td className="px-2 py-3 border-b border-l border-brand-ink/10">
+                        <AsignadoBadge asignado={r.asignado_a} />
+                      </td>
                       <td className="px-3 py-3 border-b border-l border-brand-ink/10 text-center">
                         <EstadoBadge estado={r.estado} />
                       </td>
+                      {mostrarNotificaciones && (
+                        <td className="px-2 py-3 border-b border-l border-brand-ink/10 text-center">
+                          <Campana r={r} />
+                        </td>
+                      )}
                       {hayAcciones && (
                         <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${estiloFila}`}>
                           <div className="flex items-center justify-center gap-1.5">

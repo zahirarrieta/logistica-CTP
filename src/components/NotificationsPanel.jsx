@@ -101,19 +101,19 @@ function ItemHeader({ c, i, total, vistas }) {
   )
 }
 
-function ItemBody({ c, interactivo = false, onVerPdf }) {
+function ItemBody({ c, interactivo = false, onVerPdf, badgeDe = getBadgeColor, dotDe = getDotColor }) {
   return (
     <>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
         {c.campo === 'estado' ? (
           <>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${getBadgeColor(changeText(c.anterior))}`}>
-              <span className={`size-1.5 rounded-full ${getDotColor(changeText(c.anterior))}`} />
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${badgeDe(changeText(c.anterior))}`}>
+              <span className={`size-1.5 rounded-full ${dotDe(changeText(c.anterior))}`} />
               {changeText(c.anterior)}
             </span>
             <MdArrowForward className="text-brand-ink/40" />
-            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${getBadgeColor(changeText(c.nuevo))}`}>
-              <span className={`size-1.5 rounded-full ${getDotColor(changeText(c.nuevo))}`} />
+            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${badgeDe(changeText(c.nuevo))}`}>
+              <span className={`size-1.5 rounded-full ${dotDe(changeText(c.nuevo))}`} />
               {changeText(c.nuevo)}
             </span>
           </>
@@ -184,7 +184,9 @@ function ItemBody({ c, interactivo = false, onVerPdf }) {
   )
 }
 
-export default function NotificationsPanel({ solicitudes, glow = false, solicitudId, paginado = false, fixed = false, titulo = 'Notificaciones', compacto = false }) {
+// `badgeDe`/`dotDe` permiten otra paleta de estados: las recolecciones reutilizan
+// este panel pero sus estados («Trámite», «Fallido») no están en estadoColors.
+export default function NotificationsPanel({ solicitudes, glow = false, solicitudId, paginado = false, fixed = false, titulo = 'Notificaciones', compacto = false, badgeDe = getBadgeColor, dotDe = getDotColor }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('estado')
   const [vistas, setVistas] = useState(() => loadVistas())
@@ -390,7 +392,7 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
 
                   <div className="rounded-xl border border-brand-ink/10 mt-2 shadow-sm p-3">
                     <ItemHeader c={current} i={index} total={pageCount} vistas={vistas} />
-                    <ItemBody c={current} interactivo onVerPdf={setPdfUrl} />
+                    <ItemBody c={current} interactivo onVerPdf={setPdfUrl} badgeDe={badgeDe} dotDe={dotDe} />
                   </div>
                 </>
               ) : (
@@ -406,7 +408,7 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
                     }`}
                   >
                     <ItemHeader c={c} i={i} total={listado.length} vistas={vistas} />
-                    <ItemBody c={c} />
+                    <ItemBody c={c} badgeDe={badgeDe} dotDe={dotDe} />
                   </button>
                 ))
               )}

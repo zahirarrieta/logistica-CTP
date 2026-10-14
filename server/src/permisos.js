@@ -97,6 +97,26 @@ function permiteActualizarRecoleccion(ctx, actual) {
   return (actual.correo || '') === ctx.correo
 }
 
+// Responsable de una recolección. Es un listado operativo cerrado: el solicitante
+// elige a quién le encarga el pedido al crearlo y el administrador solo puede
+// reasignarlo dentro de estos cuatro. No sale de la tabla usuarios porque son
+// cuentas de operación compartidas (despachos, pedidos, operaciones de cada sede).
+// Espejo de RESPONSABLES_RECOLECCION en src/utils/responsablesRecoleccion.js.
+const RESPONSABLES_RECOLECCION = [
+  { nombre: 'Yonathan Ortiz', correo: 'despachos@ctpmedica.com' },
+  { nombre: 'Daniel Chamorro', correo: 'pedidos2@ctpmedica.com' },
+  { nombre: 'Duber Sepúlveda', correo: 'operacionesmedellin@ctpmedica.com' },
+  { nombre: 'Sebastián Rojas', correo: 'operacionescali@ctpmedica.com' },
+]
+
+// Devuelve el responsable del listado para ese correo, o null si no pertenece a
+// él (así el alta y la reasignación rechazan cualquier otro destino).
+function responsableRecoleccion(correo) {
+  const buscado = String(correo || '').trim().toLowerCase()
+  if (!buscado) return null
+  return RESPONSABLES_RECOLECCION.find((p) => p.correo === buscado) || null
+}
+
 // Marcadores `?` para un IN de tamaño fijo.
 function marcas(valores) {
   return valores.map(() => '?').join(', ')
@@ -267,6 +287,8 @@ module.exports = {
   filtroRecolecciones,
   permiteCrearRecoleccion,
   permiteActualizarRecoleccion,
+  RESPONSABLES_RECOLECCION,
+  responsableRecoleccion,
   filtroSolicitudes,
   permiteInsertarSolicitud,
   permiteActualizarSolicitud,
