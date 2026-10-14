@@ -3,8 +3,13 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { Toaster } from 'sileo'
 import Loader from './loader/Loader.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
-import { puedeVer, rutaInicial, RUTA_INICIO } from './auth/roles.js'
+import { puedeVer, rutaInicial, RUTA_INICIO, puedeRecolectar } from './auth/roles.js'
 import { sincronizarInicial, iniciarTiempoReal, detenerTiempoReal } from './store/solicitudesStore.js'
+import {
+  sincronizarRecolecciones,
+  iniciarTiempoRealRecolecciones,
+  detenerTiempoRealRecolecciones,
+} from './store/recoleccionesStore.js'
 import useInactividadSesion from './hooks/useInactividadSesion.js'
 import AvisoCierreSesion from './components/AvisoCierreSesion.jsx'
 import AvisoNuevaVersion from './components/AvisoNuevaVersion.jsx'
@@ -31,7 +36,7 @@ function Protegida({ path, children }) {
 }
 
 function Root() {
-  const { account, loading, rolListo, logout, rol, configLista } = useAuth()
+  const { account, loading, rolListo, logout, rol, configLista, modulosSolicitante } = useAuth()
   const [datosListos, setDatosListos] = useState(false)
   const navigate = useNavigate()
 
@@ -88,6 +93,21 @@ function Root() {
       detenerTiempoReal()
     }
   }, [account])
+
+  // Recolecciones: el mismo polling, pero solo para los roles que ven el módulo.
+  // Un conductor (o un solicitante con «Recolecciones» apagado) recibiría un 403
+  // en cada ciclo, así que ahí no se arranca.
+  const veRecolecciones = Boolean(account) && puedeRecolectar(rol, modulosSolicitante)
+  useEffect(() => {
+    if (!veRecolecciones) return undefined
+    iniciarTiempoRealRecolecciones()
+    void sincronizarRecolecciones().catch((error) =>
+      console.warn('[Recolecciones] carga inicial falló:', error)
+    )
+    return () => {
+      detenerTiempoRealRecolecciones()
+    }
+  }, [veRecolecciones])
 
   if (loading || (account && (!datosListos || !rolListo || !configLista))) return <Loader />
 

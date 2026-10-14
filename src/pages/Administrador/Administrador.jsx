@@ -24,8 +24,21 @@ import DashboardTab from './Components/DashboardTab.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
 import ClientesModal from './Components/modals/ClientesModal.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud, suscribir, peekNextId, refrescarProximoCodigo } from '../../store/solicitudesStore.js'
-import { descargarRecolecciones, actualizarRecoleccion, descargarHistorialRecoleccion } from '../../services/recoleccionesApi.js'
-import { estadoActualizado, solicitudAsignada, conductorAsignado } from '../../services/notificaciones.jsx'
+import { descargarHistorialRecoleccion } from '../../services/recoleccionesApi.js'
+import {
+  loadRecolecciones,
+  suscribirRecolecciones,
+  cambiarEstadoRecoleccion,
+  asignarRecoleccion,
+} from '../../store/recoleccionesStore.js'
+import {
+  estadoActualizado,
+  solicitudAsignada,
+  conductorAsignado,
+  recoleccionEstadoActualizado,
+  recoleccionAsignada,
+  errorRecoleccion,
+} from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { esSuperAdmin, esAsignadoA } from '../../auth/roles.js'
 import { HEX_ESTADO } from '../../utils/dashboardUtils.js'
@@ -49,7 +62,7 @@ export default function Administrador() {
   const { account, usuario, rol } = useAuth()
 const esSuper = esSuperAdmin(rol)
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
-  const [recolecciones, setRecolecciones] = useState([])
+  const [recolecciones, setRecolecciones] = useState(loadRecolecciones)
   const [recoleccionDetalle, setRecoleccionDetalle] = useState(null)
   const [tab, setTab] = useState('dashboard')
   const [editSolicitud, setEditSolicitud] = useState(null)
@@ -76,27 +89,20 @@ const esSuper = esSuperAdmin(rol)
 
   useEffect(() => suscribir(setSolicitudes), [])
 
-  // Cargar recolecciones (admin/superadmin ven todas, según backend)
-  useEffect(() => {
-    let activo = true
-    const cargarRec = async () => {
-      try {
-        const data = await descargarRecolecciones()
-        if (activo) setRecolecciones(Array.isArray(data) ? data : [])
-      } catch (e) {
-        console.error('[Admin] error cargando recolecciones:', e)
-        if (activo) setRecolecciones([])
-      }
-    }
-    void cargarRec()
-    return () => { activo = false }
-  }, [])
+  // Recolecciones desde el store: ya viene con polling, así que el tab se
+  // actualiza solo cuando otro admin cambia un estado o entra una recolección
+  // nueva (admin/superadmin ven todas, según el filtro del backend).
+  useEffect(() => suscribirRecolecciones(setRecolecciones), [])
 
-  // Re-apunta los modales abiertos a la versión fresca por id cuando llega un
-  // cambio en vivo (Realtime); cierra el modal si la solicitud desapareció.
+  // Re-apunta los modales abiertos a la versión fresca cuando llega un cambio en
+  // vivo, y los cierra si la fila desapareció. Cada lista toca SOLO los modales
+  // de lo suyo (bandera `_esRecoleccion`): los tres estados de modal están
+  // compartidos, así que si una lista resolviera los de la otra, el polling de
+  // solicitudes cerraría el modal de una recolección a los pocos segundos de
+  // abrirlo (y al revés) porque ningún id coincide con un código REC-.
   useEffect(() => {
     const fresco = (prev) =>
-      prev ? (solicitudes.find((s) => s.id === prev.id) || null) : prev
+      prev && !prev._esRecoleccion ? (solicitudes.find((s) => s.id === prev.id) || null) : prev
     setEditSolicitud(fresco)
     setAsignarSolicitud(fresco)
     setAsignarConductorSolicitud(fresco)
@@ -105,14 +111,22 @@ const esSuper = esSuperAdmin(rol)
     setEliminarSolicitud(fresco)
   }, [solicitudes])
 
-  // Re-apunta los modales de recolecciones (usan los mismos estados que solicitudes
-  // pero con objeto adaptado: id->codigo, asignadoA->asignado_a, etc.)
+  // Ídem para las recolecciones. Se conserva el `historial` ya cargado: el
+  // HistorialModal lo pide bajo demanda y un tick de polling no debe vaciarlo.
   useEffect(() => {
-    const frescoRec = (prev) =>
+    const frescoRec = (prev) => {
+      if (!prev?._esRecoleccion) return prev
+      const fila = recolecciones.find((r) => r.codigo === prev.codigo)
+      return fila ? { ...adaptarRecoleccion(fila), historial: prev.historial } : null
+    }
+    setEditSolicitud(frescoRec)
+    setAsignarSolicitud(frescoRec)
+    setHistorialSolicitud(frescoRec)
+    // El detalle trabaja con la fila cruda (sin adaptar), así que se re-apunta
+    // directo: si otro admin cambia el estado con el detalle abierto, se ve.
+    setRecoleccionDetalle((prev) =>
       prev ? (recolecciones.find((r) => r.codigo === prev.codigo) || null) : prev
-    setEditSolicitud(frescoRec ? adaptarRecoleccion(frescoRec) : null)
-    setAsignarSolicitud(frescoRec ? adaptarRecoleccion(frescoRec) : null)
-    setHistorialSolicitud(frescoRec ? adaptarRecoleccion(frescoRec) : null)
+    )
   }, [recolecciones])
 
   // Adaptador: convierte una recolección a objeto tipo solicitud para reutilizar
@@ -310,25 +324,28 @@ const esSuper = esSuperAdmin(rol)
     }
   }
 
-  // Recolecciones handlers (usan los mismos modales que solicitudes con objeto adaptado)
+  // Recolecciones: mismos modales que solicitudes con el objeto adaptado. Las
+  // escrituras van por el store, que re-descarga y marca la fila como eco local
+  // para que el aviso en vivo no le llegue también a quien hizo el cambio.
   const handleRecoleccionAsignar = async (codigo, { asignadoA, asignadoCorreo }) => {
     try {
-      await actualizarRecoleccion(codigo, { asignado_a: asignadoA, asignado_correo: asignadoCorreo })
-      const data = await descargarRecolecciones()
-      setRecolecciones(Array.isArray(data) ? data : [])
+      await asignarRecoleccion(codigo, asignadoA, asignadoCorreo)
+      recoleccionAsignada(codigo, asignadoA)
     } catch (e) {
       console.error('[Admin] error asignando recolección:', e)
+      errorRecoleccion(e?.message || 'No se pudo asignar la recolección')
     }
   }
 
-  const handleRecoleccionCambiarEstado = async (codigo, { estado, nota }) => {
+  const handleRecoleccionCambiarEstado = async (codigo, { estado, notaEstado }) => {
     try {
-      await actualizarRecoleccion(codigo, { estado, nota })
-      const data = await descargarRecolecciones()
-      setRecolecciones(Array.isArray(data) ? data : [])
-      estadoActualizado(codigo, estado)
+      // `notaEstado` es el campo que manda EstadosModal (no `nota`): es el motivo
+      // que escribe el admin y lo que queda guardado en recoleccion_historial.
+      await cambiarEstadoRecoleccion(codigo, estado, notaEstado || '')
+      recoleccionEstadoActualizado(codigo, estado)
     } catch (e) {
       console.error('[Admin] error cambiando estado recolección:', e)
+      errorRecoleccion(e?.message || 'No se pudo guardar el estado de la recolección')
     }
   }
 

@@ -4,44 +4,60 @@ import RecoleccionDetalleModal from './Components/modals/RecoleccionDetalleModal
 import RecoleccionesTable from './Components/RecoleccionesTable.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
-import { descargarRecolecciones } from '../../services/recoleccionesApi.js'
+import {
+  loadRecolecciones,
+  suscribirRecolecciones,
+  sincronizarRecolecciones,
+  recoleccionesCargadas,
+} from '../../store/recoleccionesStore.js'
 import { ESTADOS_RECOLECCION } from '../../auth/roles.js'
 import { getRecoleccionBadge, getRecoleccionDot } from '../../utils/estadoRecoleccion.js'
 import { useAuth } from '../../auth/AuthContext.jsx'
 
-// Caché en memoria de las recolecciones ya cargadas. Al volver a la pestaña se
-// pintan al instante (sin loader) y se revalida en segundo plano.
-let cacheRecolecciones = null
-
 // Pestaña «Mis recolecciones» dentro de Solicitudes. Lista SOLO las recolecciones
 // subidas por el usuario conectado (comparando por su correo), igual que «Mis
 // solicitudes», con los MISMOS filtros (estado, cliente y zona) y detalle.
+// La lista viene del store, que la mantiene viva con polling: si un admin le
+// cambia el estado, la fila se actualiza sola y llega el aviso.
 export default function RecoleccionesListado() {
   const { account } = useAuth()
-  const [items, setItems] = useState(() => cacheRecolecciones || [])
-  const [cargando, setCargando] = useState(!cacheRecolecciones)
+  const [items, setItems] = useState(loadRecolecciones)
+  const [cargando, setCargando] = useState(() => !recoleccionesCargadas())
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState(null)
   const [filtroEstado, setFiltroEstado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
 
-  const cargar = async (silencioso = false) => {
-    if (!silencioso) setCargando(true)
+  useEffect(() => suscribirRecolecciones(setItems), [])
+
+  const cargar = async () => {
+    setCargando(true)
     setError('')
     try {
-      const data = await descargarRecolecciones()
-      cacheRecolecciones = data
-      setItems(data)
+      await sincronizarRecolecciones()
     } catch (e) {
       console.error('[Recolecciones] error cargando:', e)
-      if (!cacheRecolecciones) setError(e?.message || 'No se pudieron cargar las recolecciones')
+      setError(e?.message || 'No se pudieron cargar las recolecciones')
     } finally {
       setCargando(false)
     }
   }
 
-  useEffect(() => { void cargar(Boolean(cacheRecolecciones)) }, [])
+  // Si el store todavía no descargó (entrada directa a la pestaña antes del
+  // primer tick), se pide una vez; si no, ya está suscrito y no hace falta.
+  useEffect(() => {
+    if (recoleccionesCargadas()) {
+      setCargando(false)
+      return
+    }
+    void cargar()
+  }, [])
+
+  // Re-apunta el detalle abierto a la fila fresca cuando llega un cambio en vivo.
+  useEffect(() => {
+    setDetalle((prev) => (prev ? (items.find((r) => r.codigo === prev.codigo) || null) : prev))
+  }, [items])
 
   // «Mis recolecciones» solo muestra las recolecciones subidas por el usuario
   // conectado (comparando por su correo), igual que «Mis solicitudes».

@@ -22,6 +22,7 @@ import {
 } from 'react-icons/md'
 import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../utils/estadoColors.js'
+import { getRecoleccionBadge } from '../utils/estadoRecoleccion.js'
 
 const BASE = {
   duration: 4500,
@@ -45,6 +46,9 @@ const ESTADO_TIPO = {
   'En Trámite': 'info',
   'En Trámite Parcial': 'info',
   'Abierto': 'info',
+  // Estados del módulo de recolección (el resto coincide con los de solicitudes).
+  'Trámite': 'info',
+  'Fallido': 'error',
 }
 
 // -------------------------------------------------------------
@@ -601,6 +605,72 @@ export function errorRecoleccion(mensaje) {
     title: 'No se pudo completar la recolección',
     icon: <MdStorefront />,
     description: linea(mensaje || 'Intenta nuevamente en unos segundos.'),
+  })
+}
+
+// Avisos que llegan por el polling de recolecciones, es decir, cuando el cambio
+// lo hizo OTRO usuario. El actor que hizo el cambio ve su propio toast y el store
+// silencia el eco, así que estos nunca se duplican.
+export function recoleccionNueva(recoleccion = {}) {
+  sileo.info({
+    ...BASE,
+    sonido: 'Abierto',
+    title: titulo(recoleccion.codigo, 'Recolección nueva'),
+    icon: <MdStorefront />,
+    description: (
+      <>
+        {linea('Hay una recolección nueva por revisar.')}
+        {recoleccion.recoge_cliente && detalle(`Recoge: ${recoleccion.recoge_cliente}`)}
+      </>
+    ),
+  })
+}
+
+export function recoleccionEstadoActualizado(codigo, estado) {
+  const tipo = ESTADO_TIPO[estado] || 'info'
+  sileo[tipo]({
+    ...BASE,
+    sonido: estado || 'default',
+    title: titulo(codigo, 'Estado de la recolección actualizado'),
+    icon: <MdSwapHoriz />,
+    description: (
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-white">Nuevo estado:</span>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${getRecoleccionBadge(estado)}`}>
+          {estado || '—'}
+        </span>
+      </span>
+    ),
+  })
+}
+
+export function recoleccionAsignada(codigo, asignadoA) {
+  sileo.info({
+    ...BASE,
+    sonido: 'asignada',
+    title: titulo(codigo, 'Recolección asignada'),
+    icon: <MdAssignmentInd />,
+    description: (
+      <span className="text-sm font-semibold text-white">
+        Asignada a «<span className="text-brand-cyan">{asignadoA || 'Sin asignar'}</span>».
+      </span>
+    ),
+  })
+}
+
+export function asignacionRecoleccionRecibida(codigo, cliente) {
+  sileo.info({
+    ...BASE,
+    duration: 7000,
+    sonido: 'asignada',
+    title: titulo(codigo, 'Recolección asignada'),
+    icon: <MdAssignmentInd />,
+    description: (
+      <>
+        {linea('Te asignaron esta recolección.')}
+        {cliente && detalle(`Recoge: ${cliente}`)}
+      </>
+    ),
   })
 }
 

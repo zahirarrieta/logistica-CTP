@@ -1,7 +1,10 @@
 {
-  "version": "2026.10.14-58",
+  "version": "2026.10.14-59",
   "fecha": "2026-10-14",
   "cambios": [
+    "Administrador y Superadministrador: en la pestaña «Recolecciones» el motivo del cambio de estado ahora sí se guarda en la base de datos (antes se perdía al enviar el formulario). Los modales de Asignar usuario, Cambiar estado e Historial ya no se cierran solos a los pocos segundos al actualizarse la lista.",
+    "Recolecciones: los cambios de estado y las asignaciones ahora se reflejan en vivo (cada 8 segundos) en la pestaña del administrador y en «Mis recolecciones» del solicitante, sin recargar la página.",
+    "Recolecciones: nueva notificación con sonido cuando se crea una recolección (para administradores), cuando cambia su estado y cuando se asigna a un usuario. Si algo falla al asignar o al cambiar el estado, ahora aparece un aviso en pantalla en vez de quedar en silencio.",
     "Administrador y Superadministrador: en la pestaña «Recolecciones» ahora se reutilizan los mismos modales que «Solicitudes» (AsignarUsuarioModal, EstadosModal, HistorialModal) mediante un adaptador que convierte la recolección a formato solicitud. Backend: nueva tabla `recoleccion_historial` normalizada (igual que `historial` de solicitudes) con FK a recolecciones; PUT /api/recolecciones/:codigo escribe en historial al cambiar estado/asignación; nuevo endpoint GET /api/recolecciones/:codigo/historial. Estados de recolección: Abierto / Trámite / Fallido / Entregado. Se eliminaron los modales duplicados RecoleccionAsignarModal, RecoleccionEstadosModal, RecoleccionHistorialModal.",
     "Administrador y Superadministrador: en la pestaña «Recolecciones» ahora aparecen los botones de acción (Asignar usuario, Cambiar estado, Historial) según el rol, igual que en «Solicitudes». Asignar y Cambiar estado solo visibles para administradores/superadmins; Historial siempre disponible.",
     "Solicitudes (Mis recolecciones): la pestaña ahora muestra SOLO las recolecciones subidas por el usuario conectado (comparando por su correo), igual que «Mis solicitudes»; ya no aparecen las recolecciones de otras personas.",

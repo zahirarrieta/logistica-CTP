@@ -10,6 +10,7 @@ import { API_URL, apiFetch } from '../services/apiClient.js'
 import { cargarModulosSolicitante } from '../services/ajustesApi.js'
 import { MODULOS_SOLICITANTE_POR_DEFECTO } from './roles.js'
 import { setRolActual, setUsuarioActual } from '../store/solicitudesStore.js'
+import { setIdentidadRecolecciones } from '../store/recoleccionesStore.js'
 import { sesionCerrada } from '../services/notificaciones.jsx'
 import { reasociarSuscripcion } from '../services/push.js'
 
@@ -324,6 +325,11 @@ const logout = useCallback((motivo = '') => {
   useEffect(() => {
     setRolActual(usuario?.rol || '')
     setUsuarioActual({
+      nombre: usuario?.nombre || account?.name || '',
+      correo: usuario?.correo || account?.username || '',
+    })
+    setIdentidadRecolecciones({
+      rol: usuario?.rol || '',
       nombre: usuario?.nombre || account?.name || '',
       correo: usuario?.correo || account?.username || '',
     })

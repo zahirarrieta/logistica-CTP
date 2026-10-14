@@ -14,6 +14,7 @@ import { useAuth } from '../../../../auth/AuthContext.jsx'
 import { crearRecoleccion, peekCodigoRecoleccion, peekCodigoRecoleccionSync } from '../../../../services/recoleccionesApi.js'
 import { cargarClientes } from '../../../../services/solicitudesApi.js'
 import { recoleccionCreada, errorRecoleccion } from '../../../../services/notificaciones.jsx'
+import { registrarRecoleccionCreada } from '../../../../store/recoleccionesStore.js'
 
 function formatearBytes(bytes) {
   if (!bytes && bytes !== 0) return ''
@@ -473,6 +474,12 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
       )
       setLoading(false)
       recoleccionCreada(data)
+      // Refresca el store y marca la nueva como eco propio: así aparece al once
+      // en «Mis recolecciones» y en el tab del Administrador sin que el actor
+      // reciba también el aviso de «recolección nueva».
+      void registrarRecoleccionCreada(data?.codigo).catch((e) =>
+        console.warn('[Recolección] no se pudo refrescar el store:', e)
+      )
       onCreated?.(data)
       onClose?.()
     } catch (error) {
