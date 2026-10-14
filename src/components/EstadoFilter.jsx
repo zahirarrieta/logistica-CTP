@@ -2,7 +2,14 @@ import { useState } from 'react'
 import { MdFilterList, MdExpandMore } from 'react-icons/md'
 import { ESTADOS, getBadgeColor, getDotColor } from '../utils/estadoColors.js'
 
-export default function EstadoFilter({ solicitudes, value, onChange }) {
+export default function EstadoFilter({
+  solicitudes,
+  value,
+  onChange,
+  estados = ESTADOS,
+  getBadge = getBadgeColor,
+  getDot = getDotColor,
+}) {
   const [open, setOpen] = useState(false)
 
   const counts = solicitudes.reduce((acc, s) => {
@@ -12,7 +19,7 @@ export default function EstadoFilter({ solicitudes, value, onChange }) {
   }, {})
 
   const total = solicitudes.length
-  const present = ESTADOS.filter((e) => (counts[e] || 0) > 0)
+  const present = estados.filter((e) => (counts[e] || 0) > 0)
 
   const select = (e) => {
     onChange(e)
@@ -28,8 +35,8 @@ export default function EstadoFilter({ solicitudes, value, onChange }) {
       >
         <MdFilterList className="text-lg text-brand-cyan" />
         {value ? (
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${getBadgeColor(value)}`}>
-            <span className={`size-2 rounded-full ${getDotColor(value)}`} />
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${getBadge(value)}`}>
+            <span className={`size-2 rounded-full ${getDot(value)}`} />
             {value}
             <span className="px-1 rounded-full bg-black/10">{counts[value] || 0}</span>
           </span>
@@ -64,12 +71,12 @@ export default function EstadoFilter({ solicitudes, value, onChange }) {
                 key={e}
                 type="button"
                 onClick={() => select(e)}
-                className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-bold transition-all ${getBadgeColor(e)} ${
+                className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-bold transition-all ${getBadge(e)} ${
                   value === e ? 'ring-2 ring-brand-deep/40 shadow-sm scale-[1.02]' : 'hover:brightness-95'
                 }`}
               >
                 <span className="inline-flex items-center gap-1.5">
-                  <span className={`size-2 rounded-full ${getDotColor(e)}`} />
+                  <span className={`size-2 rounded-full ${getDot(e)}`} />
                   {e}
                 </span>
                 <span className="rounded-full bg-white/60 text-brand-ink/70 px-2 py-0.5 text-xs font-bold">{counts[e]}</span>

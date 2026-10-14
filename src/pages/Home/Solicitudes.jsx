@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { MdAdd, MdInbox, MdFilterList, MdStorefront } from 'react-icons/md'
+import { MdAdd, MdInbox, MdFilterList } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
@@ -8,6 +8,7 @@ import RecoleccionModal from './Components/modals/RecoleccionModal.jsx'
 import SeguimientoModal from './Components/modals/SeguimientoModal.jsx'
 import EstadosModal from '../Administrador/Components/modals/EstadosModal.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
+import EstadoFilter from '../../components/EstadoFilter.jsx'
 import RecoleccionesListado from '../Recolecciones/RecoleccionesListado.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import { loadSolicitudes, saveSolicitud, corregirSolicitud, updateSolicitud, suscribir, puedeEliminarSolicitud, restanteEliminar } from '../../store/solicitudesStore.js'
@@ -26,6 +27,7 @@ export default function Solicitudes() {
   const [plantilla, setPlantilla] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState(null)
   const [cancelarSolicitud, setCancelarSolicitud] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -79,13 +81,14 @@ export default function Solicitudes() {
     const cliente = filtroCliente.toLowerCase()
     const zona = filtroZona.toLowerCase()
     return mias.filter((s) => {
+      if (filtroEstado && (s.estado || 'Abierto') !== filtroEstado) return false
       if (cliente && !(s.cliente || '').toLowerCase().includes(cliente)) return false
       if (zona && !(s.zona || '').toLowerCase().includes(zona)) return false
       return true
     })
-  }, [mias, filtroCliente, filtroZona])
+  }, [mias, filtroCliente, filtroZona, filtroEstado])
 
-  const hasFilters = Boolean(filtroCliente || filtroZona)
+  const hasFilters = Boolean(filtroEstado || filtroCliente || filtroZona)
 
   const handleNewSolicitud = async (data, idSolicitud) => {
     const siguiente = await saveSolicitud(data, idSolicitud)
@@ -162,7 +165,7 @@ export default function Solicitudes() {
                   onClick={() => setRecoleccionModalOpen(true)}
                   className="inline-flex items-center gap-2 rounded-full bg-brand-cyan text-brand-ink px-5 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base font-bold shadow-cyanGlow hover:shadow-[0_0_30px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70"
                 >
-                  <MdStorefront className="text-lg" />
+                  <MdAdd className="text-lg" />
                   Recolección
                 </button>
               )}
@@ -205,6 +208,7 @@ export default function Solicitudes() {
             <>
               {mias.length > 0 && (
                 <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
+                  <EstadoFilter solicitudes={mias} value={filtroEstado} onChange={setFiltroEstado} />
                   <SearchFilters
                     cliente={filtroCliente}
                     zona={filtroZona}

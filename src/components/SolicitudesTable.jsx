@@ -29,6 +29,7 @@ import {
   MdBadge,
   MdReceiptLong,
   MdTimer,
+  MdNotificationsNone,
 } from 'react-icons/md'
 import { getBadgeColor, getDotColor, getEstadoBg } from '../utils/estadoColors.js'
 import { pdfsTramite } from '../utils/pdfUtils.js'
@@ -494,6 +495,11 @@ export default function SolicitudesTable({
     Boolean(onEstadoClick || onAsignarClick || onCambiarEstadoClick || onEliminarClick || onCancelarClick || onEntregaDetallesClick) &&
     currentItems.some(filaConAccion)
 
+  // Ancho mínimo de la tabla: la columna de notificaciones (cuando se muestra) suma espacio.
+  const minW = mostrarNotificaciones
+    ? (ocultarAdjuntos ? 'min-w-[1060px]' : 'min-w-[1140px]')
+    : (ocultarAdjuntos ? 'min-w-[980px]' : 'min-w-[1060px]')
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 sm:py-20 px-6 text-center bg-white">
@@ -546,7 +552,7 @@ export default function SolicitudesTable({
       {/* Tabla — visible en tablet y desktop, con scroll horizontal si se alarga */}
       <div className="hidden md:block">
         <div className="overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
-          <table className={`w-full text-left text-sm border-separate border-spacing-0 ${ocultarAdjuntos ? 'min-w-[980px]' : 'min-w-[1060px]'}`}>
+          <table className={`w-full text-left text-sm border-separate border-spacing-0 ${minW}`}>
             <thead>
               <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-14 text-center">N°</th>
@@ -576,12 +582,20 @@ export default function SolicitudesTable({
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center w-16">
                   <span className="inline-flex items-center gap-1.5"><MdNotes className="text-base" /> Obs.</span>
                 </th>
-                <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
-                  <span className="inline-flex items-center gap-1.5"><MdAssignmentInd className="text-base" /> Asignado a</span>
+                <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center">
+                  <span className="inline-flex items-center justify-center gap-1.5"><MdAssignmentInd className="text-base" /> Asignado a</span>
                 </th>
-                <th className="px-3 py-4 text-xs font-bold text-center">
+                <th className={`px-3 py-4 text-xs font-bold text-center${mostrarNotificaciones ? ' border-r border-white/15' : ''}`}>
                   <span className="inline-flex items-center justify-center gap-1.5"><MdCheckCircle className="text-base" /> Estado</span>
                 </th>
+                {mostrarNotificaciones && (
+                  <th className="px-3 py-4 text-xs font-bold border-r border-white/15 text-center w-16">
+                    <span className="inline-flex items-center justify-center" title="Notificaciones de cambio">
+                      <MdNotificationsNone className="text-base" />
+                    </span>
+                    <span className="sr-only">Notificaciones de cambio</span>
+                  </th>
+                )}
                 {hasAcciones && (
                   <th className="px-3 py-4 w-44 sticky right-0 z-10 bg-brand-navy">
                     <span className="sr-only">Acciones</span>
@@ -678,27 +692,30 @@ export default function SolicitudesTable({
                     </button>
                   </td>
                   <td className="px-2 py-3 border-b border-l border-brand-ink/10">
-                    <span className="flex flex-col items-start gap-1">
+                    <span className="flex flex-col items-center gap-1">
                       <AsignadoBadge asignado={s.asignadoA} />
                       <ConductorBadge conductor={s.conductor} estado={s.estado} />
                     </span>
                   </td>
-                  <td className="px-3 py-3 border-b border-l border-brand-ink/10">
-                    <span className="flex items-center justify-center gap-2">
-                      <EstadoBadge estado={s.estado} />
-                      {mostrarNotificaciones && (
-                        <span onClick={(e) => e.stopPropagation()}>
-                          <NotificationsPanel
-                            solicitudes={[s]}
-                            solicitudId={s.id}
-                            titulo="Notificaciones de cambio"
-                            compacto
-                            fixed
-                          />
-                        </span>
-                      )}
-                    </span>
+                  <td className={`px-3 py-3 border-b border-l border-brand-ink/10 text-center`}>
+                    <EstadoBadge estado={s.estado} />
                   </td>
+                  {mostrarNotificaciones && (
+                    <td className="px-3 py-3 border-b border-l border-brand-ink/10 text-center">
+                      <span
+                        className="inline-flex justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <NotificationsPanel
+                          solicitudes={[s]}
+                          solicitudId={s.id}
+                          titulo="Notificaciones de cambio"
+                          compacto
+                          fixed
+                        />
+                      </span>
+                    </td>
+                  )}
                   {hasAcciones && (
                     <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${estiloFila(s, i)}`}>
                       <div className="flex items-center justify-center gap-1.5">
