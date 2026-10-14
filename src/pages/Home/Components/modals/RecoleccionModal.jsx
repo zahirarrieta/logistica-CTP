@@ -3,7 +3,7 @@ import {
   MdClose, MdPerson, MdEmail, MdPlace, MdNotes, MdCloudUpload, MdCancel,
   MdStorefront, MdEvent, MdAccessTime, MdSupportAgent, MdWarehouse, MdCategory,
   MdSearch, MdPhone, MdTag, MdErrorOutline, MdBusiness, MdInventory2, MdFactCheck,
-  MdLocalShipping,
+  MdLocalShipping, MdDelete,
 } from 'react-icons/md'
 import Modal from '../../../../components/Modal.jsx'
 import FormField from '../FormField.jsx'
@@ -71,6 +71,86 @@ const CAMPOS_OBLIGATORIOS = [
   ...CAMPOS_ENTREGA,
   ...CAMPOS_OBSERVACIONES,
 ]
+
+// Parsear el texto de «Qué recogemos» a array de artículos.
+// Formato esperado: "cantidad · ARTÍCULO · DESCRIPCIÓN · Lote LOTE" (una línea por artículo)
+function parsearArticulosQueRecogemos(texto) {
+  if (!texto || !texto.trim()) return []
+  const lineas = texto.trim().split('\n')
+  const articulos = []
+  for (const linea of lineas) {
+    const partes = linea.split(' · ')
+    if (partes.length >= 2) {
+      const cantidad = parseInt(partes[0].trim(), 10)
+      const articulo = partes[1].trim()
+      const descripcion = partes.length >= 3 ? partes[2].trim() : ''
+      const lote = partes.length >= 4 ? partes[3].trim() : ''
+      if (!isNaN(cantidad) && cantidad > 0 && articulo) {
+        articulos.push({ cantidad, articulo, descripcion, lote })
+      }
+    }
+  }
+  return articulos
+}
+
+// Serializar array de artículos al formato de texto para el backend.
+function serializarArticulosQueRecogemos(articulos) {
+  return articulos
+    .map((a) => {
+      const base = `${a.cantidad} · ${a.articulo}`
+      const conDesc = a.descripcion ? `${base} · ${a.descripcion}` : base
+      return a.lote ? `${conDesc} · Lote ${a.lote}` : conDesc
+    })
+    .join('\n')
+}
+
+// Mini tabla de artículos seleccionados en «Qué recogemos».
+function TablaArticulosQueRecogemos({ articulos, onEliminar }) {
+  if (!articulos.length) return null
+  return (
+    <div className="mt-2 rounded-xl border border-brand-cyan/30 bg-brand-cyan/5 overflow-hidden">
+      <div className="px-3 py-2 bg-brand-cyan/15 border-b border-brand-cyan/30">
+        <p className="text-xs font-extrabold uppercase tracking-wide text-brand-deep inline-flex items-center gap-1.5">
+          <MdInventory2 className="text-brand-cyan text-sm" />
+          Artículos seleccionados ({articulos.length})
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs border-collapse">
+          <thead className="sticky top-0 z-10 bg-brand-navy text-white uppercase tracking-wider text-[10px]">
+            <tr>
+              <th className="px-2 py-1.5 text-left font-extrabold border-r border-white/15">Artículo</th>
+              <th className="px-2 py-1.5 text-left font-extrabold border-r border-white/15">Descripción</th>
+              <th className="px-2 py-1.5 text-center font-extrabold border-r border-white/15 whitespace-nowrap">Lote</th>
+              <th className="px-2 py-1.5 text-right font-extrabold border-r border-white/15 whitespace-nowrap">Cant.</th>
+              <th className="px-2 py-1.5 text-center font-extrabold whitespace-nowrap">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {articulos.map((a, i) => (
+              <tr key={i} className={`border-b border-brand-ink/5 hover:bg-brand-cyan/10 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/5'}`}>
+                <td className="px-2 py-1.5 font-bold text-brand-ink whitespace-nowrap">{a.articulo}</td>
+                <td className="px-2 py-1.5 text-brand-ink/80 truncate max-w-[200px]">{a.descripcion || '—'}</td>
+                <td className="px-2 py-1.5 text-center text-brand-ink/70 whitespace-nowrap">{a.lote || '—'}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums font-bold text-brand-ink">{a.cantidad}</td>
+                <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => onEliminar(i)}
+                    title="Eliminar"
+                    className="grid place-items-center size-6 rounded bg-red-50 text-red-600 hover:bg-red-100 transition"
+                  >
+                    <MdDelete className="text-xs" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
 
 const FORM_VACIO = {
   fecha_subida: '',
@@ -172,6 +252,8 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   const [listaAbierta, setListaAbierta] = useState(false)
   const [listaAbiertaEntrega, setListaAbiertaEntrega] = useState(false)
   const [articulosOpen, setArticulosOpen] = useState(false)
+  // Artículos parseados de «Qué recogemos» (para la mini tabla).
+  const [articulosSeleccionados, setArticulosSeleccionados] = useState([])
   // Casilla obligatoria: declaración de aceptación del Reglamento Interno.
   const [aceptaReglamento, setAceptaReglamento] = useState(false)
 
@@ -198,6 +280,8 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
     setErrorServidor('')
     setLoading(false)
     setAceptaReglamento(false)
+    // Parsear artículos existentes en «Qué recogemos» al abrir.
+    setArticulosSeleccionados(parsearArticulosQueRecogemos(formData.que_recogemos || ''))
     // Muestra al instante el último código conocido y lo refresca del servidor.
     setSiguiente(peekCodigoRecoleccionSync() || '')
     void peekCodigoRecoleccion().then((c) => setSiguiente(c || ''))
@@ -266,9 +350,29 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
       }
       return next
     })
+    // Si se edita manualmente «Qué recogemos» y no hay artículos en la tabla,
+    // parsear para mantener la tabla sincronizada.
+    if (name === 'que_recogemos' && !articulosSeleccionados.length) {
+      setArticulosSeleccionados(parsearArticulosQueRecogemos(valor))
+    }
     if (errores.length > 0) setErrores([])
     if (errorServidor) setErrorServidor('')
   }
+
+  // Handler para la mini tabla de artículos: solo eliminar.
+  const eliminarArticulo = (index) => {
+    setArticulosSeleccionados((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // Sincronizar formData.que_recogemos cuando cambian los artículos de la tabla.
+  useEffect(() => {
+    if (articulosSeleccionados.length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        que_recogemos: serializarArticulosQueRecogemos(articulosSeleccionados)
+      }))
+    }
+  }, [articulosSeleccionados])
 
   const handleSelectCliente = (c) => {
     if (picker === 'recoge') {
@@ -661,6 +765,10 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                       Seleccionar artículos
                     </button>
                   </div>
+                  <TablaArticulosQueRecogemos
+                    articulos={articulosSeleccionados}
+                    onEliminar={eliminarArticulo}
+                  />
                   <AreaTexto
                     label="Qué recogemos"
                     name="que_recogemos"
@@ -897,6 +1005,8 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
         valorActual={formData.que_recogemos}
         onClose={() => setArticulosOpen(false)}
         onConfirm={(texto) => {
+          const nuevosArticulos = parsearArticulosQueRecogemos(texto)
+          setArticulosSeleccionados(nuevosArticulos)
           setFormData((prev) => ({ ...prev, que_recogemos: texto }))
           if (errores.length > 0) setErrores([])
         }}

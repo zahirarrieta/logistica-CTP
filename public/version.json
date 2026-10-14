@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.14-44",
+  "version": "2026.10.14-47",
   "fecha": "2026-10-14",
   "cambios": [
+    "Recolección: en «Qué recogemos» los artículos elegidos del inventario ahora se listan en una tabla (N.º de artículo, descripción, lote, cantidad y opción de eliminar) y al mismo tiempo se puede seguir escribiendo a mano en el texto, porque no siempre se necesita la tabla.",
     "ChatBot: el panel ya no oscurece ni desenfoca el fondo, y se cierra al pulsar por fuera, con la X o con la tecla Esc. El botón flotante muestra el muñeco con su halo pulsante y ahora sirve para abrir y cerrar; el muñeco también aparece en el encabezado del panel, en la bienvenida y como avatar de cada respuesta.",
     "Inicio y Login: se retiró el botón flotante que enlazaba a ctpmedica.net, porque ese lugar lo ocupa ahora el ChatBot de Inventario.",
     "Clientes: las etiquetas y los datos del formulario de clientes se escriben en mayúscula, y al abrir «Nuevo cliente» o al editar uno el cursor se ubica solo en el primer campo.",
