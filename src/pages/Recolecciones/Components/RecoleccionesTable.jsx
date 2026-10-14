@@ -3,7 +3,8 @@ import {
   MdTag, MdCalendarToday, MdAccessTime, MdPerson, MdEmail, MdCategory,
   MdPlace, MdAttachFile, MdNotes, MdStorefront, MdWarehouse, MdSupportAgent,
   MdPhone, MdEvent, MdNavigateBefore, MdNavigateNext, MdExpandMore, MdInbox,
-  MdListAlt, MdOpenInFull, MdArrowForward,
+  MdListAlt, MdOpenInFull, MdArrowForward, MdPersonAdd, MdSwapHoriz, MdHistory,
+  MdAssignmentInd,
 } from 'react-icons/md'
 import { paginasVisibles } from '../../../utils/paginacion.js'
 import AdjuntosModal from '../../../components/AdjuntosModal.jsx'
@@ -14,6 +15,14 @@ import RecoleccionSeguimientoModal from './modals/RecoleccionSeguimientoModal.js
 const ITEMS_PER_PAGE = 10
 
 const adjuntosDe = (r) => (Array.isArray(r?.adjuntos) ? r.adjuntos : [])
+
+const tieneAsignado = (r) =>
+  Boolean(String(r?.asignado_a || r?.asignado_correo || '').trim())
+
+// Estados que cierran la recolección: ya no admiten asignación ni cambio de
+// estado (solo queda el historial), igual que «Entregado» en solicitudes.
+const ESTADOS_TERMINALES = ['Entregado', 'Fallido']
+const esTerminal = (r) => ESTADOS_TERMINALES.includes(r?.estado)
 
 // Dato de una tarjeta del panel «Recoge / Entrega».
 function Dato({ label, valor, icon, full = false }) {
@@ -85,10 +94,11 @@ function Row({ icon, label, value }) {
   )
 }
 
-function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, onVerAdjuntos }) {
+function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, onVerAdjuntos, onAsignarClick, onCambiarEstadoClick, onHistorialClick }) {
   const isEven = index % 2 === 0
   const cardBg = isEven ? 'bg-white' : 'bg-brand-cyan/10'
   const adjuntos = adjuntosDe(r)
+  const mostrarAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onHistorialClick)
 
   return (
     <div className={`rounded-2xl border border-brand-ink/15 shadow-sm overflow-hidden ${cardBg}`}>
@@ -123,6 +133,7 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, o
           <Row icon={<MdEmail />} label="Correo" value={r.correo} />
           <Row icon={<MdCategory />} label="Tipo de servicio" value={r.tipo_servicio} />
           <Row icon={<MdPlace />} label="Zona" value={r.zona} />
+          <Row icon={<MdAssignmentInd />} label="Asignado a" value={r.asignado_a} />
 
           <div className="pt-3">
             <PanelRecogeEntrega r={r} />
@@ -159,13 +170,58 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, o
             <MdOpenInFull className="text-lg" />
             Ver detalle completo
           </button>
+
+          {mostrarAcciones && (
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              {onAsignarClick && !esTerminal(r) && (
+                <button
+                  type="button"
+                  onClick={() => onAsignarClick(r)}
+                  title="Asignar usuario"
+                  aria-label="Asignar usuario"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdPersonAdd className="text-lg" />
+                  Asignar
+                </button>
+              )}
+              {onCambiarEstadoClick && !esTerminal(r) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!tieneAsignado(r)) return
+                    onCambiarEstadoClick(r)
+                  }}
+                  disabled={!tieneAsignado(r)}
+                  title={tieneAsignado(r) ? 'Cambiar estado' : 'Debes asignar una persona primero'}
+                  aria-label="Cambiar estado"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors px-2 py-2 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-navy/10 disabled:hover:text-brand-deep"
+                >
+                  <MdSwapHoriz className="text-lg" />
+                  Estado
+                </button>
+              )}
+              {onHistorialClick && (
+                <button
+                  type="button"
+                  onClick={() => onHistorialClick(r)}
+                  title="Historial"
+                  aria-label="Ver historial"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-2 py-2 text-xs font-bold"
+                >
+                  <MdHistory className="text-lg" />
+                  Historial
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
 
-export default function RecoleccionesTable({ items, onRowClick }) {
+export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [adjuntosRecoleccion, setAdjuntosRecoleccion] = useState(null)
@@ -175,6 +231,15 @@ export default function RecoleccionesTable({ items, onRowClick }) {
   const page = Math.min(currentPage, totalPages)
   const startIndex = (page - 1) * ITEMS_PER_PAGE
   const currentItems = items.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+
+  // La columna de acciones solo se dibuja si hay manejadores y al menos una fila
+  // de la página actual ofrece algún botón (así no queda una columna vacía).
+  const hayAcciones =
+    Boolean(onAsignarClick || onCambiarEstadoClick || onHistorialClick) &&
+    currentItems.some(
+      (r) => onHistorialClick || (!esTerminal(r) && (onAsignarClick || onCambiarEstadoClick))
+    )
+  const columnas = hayAcciones ? 11 : 10
 
   const toggle = (codigo) => setExpandedId((prev) => (prev === codigo ? null : codigo))
 
@@ -208,6 +273,9 @@ export default function RecoleccionesTable({ items, onRowClick }) {
             onToggle={() => toggle(r.codigo)}
             onVerDetalle={onRowClick}
             onVerAdjuntos={setAdjuntosRecoleccion}
+            onAsignarClick={onAsignarClick}
+            onCambiarEstadoClick={onCambiarEstadoClick}
+            onHistorialClick={onHistorialClick}
           />
         ))}
       </div>
@@ -215,7 +283,7 @@ export default function RecoleccionesTable({ items, onRowClick }) {
       {/* Tabla — visible en tablet y desktop */}
       <div className="hidden md:block">
         <div className="overflow-x-auto rounded-2xl border border-brand-ink/15 shadow-sm">
-          <table className="w-full text-left text-sm border-separate border-spacing-0 min-w-[1160px]">
+          <table className={`w-full text-left text-sm border-separate border-spacing-0 ${hayAcciones ? 'min-w-[1260px]' : 'min-w-[1160px]'}`}>
             <thead>
               <tr className="bg-brand-navy text-white text-left uppercase tracking-wider">
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15 w-14 text-center">N°</th>
@@ -246,6 +314,11 @@ export default function RecoleccionesTable({ items, onRowClick }) {
                 <th className="px-3 py-4 text-xs font-bold text-center">
                   <span className="inline-flex items-center justify-center gap-1.5"><MdTag className="text-base" /> Estado</span>
                 </th>
+                {hayAcciones && (
+                  <th className="px-3 py-4 w-32 sticky right-0 z-10 bg-brand-navy text-center">
+                    <span className="inline-flex items-center justify-center gap-1.5"><MdSwapHoriz className="text-base" /> Acciones</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -323,11 +396,61 @@ export default function RecoleccionesTable({ items, onRowClick }) {
                       <td className="px-3 py-3 border-b border-l border-brand-ink/10 text-center">
                         <EstadoBadge estado={r.estado} />
                       </td>
+                      {hayAcciones && (
+                        <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${estiloFila}`}>
+                          <div className="flex items-center justify-center gap-1.5">
+                            {onAsignarClick && !esTerminal(r) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onAsignarClick(r)
+                                }}
+                                title="Asignar usuario"
+                                aria-label="Asignar usuario"
+                                className="grid place-items-center size-9 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                              >
+                                <MdPersonAdd className="text-xl" />
+                              </button>
+                            )}
+                            {onCambiarEstadoClick && !esTerminal(r) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (!tieneAsignado(r)) return
+                                  onCambiarEstadoClick(r)
+                                }}
+                                disabled={!tieneAsignado(r)}
+                                title={tieneAsignado(r) ? 'Cambiar estado' : 'Debes asignar una persona primero'}
+                                aria-label="Cambiar estado"
+                                className="grid place-items-center size-9 rounded-full bg-brand-navy/10 text-brand-deep hover:bg-brand-navy hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-navy/10 disabled:hover:text-brand-deep"
+                              >
+                                <MdSwapHoriz className="text-xl" />
+                              </button>
+                            )}
+                            {onHistorialClick && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onHistorialClick(r)
+                                }}
+                                title="Historial"
+                                aria-label="Ver historial"
+                                className="grid place-items-center size-9 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                              >
+                                <MdHistory className="text-xl" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
 
                     {abierto && (
                       <tr className={estiloFila}>
-                        <td colSpan={10} className="px-3 pt-6 pb-6 border-b border-l border-brand-ink/10">
+                        <td colSpan={columnas} className="px-3 pt-6 pb-6 border-b border-l border-brand-ink/10">
                           <PanelRecogeEntrega r={r} />
                         </td>
                       </tr>

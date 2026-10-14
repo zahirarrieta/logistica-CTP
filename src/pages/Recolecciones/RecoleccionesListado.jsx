@@ -7,15 +7,17 @@ import SearchFilters from '../../components/SearchFilters.jsx'
 import { descargarRecolecciones } from '../../services/recoleccionesApi.js'
 import { ESTADOS_RECOLECCION } from '../../auth/roles.js'
 import { getRecoleccionBadge, getRecoleccionDot } from '../../utils/estadoRecoleccion.js'
+import { useAuth } from '../../auth/AuthContext.jsx'
 
 // Caché en memoria de las recolecciones ya cargadas. Al volver a la pestaña se
 // pintan al instante (sin loader) y se revalida en segundo plano.
 let cacheRecolecciones = null
 
-// Pestaña «Mis recolecciones» dentro de Solicitudes. Lista las recolecciones
-// visibles para el usuario (las propias o todas, según el rol) con los MISMOS
-// filtros que «Mis solicitudes» (estado, cliente y zona) y detalle informativo.
+// Pestaña «Mis recolecciones» dentro de Solicitudes. Lista SOLO las recolecciones
+// subidas por el usuario conectado (comparando por su correo), igual que «Mis
+// solicitudes», con los MISMOS filtros (estado, cliente y zona) y detalle.
 export default function RecoleccionesListado() {
+  const { account } = useAuth()
   const [items, setItems] = useState(() => cacheRecolecciones || [])
   const [cargando, setCargando] = useState(!cacheRecolecciones)
   const [error, setError] = useState('')
@@ -41,16 +43,24 @@ export default function RecoleccionesListado() {
 
   useEffect(() => { void cargar(Boolean(cacheRecolecciones)) }, [])
 
+  // «Mis recolecciones» solo muestra las recolecciones subidas por el usuario
+  // conectado (comparando por su correo), igual que «Mis solicitudes».
+  const correoActual = (account?.username || '').trim().toLowerCase()
+  const mias = useMemo(
+    () => items.filter((r) => (r.correo || '').trim().toLowerCase() === correoActual),
+    [items, correoActual]
+  )
+
   const filtradas = useMemo(() => {
     const cliente = filtroCliente.toLowerCase()
     const zona = filtroZona.toLowerCase()
-    return items.filter((r) => {
+    return mias.filter((r) => {
       if (filtroEstado && r.estado !== filtroEstado) return false
       if (cliente && !(r.recoge_cliente || '').toLowerCase().includes(cliente)) return false
       if (zona && !(r.zona || '').toLowerCase().includes(zona)) return false
       return true
     })
-  }, [items, filtroEstado, filtroCliente, filtroZona])
+  }, [mias, filtroEstado, filtroCliente, filtroZona])
 
   const hasFilters = Boolean(filtroEstado || filtroCliente || filtroZona)
 
@@ -80,10 +90,10 @@ export default function RecoleccionesListado() {
 
   return (
     <div>
-      {items.length > 0 && (
+      {mias.length > 0 && (
         <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
           <EstadoFilter
-            solicitudes={items}
+            solicitudes={mias}
             value={filtroEstado}
             onChange={setFiltroEstado}
             estados={ESTADOS_RECOLECCION}
@@ -105,12 +115,12 @@ export default function RecoleccionesListado() {
             {hasFilters ? <MdFilterList /> : <MdInbox />}
           </span>
           <p className="text-lg font-bold text-brand-ink">
-            {hasFilters ? 'No hay recolecciones que coincidan con los filtros' : 'Aún no hay recolecciones'}
+            {hasFilters ? 'No hay recolecciones que coincidan con los filtros' : 'Aún no tienes recolecciones'}
           </p>
           <p className="text-sm text-brand-ink/50">
             {hasFilters
               ? 'Ajusta el estado, cliente o zona seleccionados.'
-              : 'Crea la primera recolección con el botón «Recolección».'}
+              : 'Crea tu primera recolección con el botón «Recolección».'}
           </p>
         </div>
       ) : (

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MdApartment, MdInbox, MdFilterList, MdInsights, MdDescription, MdAssignmentInd, MdTag, MdFilterAlt, MdLocalShipping } from 'react-icons/md'
+import { MdApartment, MdInbox, MdFilterList, MdInsights, MdDescription, MdAssignmentInd, MdTag, MdFilterAlt, MdLocalShipping, MdStorefront } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
@@ -8,8 +8,13 @@ import AsignadoFilter from '../../components/AsignadoFilter.jsx'
 import { SIN_ASIGNAR } from '../../components/filtrosConstants.js'
 import ConductorFilter from '../../components/ConductorFilter.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
+import RecoleccionesTable from '../Recolecciones/Components/RecoleccionesTable.jsx'
+import RecoleccionDetalleModal from '../Recolecciones/Components/modals/RecoleccionDetalleModal.jsx'
 import EstadosModal from './Components/modals/EstadosModal.jsx'
 import { ESTADOS } from '../../utils/estadoColors.js'
+import { ESTADOS_RECOLECCION } from '../../auth/roles.js'
+// getRecoleccionBadge/getRecoleccionDot usados en filtro de recolecciones
+import { getRecoleccionBadge, getRecoleccionDot } from '../../utils/estadoRecoleccion.js'
 import AsignarUsuarioModal from './Components/modals/AsignarUsuarioModal.jsx'
 import AsignarConductorModal from './Components/modals/AsignarConductorModal.jsx'
 import HistorialModal from './Components/modals/HistorialModal.jsx'
@@ -19,6 +24,7 @@ import DashboardTab from './Components/DashboardTab.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
 import ClientesModal from './Components/modals/ClientesModal.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud, suscribir, peekNextId, refrescarProximoCodigo } from '../../store/solicitudesStore.js'
+import { descargarRecolecciones, actualizarRecoleccion, descargarHistorialRecoleccion } from '../../services/recoleccionesApi.js'
 import { estadoActualizado, solicitudAsignada, conductorAsignado } from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { esSuperAdmin, esAsignadoA } from '../../auth/roles.js'
@@ -30,6 +36,7 @@ const ORDEN_TABS = [
   { id: 'dashboard', label: 'Dashboard', Icon: MdInsights },
   { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
   { id: 'asignaciones', label: 'Mis solicitudes', Icon: MdAssignmentInd },
+  { id: 'recolecciones', label: 'Recolecciones', Icon: MdStorefront },
   { id: 'planillas', label: 'Planillas', Icon: MdDescription },
   // El catálogo de clientes abre un modal en vez de cambiar el contenido de la
   // página, así que se marca con `modal` para que el click lo abra en lugar de
@@ -40,8 +47,10 @@ const ORDEN_TABS = [
 
 export default function Administrador() {
   const { account, usuario, rol } = useAuth()
-  const esSuper = esSuperAdmin(rol)
+const esSuper = esSuperAdmin(rol)
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
+  const [recolecciones, setRecolecciones] = useState([])
+  const [recoleccionDetalle, setRecoleccionDetalle] = useState(null)
   const [tab, setTab] = useState('dashboard')
   const [editSolicitud, setEditSolicitud] = useState(null)
   const [asignarSolicitud, setAsignarSolicitud] = useState(null)
@@ -67,6 +76,22 @@ export default function Administrador() {
 
   useEffect(() => suscribir(setSolicitudes), [])
 
+  // Cargar recolecciones (admin/superadmin ven todas, según backend)
+  useEffect(() => {
+    let activo = true
+    const cargarRec = async () => {
+      try {
+        const data = await descargarRecolecciones()
+        if (activo) setRecolecciones(Array.isArray(data) ? data : [])
+      } catch (e) {
+        console.error('[Admin] error cargando recolecciones:', e)
+        if (activo) setRecolecciones([])
+      }
+    }
+    void cargarRec()
+    return () => { activo = false }
+  }, [])
+
   // Re-apunta los modales abiertos a la versión fresca por id cuando llega un
   // cambio en vivo (Realtime); cierra el modal si la solicitud desapareció.
   useEffect(() => {
@@ -79,6 +104,49 @@ export default function Administrador() {
     setEntregaDetallesSolicitud(fresco)
     setEliminarSolicitud(fresco)
   }, [solicitudes])
+
+  // Re-apunta los modales de recolecciones (usan los mismos estados que solicitudes
+  // pero con objeto adaptado: id->codigo, asignadoA->asignado_a, etc.)
+  useEffect(() => {
+    const frescoRec = (prev) =>
+      prev ? (recolecciones.find((r) => r.codigo === prev.codigo) || null) : prev
+    setEditSolicitud(frescoRec ? adaptarRecoleccion(frescoRec) : null)
+    setAsignarSolicitud(frescoRec ? adaptarRecoleccion(frescoRec) : null)
+    setHistorialSolicitud(frescoRec ? adaptarRecoleccion(frescoRec) : null)
+  }, [recolecciones])
+
+  // Adaptador: convierte una recolección a objeto tipo solicitud para reutilizar
+  // los modales existentes (AsignarUsuarioModal, EstadosModal, HistorialModal).
+  const adaptarRecoleccion = (r) => ({
+    id: r.codigo,
+    codigo: r.codigo,
+    estado: r.estado,
+    asignadoA: r.asignado_a,
+    asignadoCorreo: r.asignado_correo,
+    conductor: r.conductor || '',
+    conductorCorreo: r.conductor_correo || '',
+    vehiculo: r.vehiculo || '',
+    placa: r.placa || '',
+    nombreCompleto: r.nombre_completo,
+    correo: r.correo,
+    cliente: r.recoge_cliente,
+    zona: r.zona,
+    fechaSubida: r.fecha_subida,
+    horaSubida: r.hora_subida,
+    tipoSolicitud: r.tipo_servicio,
+    historial: [], // se carga bajo demanda en handleRecoleccionHistorial
+    adjuntos: r.adjuntos,
+    observaciones: r.observaciones,
+    // Bandera para distinguir en modales compartidos
+    _esRecoleccion: true,
+    // Campos extra para EstadosModal (no aplican a recolecciones, pero evitan undefined)
+    ordenCompra: '',
+    cedula: '',
+    nit: r.recoge_nit,
+    bodega: r.recoge_bodega,
+    numeroReferencia: '',
+    creadoPor: r.correo,
+  })
 
   // Identidad del admin actual para saber qué solicitudes le pertenecen.
   const misDatos = useMemo(() => ({
@@ -156,8 +224,27 @@ export default function Administrador() {
   const contadorTab = (id) => {
     if (id === 'solicitudes') return esSuper ? solicitudes.length : sinAsignar.length
     if (id === 'asignaciones') return misAsignaciones.length
+    if (id === 'recolecciones') return recolecciones.length
     return 0
   }
+
+  const recoleccionesFiltradasLista = useMemo(() => {
+    const cliente = filtroCliente.toLowerCase()
+    const zona = filtroZona.toLowerCase()
+    const idBuscado = filtroId.trim().toLowerCase()
+    const nombreBuscado = filtroNombre.trim().toLowerCase()
+    return recolecciones.filter((r) => {
+      if (filterEstado && r.estado !== filterEstado) return false
+      if (nombreBuscado && !(r.nombre_completo || r.nombreCompleto || '').toLowerCase().includes(nombreBuscado)) return false
+      if (cliente && !(r.recoge_cliente || r.cliente || r.cliente_entrega || '').toLowerCase().includes(cliente)) return false
+      if (zona && !(r.zona || '').toLowerCase().includes(zona)) return false
+      if (idBuscado) {
+        const cod = String(r.codigo || r.id || '').toLowerCase()
+        if (!cod.includes(idBuscado)) return false
+      }
+      return true
+    })
+  }, [recolecciones, filterEstado, filtroNombre, filtroCliente, filtroZona, filtroId])
 
   const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
 
@@ -220,6 +307,40 @@ export default function Administrador() {
     conductorAsignado(id, updates.conductor)
     if (editSolicitud && editSolicitud.id === id) {
       setEditSolicitud(siguiente.find((s) => s.id === id) || null)
+    }
+  }
+
+  // Recolecciones handlers (usan los mismos modales que solicitudes con objeto adaptado)
+  const handleRecoleccionAsignar = async (codigo, { asignadoA, asignadoCorreo }) => {
+    try {
+      await actualizarRecoleccion(codigo, { asignado_a: asignadoA, asignado_correo: asignadoCorreo })
+      const data = await descargarRecolecciones()
+      setRecolecciones(Array.isArray(data) ? data : [])
+    } catch (e) {
+      console.error('[Admin] error asignando recolección:', e)
+    }
+  }
+
+  const handleRecoleccionCambiarEstado = async (codigo, { estado, nota }) => {
+    try {
+      await actualizarRecoleccion(codigo, { estado, nota })
+      const data = await descargarRecolecciones()
+      setRecolecciones(Array.isArray(data) ? data : [])
+      estadoActualizado(codigo, estado)
+    } catch (e) {
+      console.error('[Admin] error cambiando estado recolección:', e)
+    }
+  }
+
+  const handleRecoleccionHistorial = async (recoleccion) => {
+    try {
+      const historial = await descargarHistorialRecoleccion(recoleccion.codigo)
+      const adaptada = adaptarRecoleccion(recoleccion)
+      adaptada.historial = historial
+      setHistorialSolicitud(adaptada)
+    } catch (e) {
+      console.error('[Admin] error cargando historial recolección:', e)
+      setHistorialSolicitud(adaptarRecoleccion(recoleccion))
     }
   }
 
@@ -287,7 +408,7 @@ export default function Administrador() {
                   >
                     <Icon className="text-base" />
                     <span>{t.label}</span>
-                    {(t.id === 'solicitudes' || t.id === 'asignaciones') && cuenta > 0 && (
+                    {(t.id === 'solicitudes' || t.id === 'asignaciones' || t.id === 'recolecciones') && cuenta > 0 && (
                       <span className={`min-w-5 h-5 px-1 grid place-items-center rounded-full text-[10px] font-extrabold ${active ? 'bg-brand-cyan text-brand-ink' : 'bg-brand-deep/10 text-brand-deep'}`}>
                         {cuenta}
                       </span>
@@ -313,6 +434,62 @@ export default function Administrador() {
             <p className="rounded-2xl border border-brand-ink/10 bg-brand-mist/60 px-4 py-6 text-center text-sm font-semibold text-brand-ink/60">
               Pulsa «Clientes» para abrir el catálogo.
             </p>
+          ) : tab === 'recolecciones' ? (
+            <>
+              {recolecciones.length > 0 && (
+                <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
+                  <EstadoFilter
+                    solicitudes={recolecciones}
+                    value={filterEstado}
+                    onChange={setFilterEstado}
+                    estados={ESTADOS_RECOLECCION}
+                    getBadge={getRecoleccionBadge}
+                    getDot={getRecoleccionDot}
+                  />
+                  <SearchFilters
+                    cliente={filtroCliente}
+                    onClienteChange={setFiltroCliente}
+                    zona={filtroZona}
+                    onZonaChange={setFiltroZona}
+                    nombre={filtroNombre}
+                    onNombreChange={setFiltroNombre}
+                    id={filtroId}
+                    onIdChange={setFiltroId}
+                  />
+                </div>
+              )}
+              {recoleccionesFiltradasLista.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-brand-ink/20 bg-brand-mist/40 px-4 py-16 text-center text-brand-deep/60">
+                  <MdFilterList className="text-4xl" />
+                  <p className="text-base font-bold">
+                    {hasFilters ? 'No hay recolecciones que coincidan con los filtros' : 'No hay recolecciones registradas'}
+                  </p>
+                  {hasFilters && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterEstado(null)
+                        setFiltroCliente('')
+                        setFiltroZona('')
+                        setFiltroNombre('')
+                        setFiltroId('')
+                      }}
+                      className="mt-2 inline-flex items-center gap-2 rounded-full bg-brand-deep px-4 py-2 text-xs font-extrabold text-white shadow-lg transition hover:brightness-110"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <RecoleccionesTable
+                  items={recoleccionesFiltradasLista}
+                  onRowClick={(r) => setRecoleccionDetalle(r)}
+                  onAsignarClick={(r) => setAsignarSolicitud(adaptarRecoleccion(r))}
+                  onCambiarEstadoClick={(r) => setEditSolicitud(adaptarRecoleccion(r))}
+                  onHistorialClick={handleRecoleccionHistorial}
+                />
+              )}
+            </>
           ) : (
             <>
               {baseDelTab.length > 0 && (
@@ -376,9 +553,9 @@ export default function Administrador() {
         solicitud={editSolicitud}
         open={editSolicitud !== null}
         onClose={() => setEditSolicitud(null)}
-        onUpdate={handleUpdateEstado}
+        onUpdate={editSolicitud?._esRecoleccion ? handleRecoleccionCambiarEstado : handleUpdateEstado}
         onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
-        permitidos={ESTADOS_ADMIN}
+        permitidos={editSolicitud?._esRecoleccion ? ESTADOS_RECOLECCION : ESTADOS_ADMIN}
         permitirReabrir={esSuper}
       />
 
@@ -386,7 +563,7 @@ export default function Administrador() {
         solicitud={asignarSolicitud}
         open={asignarSolicitud !== null}
         onClose={() => setAsignarSolicitud(null)}
-        onUpdate={handleAsignar}
+        onUpdate={asignarSolicitud?._esRecoleccion ? handleRecoleccionAsignar : handleAsignar}
       />
 
       <AsignarConductorModal
@@ -408,6 +585,13 @@ export default function Administrador() {
         onClose={() => setEntregaDetallesSolicitud(null)}
       />
 
+      {recoleccionDetalle && (
+        <RecoleccionDetalleModal
+          open
+          recoleccion={recoleccionDetalle}
+          onClose={() => setRecoleccionDetalle(null)}
+        />
+      )}
       <ConfirmarEliminarModal
         solicitud={eliminarSolicitud}
         open={eliminarSolicitud !== null}
