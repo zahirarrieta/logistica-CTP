@@ -933,6 +933,7 @@ async function asegurarRecolecciones() {
         estado            VARCHAR(40)  NOT NULL DEFAULT 'Abierto',
         asignado_a        VARCHAR(190) NOT NULL DEFAULT '',
         asignado_correo   VARCHAR(190) NOT NULL DEFAULT '',
+        historial         JSON         NULL,
         creado_en         DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         actualizado_en    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         PRIMARY KEY (codigo),
@@ -941,36 +942,8 @@ async function asegurarRecolecciones() {
         KEY recolecciones_actualizado_idx (actualizado_en)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `)
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS recoleccion_historial (
-        id            CHAR(36)     NOT NULL,
-        recoleccion   VARCHAR(32)  NOT NULL,
-        campo         VARCHAR(20)  NOT NULL DEFAULT 'estado',
-        anterior      TEXT         NOT NULL,
-        nuevo         TEXT         NOT NULL,
-        nota          TEXT         NOT NULL,
-        referencia    TEXT         NOT NULL,
-        adjunto       TEXT         NOT NULL,
-        conductor     VARCHAR(190) NOT NULL DEFAULT '',
-        vehiculo      VARCHAR(120) NOT NULL DEFAULT '',
-        placa         VARCHAR(20)  NOT NULL DEFAULT '',
-        evidencia_url TEXT         NOT NULL,
-        encuesta      JSON         NULL,
-        persona       VARCHAR(190) NOT NULL DEFAULT '',
-        fecha         VARCHAR(40)  NOT NULL DEFAULT '',
-        hora          VARCHAR(40)  NOT NULL DEFAULT '',
-        creado_en     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-        PRIMARY KEY (id),
-        KEY recoleccion_historial_recoleccion_idx (recoleccion, creado_en),
-        KEY recoleccion_historial_campo_idx (campo),
-        CONSTRAINT recoleccion_historial_campo_ck
-          CHECK (campo IN ('estado', 'asignado', 'conductor')),
-        CONSTRAINT recoleccion_historial_recoleccion_fk
-          FOREIGN KEY (recoleccion) REFERENCES recolecciones (codigo) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `)
     // Tablas creadas antes de que existieran «tipo_servicio», «telefono_contacto»
-    // o la asignación de la recolección: se agregan aquí de forma
+    // o la asignación/historial de la recolección: se agregan aquí de forma
     // idempotente para no depender de pegar SQL en el hosting. Si la tabla es
     // nueva el CREATE ya las trae y estos ALTER fallan con «columna duplicada»
     // (código 1060), que se ignora.
@@ -979,7 +952,7 @@ async function asegurarRecolecciones() {
       "ALTER TABLE recolecciones ADD COLUMN telefono_contacto VARCHAR(40) NOT NULL DEFAULT '' AFTER persona_contacto",
       "ALTER TABLE recolecciones ADD COLUMN asignado_a VARCHAR(190) NOT NULL DEFAULT '' AFTER estado",
       "ALTER TABLE recolecciones ADD COLUMN asignado_correo VARCHAR(190) NOT NULL DEFAULT '' AFTER asignado_a",
-      "ALTER TABLE recolecciones DROP COLUMN historial",
+      "ALTER TABLE recolecciones ADD COLUMN historial JSON NULL AFTER asignado_correo",
     ]) {
       try {
         await pool.execute(alter)
@@ -1052,37 +1025,10 @@ function filaRecoleccion(f) {
   return {
     ...f,
     adjuntos: aArrayJson(f.adjuntos),
+    historial: aArrayJson(f.historial),
     creado_en: iso(f.creado_en),
     actualizado_en: iso(f.actualizado_en),
   }
-}
-
-function filaRecoleccionHistorial(h) {
-  return {
-    ...h,
-    encuesta: jsonONull(h.encuesta),
-    creado_en: iso(h.creado_en),
-  }
-}
-
-// Historial de varias recolecciones en UNA consulta, agrupado por código. La
-// campana de «Notificaciones de cambio» de la tabla lo necesita en cada fila; ir
-// de a una sería una petición por recolección en cada ciclo de polling.
-async function historialPorRecoleccion(codigos) {
-  if (!Array.isArray(codigos) || codigos.length === 0) return new Map()
-  const [filas] = await pool.execute(
-    `SELECT * FROM recoleccion_historial
-      WHERE recoleccion IN (${codigos.map(() => '?').join(', ')})
-      ORDER BY creado_en DESC`,
-    codigos
-  )
-  const mapa = new Map()
-  for (const f of filas) {
-    const lista = mapa.get(f.recoleccion)
-    if (lista) lista.push(filaRecoleccionHistorial(f))
-    else mapa.set(f.recoleccion, [filaRecoleccionHistorial(f)])
-  }
-  return mapa
 }
 
 // Nombre en disco del adjunto: marca única + nombre original (el guardado sanea
@@ -1113,8 +1059,7 @@ router.get(
         ORDER BY creado_en DESC, codigo DESC`,
       filtro.params
     )
-    const historial = await historialPorRecoleccion(filas.map((f) => f.codigo))
-    res.json(filas.map((f) => filaRecoleccion({ ...f, historial: historial.get(f.codigo) || [] })))
+    res.json(filas.map(filaRecoleccion))
   })
 )
 
@@ -1370,135 +1315,35 @@ router.put(
         params.push(textoRec(cuerpo.asignado_correo, 190).toLowerCase())
       }
     }
-    if (cambios.length === 0 && historialEntradas.length === 0) return res.json({ ok: true })
+if (cambios.length === 0 && historialEntradas.length === 0) return res.json({ ok: true })
 
-    const conexion = await pool.getConnection()
-    try {
-      await conexion.beginTransaction()
+    // Prepara el historial fusionado (existente + nuevas entradas)
+    const historialExistente = aArrayJson(actual.historial)
+    const historialFusionado = [...historialExistente, ...historialEntradas]
 
-      if (cambios.length > 0) {
-        params.push(codigo)
-        await conexion.execute(
-          `UPDATE recolecciones
-              SET ${cambios.join(', ')}, actualizado_en = CURRENT_TIMESTAMP(3)
-            WHERE codigo = ?`,
-          params
-        )
-      }
-
-      // Escribe historial en tabla separada
-      for (const h of historialEntradas) {
-        await conexion.execute(
-          `INSERT INTO recoleccion_historial
-             (id, recoleccion, campo, anterior, nuevo, nota, referencia, adjunto,
-              conductor, vehiculo, placa, evidencia_url, encuesta, persona, fecha, hora)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            h.id, h.recoleccion, h.campo, h.anterior, h.nuevo, h.nota,
-            h.referencia, h.adjunto, h.conductor, h.vehiculo, h.placa,
-            h.evidencia_url, h.encuesta ? JSON.stringify(h.encuesta) : null,
-            h.persona, h.fecha, h.hora
-          ]
-        )
-      }
-
-      await conexion.commit()
-    } catch (error) {
-      try { await conexion.rollback() } catch { /* sin transacción que deshacer */ }
-      throw error
-    } finally {
-      conexion.release()
+    const cambiosFinal = [...cambios]
+    const paramsFinal = [...params]
+    if (historialEntradas.length > 0) {
+      cambiosFinal.push('historial = ?')
+      paramsFinal.push(JSON.stringify(historialFusionado))
     }
+    if (cambiosFinal.length === 0) return res.json({ ok: true })
+
+    paramsFinal.push(codigo)
+    await pool.execute(
+      `UPDATE recolecciones
+          SET ${cambiosFinal.join(', ')}, actualizado_en = CURRENT_TIMESTAMP(3)
+        WHERE codigo = ?`,
+      paramsFinal
+    )
 
     res.json({ ok: true })
   })
 )
 
-// ---------------------------------------------------------------------------
-// Recolección · Historial
-// ---------------------------------------------------------------------------
-// GET /api/recolecciones/:codigo/historial
-router.get(
-  '/recolecciones/:codigo/historial',
-  ruta(async (req, res) => {
-    const ctx = await conContexto(req)
-    await asegurarRecolecciones()
-    const codigo = String(req.params.codigo || '')
-    if (!esCodigoRecValido(codigo)) {
-      return res.status(400).json({ error: 'Código inválido' })
-    }
-    const [filas] = await pool.execute(
-      'SELECT * FROM recolecciones WHERE codigo = ? LIMIT 1',
-      [codigo]
-    )
-    const rec = filas[0]
-    if (!rec) return res.status(404).json({ error: 'No existe la recolección' })
-    if (!P.puedeVerRecolecciones(ctx) || !P.permiteActualizarRecoleccion(ctx, rec)) {
-      return res.status(403).json({ error: 'No autorizado' })
-    }
-    const [hist] = await pool.execute(
-      'SELECT * FROM recoleccion_historial WHERE recoleccion = ? ORDER BY creado_en DESC',
-      [codigo]
-    )
-    res.json(hist.map(filaRecoleccionHistorial))
-  })
-)
-
-// POST /api/recolecciones/:codigo/historial (escribe entrada de historial)
-router.post(
-  '/recolecciones/:codigo/historial',
-  ruta(async (req, res) => {
-    const ctx = await conContexto(req)
-    await asegurarRecolecciones()
-    const codigo = String(req.params.codigo || '')
-    if (!esCodigoRecValido(codigo)) {
-      return res.status(400).json({ error: 'Código inválido' })
-    }
-    const [filas] = await pool.execute(
-      'SELECT * FROM recolecciones WHERE codigo = ? LIMIT 1',
-      [codigo]
-    )
-    const rec = filas[0]
-    if (!rec) return res.status(404).json({ error: 'No existe la recolección' })
-    if (!P.permiteActualizarRecoleccion(ctx, rec)) {
-      return res.status(403).json({ error: 'No autorizado' })
-    }
-    const entrada = req.body || {}
-    if (!entrada.campo || !entrada.anterior || !entrada.nuevo) {
-      return res.status(400).json({ error: 'Faltan campos obligatorios (campo, anterior, nuevo)' })
-    }
-    if (!['estado', 'asignado', 'conductor'].includes(entrada.campo)) {
-      return res.status(400).json({ error: 'Campo inválido' })
-    }
-    if (entrada.campo === 'estado' && !P.ESTADOS_RECOLECCION.includes(entrada.nuevo)) {
-      return res.status(400).json({ error: 'Estado inválido' })
-    }
-    const ahora = new Date()
-    const fechaHoy = ahora.toLocaleDateString('es-ES')
-    const horaAhora = ahora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-    const persona = ctx.nombre || ctx.correo || ''
-    const id = crypto.randomUUID()
-    await pool.execute(
-      `INSERT INTO recoleccion_historial
-         (id, recoleccion, campo, anterior, nuevo, nota, referencia, adjunto,
-          conductor, vehiculo, placa, evidencia_url, encuesta, persona, fecha, hora)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id, codigo, entrada.campo, entrada.anterior, entrada.nuevo,
-        entrada.nota || '', entrada.referencia || '', entrada.adjunto || '',
-        entrada.conductor || '', entrada.vehiculo || '', entrada.placa || '',
-        entrada.evidencia_url || '',
-        entrada.encuesta ? JSON.stringify(entrada.encuesta) : null,
-        persona, fechaHoy, horaAhora
-      ]
-    )
-    res.status(201).json({ ok: true, id })
-  })
-)
-
-// ---------------------------------------------------------------------------
-// Usuarios
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Usuarios
+  // ---------------------------------------------------------------------------
 router.get(
   '/usuarios',
   ruta(async (req, res) => {

@@ -88,10 +88,11 @@ export async function actualizarRecoleccion(codigo, cambios) {
   return true
 }
 
-// Descarga el historial de una recolección desde la tabla recoleccion_historial.
+// Descarga el historial de una recolección desde la tabla recolecciones (campo JSON).
 export async function descargarHistorialRecoleccion(codigo) {
   await iniciarSesion()
-  const historial = (await apiFetch(`/api/recolecciones/${encodeURIComponent(codigo)}/historial`)) || []
-  console.info(`[API] historial recolección ${codigo}: ${historial.length} entrada(s)`)
-  return historial
+  const rec = await apiFetch(`/api/recolecciones/${encodeURIComponent(codigo)}`)
+  if (!rec) return []
+  console.info(`[API] historial recolección ${codigo}: ${(rec.historial || []).length} entrada(s)`)
+  return rec.historial || []
 }
