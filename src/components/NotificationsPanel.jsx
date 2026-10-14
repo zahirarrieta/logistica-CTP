@@ -184,7 +184,7 @@ function ItemBody({ c, interactivo = false, onVerPdf }) {
   )
 }
 
-export default function NotificationsPanel({ solicitudes, glow = false, solicitudId, paginado = false, fixed = false }) {
+export default function NotificationsPanel({ solicitudes, glow = false, solicitudId, paginado = false, fixed = false, titulo = 'Notificaciones', compacto = false }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('estado')
   const [vistas, setVistas] = useState(() => loadVistas())
@@ -264,15 +264,26 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
       <button
         type="button"
         onClick={handleToggle}
-        aria-label="Notificaciones"
-        className="relative grid place-items-center size-11 rounded-full bg-brand-navy text-white hover:bg-brand-deep transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70"
+        aria-label={titulo}
+        title={titulo}
+        className={`relative grid place-items-center rounded-full bg-brand-navy text-white hover:bg-brand-deep transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70 ${
+          compacto ? 'size-8' : 'size-11'
+        }`}
       >
         {glow && noVistas > 0 && (
           <span aria-hidden="true" className="absolute -inset-1.5 rounded-full ring-2 ring-white/80 animate-pulse" />
         )}
-        {open ? <MdNotificationsActive className="text-xl text-brand-cyan" /> : <MdNotificationsNone className="text-xl" />}
+        {open ? (
+          <MdNotificationsActive className={`text-brand-cyan ${compacto ? 'text-base' : 'text-xl'}`} />
+        ) : (
+          <MdNotificationsNone className={compacto ? 'text-base' : 'text-xl'} />
+        )}
         {noVistas > 0 && (
-          <span className="absolute -top-1 -right-1 grid place-items-center min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-extrabold ring-2 ring-white">
+          <span
+            className={`absolute -top-1 -right-1 grid place-items-center rounded-full bg-red-500 text-white font-extrabold ring-2 ring-white ${
+              compacto ? 'min-w-4 h-4 px-0.5 text-[9px]' : 'min-w-5 h-5 px-1 text-[10px]'
+            }`}
+          >
             {noVistas > 9 ? '9+' : noVistas}
           </span>
         )}
@@ -303,7 +314,7 @@ export default function NotificationsPanel({ solicitudes, glow = false, solicitu
             <div className="flex items-center justify-between px-4 py-3 bg-brand-navy text-white shrink-0">
               <span className="inline-flex items-center gap-2 text-sm font-extrabold">
                 <MdNotificationsActive className="text-brand-cyan" />
-                Notificaciones
+                {titulo}
                 <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">{total}</span>
               </span>
               <div className="flex items-center gap-2">

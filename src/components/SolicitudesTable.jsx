@@ -39,6 +39,7 @@ import { RiSteering2Line } from 'react-icons/ri'
 import ObservacionesModal from './ObservacionesModal.jsx'
 import DetalleModal from './DetalleModal.jsx'
 import AdjuntosModal from './AdjuntosModal.jsx'
+import NotificationsPanel from './NotificationsPanel.jsx'
 
 const ITEMS_PER_PAGE = 10
 
@@ -160,7 +161,7 @@ function DocEntregaIcono({ count, onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCancelarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, puedeEliminar, restanteEliminar, puedeCancelar, restanteCancelar, accionesCancelado }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCancelarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, puedeEliminar, restanteEliminar, puedeCancelar, restanteCancelar, accionesCancelado, mostrarNotificaciones }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const cardBg = colorRow
@@ -266,6 +267,17 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
             <span className="text-brand-ink/50 w-24 shrink-0">Estado</span>
             <span className="flex flex-wrap items-center gap-2 min-w-0">
               <EstadoBadge estado={s.estado} />
+              {mostrarNotificaciones && (
+                <span onClick={(e) => e.stopPropagation()}>
+                  <NotificationsPanel
+                    solicitudes={[s]}
+                    solicitudId={s.id}
+                    titulo="Notificaciones de cambio"
+                    compacto
+                    fixed
+                  />
+                </span>
+              )}
             </span>
           </div>
           {hasCardAcciones && (
@@ -432,6 +444,7 @@ export default function SolicitudesTable({
   colorRowsPorEstado,
   mostrarDocEntrega,
   ocultarAdjuntos = false,
+  mostrarNotificaciones = false,
 }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
@@ -524,6 +537,7 @@ export default function SolicitudesTable({
                 restanteEliminar={restDel}
                 puedeCancelar={puedeCancelar}
                 restanteCancelar={restCan}
+                mostrarNotificaciones={mostrarNotificaciones}
               />
             )
           })}
@@ -670,8 +684,19 @@ export default function SolicitudesTable({
                     </span>
                   </td>
                   <td className="px-3 py-3 border-b border-l border-brand-ink/10">
-                    <span className="flex flex-col items-start gap-1">
+                    <span className="flex items-center gap-2">
                       <EstadoBadge estado={s.estado} />
+                      {mostrarNotificaciones && (
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <NotificationsPanel
+                            solicitudes={[s]}
+                            solicitudId={s.id}
+                            titulo="Notificaciones de cambio"
+                            compacto
+                            fixed
+                          />
+                        </span>
+                      )}
                     </span>
                   </td>
                   {hasAcciones && (

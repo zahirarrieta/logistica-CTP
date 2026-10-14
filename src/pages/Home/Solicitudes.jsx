@@ -222,6 +222,7 @@ export default function Solicitudes() {
                 onCancelarClick={handleCancelar}
                 puedeCancelar={(s) => puedeEliminarSolicitud(s, correoActual)}
                 restanteCancelar={(s) => restanteEliminar(s, correoActual)}
+                mostrarNotificaciones
                 empty={
                   hasFilters
                     ? {
