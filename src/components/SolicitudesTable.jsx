@@ -579,8 +579,8 @@ export default function SolicitudesTable({
                 <th className="px-3 py-4 text-xs font-bold border-r border-white/15">
                   <span className="inline-flex items-center gap-1.5"><MdAssignmentInd className="text-base" /> Asignado a</span>
                 </th>
-                <th className="px-3 py-4 text-xs font-bold">
-                  <span className="inline-flex items-center gap-1.5"><MdCheckCircle className="text-base" /> Estado</span>
+                <th className="px-3 py-4 text-xs font-bold text-center">
+                  <span className="inline-flex items-center justify-center gap-1.5"><MdCheckCircle className="text-base" /> Estado</span>
                 </th>
                 {hasAcciones && (
                   <th className="px-3 py-4 w-44 sticky right-0 z-10 bg-brand-navy">
@@ -684,7 +684,7 @@ export default function SolicitudesTable({
                     </span>
                   </td>
                   <td className="px-3 py-3 border-b border-l border-brand-ink/10">
-                    <span className="flex items-center gap-2">
+                    <span className="flex items-center justify-center gap-2">
                       <EstadoBadge estado={s.estado} />
                       {mostrarNotificaciones && (
                         <span onClick={(e) => e.stopPropagation()}>

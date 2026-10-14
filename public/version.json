@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.14-48",
+  "version": "2026.10.14-49",
   "fecha": "2026-10-14",
   "cambios": [
+    "Solicitudes (Mis solicitudes): el estado y la campana de notificaciones quedan centrados en la columna Estado, para que la tabla se vea más ordenada.",
     "Solicitudes (Mis solicitudes): junto al estado de cada solicitud, en la columna Estado, aparece ahora una campana de «Notificaciones de cambio» que abre el historial de cambios de esa solicitud (cambios de estado y asignaciones) sin tener que entrar al seguimiento. Muestra un contador en rojo cuando hay cambios sin ver.",
     "Recolección: en «Qué recogemos» los artículos elegidos del inventario ahora se listan en una tabla (N.º de artículo, descripción, lote, cantidad y opción de eliminar) y al mismo tiempo se puede seguir escribiendo a mano en el texto, porque no siempre se necesita la tabla.",
     "ChatBot: el panel ya no oscurece ni desenfoca el fondo, y se cierra al pulsar por fuera, con la X o con la tecla Esc. El botón flotante muestra el muñeco con su halo pulsante y ahora sirve para abrir y cerrar; el muñeco también aparece en el encabezado del panel, en la bienvenida y como avatar de cada respuesta.",
