@@ -1,7 +1,9 @@
 {
-  "version": "2026.10.15-61",
+  "version": "2026.10.15-62",
   "fecha": "2026-10-15",
   "cambios": [
+    "Recolecciones: el historial pasa a una tabla real en la base de datos (`recoleccion_historial`), igual que el historial de las solicitudes. Así aparece visible en phpMyAdmin y cada cambio de estado o asignación queda registrado en esa tabla, no en la columna JSON de la recolección.",
+    "Recolecciones: el listado del administrador y «Mis recolecciones» siguen recibiendo el historial en la misma forma (array), por lo que el modal de Historial no cambia. El historial del JSON existente se migró a la nueva tabla de forma automática.",
     "Corrección: al publicar una versión nueva, los equipos que se quedaban pegados en la pantalla «Se publicó una versión nueva» ahora se recuperan solos. Al detectar el cambio se desregistra el service worker y se borran las cachés antes de recargar, así la recarga trae siempre la versión vigente. El aviso «NUEVA VERSIÓN DISPONIBLE» y la pantalla de error usan la misma recuperación.",
     "Corrección: el service worker ahora se busca siempre fresco (sin caché HTTP) y se revisa al volver a la pestaña, para que ningún equipo se quede atrás con un bundle viejo; además sube a la caché v10.",
     "Recolección: el formulario «Nueva recolección» ahora tiene el bloque obligatorio «Responsable» con un botón «Asignar a» que abre el mismo modal de asignar del administrador, mostrando únicamente los cuatro responsables del listado cerrado (Yonathan Ortiz, Daniel Chamorro, Duber Sepúlveda y Sebastián Rojas). El solicitante debe elegir a quién le asigna la recolección antes de guardarla. En el administrador, al asignar una recolección, también aparecen solo esos cuatro nombres.",

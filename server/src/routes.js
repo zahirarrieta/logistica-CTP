@@ -964,6 +964,82 @@ async function asegurarRecolecciones() {
         }
       }
     }
+
+    // Historial de recolecciones en TABLA propia, igual que el `historial` de
+    // solicitudes: así queda consultable desde phpMyAdmin y el frontend recibe la
+    // misma forma (array de entradas) que en «Mis solicitudes». Se crea sola en el
+    // primer uso, sin pegar SQL en el hosting.
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS recoleccion_historial (
+        id            CHAR(36)     NOT NULL,
+        recoleccion   VARCHAR(32)  NOT NULL,
+        campo         VARCHAR(20)  NOT NULL DEFAULT 'estado',
+        anterior      TEXT         NOT NULL,
+        nuevo         TEXT         NOT NULL,
+        nota          TEXT         NOT NULL,
+        referencia    TEXT         NOT NULL,
+        adjunto       TEXT         NOT NULL,
+        conductor     VARCHAR(190) NOT NULL DEFAULT '',
+        vehiculo      VARCHAR(120) NOT NULL DEFAULT '',
+        placa         VARCHAR(20)  NOT NULL DEFAULT '',
+        evidencia_url TEXT         NOT NULL,
+        encuesta      JSON         NULL,
+        persona       VARCHAR(190) NOT NULL DEFAULT '',
+        fecha         VARCHAR(40)  NOT NULL DEFAULT '',
+        hora          VARCHAR(40)  NOT NULL DEFAULT '',
+        creado_en     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        KEY recoleccion_historial_rec_idx (recoleccion, creado_en),
+        KEY recoleccion_historial_campo_idx (campo),
+        CONSTRAINT recoleccion_historial_fk
+          FOREIGN KEY (recoleccion) REFERENCES recolecciones (codigo) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `)
+
+    // Migración única: el historial que quedó guardado en la columna JSON de la
+    // recolección se pasa a la tabla nueva. INSERT IGNORE por id lo hace
+    // idempotente (un reinicio del server no duplica). Se tolera que la columna no
+    // exista (instalación nueva o ya migrada).
+    try {
+      const [conHistorial] = await pool.execute(
+        'SELECT codigo, historial FROM recolecciones WHERE historial IS NOT NULL'
+      )
+      for (const fila of conHistorial) {
+        for (const e of aArrayJson(fila.historial)) {
+          try {
+            await pool.execute(
+              `INSERT IGNORE INTO recoleccion_historial
+                 (id, recoleccion, campo, anterior, nuevo, nota, referencia, adjunto,
+                  conductor, vehiculo, placa, evidencia_url, encuesta, persona, fecha, hora)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                e.id || crypto.randomUUID(),
+                fila.codigo,
+                e.campo || 'estado',
+                e.anterior || '',
+                e.nuevo || '',
+                e.nota || '',
+                e.referencia || '',
+                e.adjunto || '',
+                e.conductor || '',
+                e.vehiculo || '',
+                e.placa || '',
+                e.evidencia_url || '',
+                e.encuesta === null || e.encuesta === undefined ? null : JSON.stringify(e.encuesta),
+                e.persona || '',
+                e.fecha || '',
+                e.hora || '',
+              ]
+            )
+          } catch (error) {
+            console.error(`[Recolecciones] no se pudo migrar una entrada de historial: ${error?.message}`)
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`[Recolecciones] no se pudo migrar el historial JSON: ${error?.message}`)
+    }
+
     await pool.execute(
       `INSERT INTO contadores (nombre, valor) VALUES ('recolecciones_codigo', 1)
          ON DUPLICATE KEY UPDATE nombre = nombre`
@@ -1060,7 +1136,27 @@ router.get(
         ORDER BY creado_en DESC, codigo DESC`,
       filtro.params
     )
-    res.json(filas.map(filaRecoleccion))
+
+    // El historial vive en su propia tabla (igual que el de solicitudes): se trae
+    // para las recolecciones de esta tanda y se adjunta a cada fila, que es la
+    // forma que ya espera el frontend (cada recolección con su array `historial`).
+    const porRecoleccion = new Map()
+    for (let i = 0; i < filas.length; i += LOTE_CODIGOS) {
+      const lote = filas.slice(i, i + LOTE_CODIGOS).map((f) => f.codigo)
+      const [hist] = await pool.execute(
+        `SELECT * FROM recoleccion_historial
+          WHERE recoleccion IN (${lote.map(() => '?').join(',')})
+          ORDER BY creado_en DESC, id DESC`,
+        lote
+      )
+      for (const h of hist) {
+        const arr = porRecoleccion.get(h.recoleccion) || []
+        arr.push(filaHistorial(h))
+        porRecoleccion.set(h.recoleccion, arr)
+      }
+    }
+
+    res.json(filas.map((f) => filaRecoleccion({ ...f, historial: porRecoleccion.get(f.codigo) || [] })))
   })
 )
 
@@ -1264,8 +1360,8 @@ router.put(
         id: crypto.randomUUID(),
         recoleccion: codigo,
         campo: 'asignado',
-        anterior: asignadoActual,
-        nuevo: nuevoAsignado || '',
+        anterior: asignadoActual || 'Sin asignar',
+        nuevo: nuevoAsignado || 'Sin asignar',
         nota: cuerpo.nota || '',
         referencia: '',
         adjunto: '',
@@ -1318,25 +1414,44 @@ router.put(
     }
 if (cambios.length === 0 && historialEntradas.length === 0) return res.json({ ok: true })
 
-    // Prepara el historial fusionado (existente + nuevas entradas)
-    const historialExistente = aArrayJson(actual.historial)
-    const historialFusionado = [...historialExistente, ...historialEntradas]
-
-    const cambiosFinal = [...cambios]
-    const paramsFinal = [...params]
-    if (historialEntradas.length > 0) {
-      cambiosFinal.push('historial = ?')
-      paramsFinal.push(JSON.stringify(historialFusionado))
-    }
-    if (cambiosFinal.length === 0) return res.json({ ok: true })
-
-    paramsFinal.push(codigo)
+    // Se actualizan las columnas que cambiaron y se sella actualizado_en (la marca
+    // que usa el polling del frontend para detectar cambios).
+    params.push(codigo)
     await pool.execute(
       `UPDATE recolecciones
-          SET ${cambiosFinal.join(', ')}, actualizado_en = CURRENT_TIMESTAMP(3)
+          SET ${cambios.length > 0 ? `${cambios.join(', ')}, ` : ''}actualizado_en = CURRENT_TIMESTAMP(3)
         WHERE codigo = ?`,
-      paramsFinal
+      params
     )
+
+    // El historial se escribe en su tabla, una fila por cambio (como en
+    // solicitudes), no en una columna JSON.
+    for (const h of historialEntradas) {
+      await pool.execute(
+        `INSERT INTO recoleccion_historial
+           (id, recoleccion, campo, anterior, nuevo, nota, referencia, adjunto,
+            conductor, vehiculo, placa, evidencia_url, encuesta, persona, fecha, hora)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          h.id,
+          h.recoleccion,
+          h.campo,
+          h.anterior || '',
+          h.nuevo || '',
+          h.nota || '',
+          h.referencia || '',
+          h.adjunto || '',
+          h.conductor || '',
+          h.vehiculo || '',
+          h.placa || '',
+          h.evidencia_url || '',
+          h.encuesta === null || h.encuesta === undefined ? null : JSON.stringify(h.encuesta),
+          h.persona || '',
+          h.fecha || '',
+          h.hora || '',
+        ]
+      )
+    }
 
     res.json({ ok: true })
   })
