@@ -1,6 +1,5 @@
 import { Component } from 'react'
-
-const CLAVE_RECARGA = 'ctp_recarga_auto_1'
+import { CLAVE_RECARGA_AUTO as CLAVE_RECARGA, recuperarVersion } from '../utils/recargaApp.js'
 
 // Error típico cuando se publica una versión nueva: el navegador tenía la
 // página vieja abierta y pide un chunk (assets/*.js) que ya no existe.
@@ -29,13 +28,15 @@ export default class ErrorBoundary extends Component {
     console.error('ErrorBoundary capturó un error:', error, info)
 
     // Si es un chunk faltante por una versión nueva, se recarga automáticamente
-    // una sola vez por sesión: la página nueva carga los assets vigentes.
+    // una sola vez por sesión. La recuperación es dura (desregistra el service
+    // worker y borra las cachés) para que la recarga sí traiga los assets vigentes
+    // y no vuelva a caer en la pantalla de versión nueva.
     if (esErrorDeVersion(error)) {
       this.setState({ esVersion: true })
       try {
         if (!sessionStorage.getItem(CLAVE_RECARGA)) {
           sessionStorage.setItem(CLAVE_RECARGA, '1')
-          window.location.reload()
+          recuperarVersion()
         }
       } catch {
         // sin almacenamiento disponible: se queda en la pantalla de error
@@ -45,6 +46,16 @@ export default class ErrorBoundary extends Component {
 
   handleReset = () => {
     this.setState({ error: null, esVersion: false })
+  }
+
+  handleRecuperar = () => {
+    // Se permite un nuevo intento automático tras el reset manual.
+    try {
+      sessionStorage.removeItem(CLAVE_RECARGA)
+    } catch {
+      // sin almacenamiento: se ignora
+    }
+    recuperarVersion()
   }
 
   render() {
@@ -64,7 +75,7 @@ export default class ErrorBoundary extends Component {
                 </p>
                 <button
                   type="button"
-                  onClick={() => window.location.reload()}
+                  onClick={this.handleRecuperar}
                   className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-6 py-2.5 text-sm font-bold text-brand-ink shadow-cyanGlow transition"
                 >
                   Actualizar y recargar

@@ -1,4 +1,4 @@
-const CACHE = 'ctp-logistica-v9'
+const CACHE = 'ctp-logistica-v10'
 
 // Shell mínimo para que la app abra sin conexión mientras llegan los assets.
 // Incluye /inicio porque es el start_url del manifest (lo usan los lanzamientos

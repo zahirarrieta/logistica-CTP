@@ -1,12 +1,13 @@
 import { MdSystemUpdate, MdRefresh } from 'react-icons/md'
 import Modal from './Modal.jsx'
 import useNuevaVersion from '../hooks/useNuevaVersion.js'
+import { recuperarVersion } from '../utils/recargaApp.js'
 
-// Recarga la app para cargar la versión nueva. El service worker sirve el HTML y
-// los assets con la red por delante, así un reload simple ya trae lo último; no
-// hace falta desregistrar nada.
+// Recarga la app para cargar la versión nueva. La recuperación es dura
+// (desregistra el service worker y borra las cachés) para que un equipo que venía
+// arrastrando caché vieja no vuelva a recibir el bundle anterior tras recargar.
 function aplicarActualizacion() {
-  window.location.reload()
+  recuperarVersion()
 }
 
 // Fecha legible a partir de 'YYYY-MM-DD' (o lo que venga en version.json). Si no

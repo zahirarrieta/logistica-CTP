@@ -1,7 +1,9 @@
 {
-  "version": "2026.10.14-60",
-  "fecha": "2026-10-14",
+  "version": "2026.10.15-61",
+  "fecha": "2026-10-15",
   "cambios": [
+    "Corrección: al publicar una versión nueva, los equipos que se quedaban pegados en la pantalla «Se publicó una versión nueva» ahora se recuperan solos. Al detectar el cambio se desregistra el service worker y se borran las cachés antes de recargar, así la recarga trae siempre la versión vigente. El aviso «NUEVA VERSIÓN DISPONIBLE» y la pantalla de error usan la misma recuperación.",
+    "Corrección: el service worker ahora se busca siempre fresco (sin caché HTTP) y se revisa al volver a la pestaña, para que ningún equipo se quede atrás con un bundle viejo; además sube a la caché v10.",
     "Recolección: el formulario «Nueva recolección» ahora tiene el bloque obligatorio «Responsable» con un botón «Asignar a» que abre el mismo modal de asignar del administrador, mostrando únicamente los cuatro responsables del listado cerrado (Yonathan Ortiz, Daniel Chamorro, Duber Sepúlveda y Sebastián Rojas). El solicitante debe elegir a quién le asigna la recolección antes de guardarla. En el administrador, al asignar una recolección, también aparecen solo esos cuatro nombres.",
     "Recolecciones: en la tabla del administrador se quitó el encabezado «Acciones» (solo quedan los botones) y se agregó la columna «Asignado a», igual que en «Mis solicitudes». En «Mis recolecciones» se agregó la campana de «Notificaciones de cambio» junto al estado, con los cambios de estado y asignaciones de cada recolección.",
     "Administrador y Superadministrador: en la pestaña «Recolecciones» el motivo del cambio de estado ahora sí se guarda en la base de datos (antes se perdía al enviar el formulario). Los modales de Asignar usuario, Cambiar estado e Historial ya no se cierran solos a los pocos segundos al actualizarse la lista.",

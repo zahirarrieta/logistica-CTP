@@ -24,12 +24,18 @@
   AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
 </IfModule>
 
-# Caché larga para los assets con hash en el nombre (Vite los genera).
+# Caché larga para los assets con hash en el nombre (Vite los genera). El
+# content-type real que envía el hosting es text/javascript, así que hay que
+# declarar ambas formas: con solo application/javascript los .js quedaban sin
+# cabecera de caché.
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType text/css "access plus 1 year"
   ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
   ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
   ExpiresByType font/woff2 "access plus 1 year"
   # index.html nunca se cachea: es quien apunta a los hashes nuevos.
   ExpiresByType text/html "access plus 0 seconds"
@@ -46,5 +52,16 @@
   <Files "version.json">
     Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
     Header always set Pragma "no-cache"
+  </Files>
+
+  # index.html y el service worker NUNCA se cachean. Son quienes deciden qué
+  # assets carga la app y qué estrategia de caché se aplica: si el navegador se
+  # queda con una copia vieja, el equipo no sale de la versión anterior aunque
+  # recargue. Se revalida siempre contra el servidor.
+  <Files "index.html">
+    Header always set Cache-Control "no-cache, must-revalidate, max-age=0"
+  </Files>
+  <Files "sw.js">
+    Header always set Cache-Control "no-cache, must-revalidate, max-age=0"
   </Files>
 </IfModule>
