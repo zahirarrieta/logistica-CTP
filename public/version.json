@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.15-67",
+  "version": "2026.10.15-68",
   "fecha": "2026-10-15",
   "cambios": [
+    "Recolecciones (tablas): el clic en la fila abre el SEGUIMIENTO únicamente en «Mis recolecciones» (módulo Solicitudes), como en «Mis solicitudes». En los demás módulos (Administrador › Recolecciones y Conductor › Recogidas) la fila ya no abre ningún modal. El detalle completo se abre siempre al pulsar el ID de la recolección (en el móvil, con el botón «Detalle»).",
     "Recolecciones (tablas): al hacer clic en una fila se abre siempre el modal de SEGUIMIENTO, como en «Mis solicitudes», sin importar el estado. El detalle completo se abre únicamente al pulsar el ID de la recolección (en el móvil, con el botón «Detalle»). Antes, en el administrador, el clic en la fila abría el modal de detalles y el seguimiento solo aparecía si la recolección estaba «Abierto».",
     "Recolecciones (administrador): las filas de la tabla ahora se pintan con el color del estado, igual que en «Mis solicitudes», y la barra de filtros estrena el filtro «Asignado a» para ver las recolecciones de un responsable concreto.",
     "Recolecciones: al cambiar el estado a «Devolución a Solicitante» el formulario muestra los campos propios de una recolección (qué recogemos, quién recoge, fecha y hora, persona de contacto y teléfono, quién entrega, adjuntos y observaciones), en vez de los campos de una solicitud.",

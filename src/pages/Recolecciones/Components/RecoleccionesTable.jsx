@@ -203,15 +203,17 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimient
             )}
           </div>
 
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => onVerSeguimiento(r)}
-              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-brand-deep transition"
-            >
-              <MdMap className="text-lg" />
-              Seguimiento
-            </button>
+          <div className={`mt-2 grid gap-2 ${onVerSeguimiento ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {onVerSeguimiento && (
+              <button
+                type="button"
+                onClick={() => onVerSeguimiento(r)}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-brand-deep transition"
+              >
+                <MdMap className="text-lg" />
+                Seguimiento
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onVerDetalle(r)}
@@ -272,7 +274,7 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimient
   )
 }
 
-export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones = false, colorRowsPorEstado = false }) {
+export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones = false, colorRowsPorEstado = false, seguimientoEnFila = false }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [adjuntosRecoleccion, setAdjuntosRecoleccion] = useState(null)
@@ -300,9 +302,12 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
 
   const toggle = (codigo) => setExpandedId((prev) => (prev === codigo ? null : codigo))
 
-  // Clic en la fila: siempre abre el seguimiento, como en «Mis solicitudes».
-  // El detalle completo solo se abre desde el ID (o el botón «Detalle» en móvil).
-  const abrirFila = (r) => setSeguimiento(r)
+  // Clic en la fila: en «Mis recolecciones» abre el seguimiento (como en «Mis
+  // solicitudes»); en el resto de módulos la fila no abre nada y el detalle
+  // completo solo se abre desde el ID (o el botón «Detalle» en móvil).
+  const abrirFila = (r) => {
+    if (seguimientoEnFila) setSeguimiento(r)
+  }
 
   if (items.length === 0) {
     return (
@@ -325,7 +330,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
             number={startIndex + i + 1}
             expanded={expandedId === r.codigo}
             onToggle={() => toggle(r.codigo)}
-            onVerSeguimiento={setSeguimiento}
+            onVerSeguimiento={seguimientoEnFila ? setSeguimiento : undefined}
             onVerDetalle={onRowClick}
             onVerAdjuntos={setAdjuntosRecoleccion}
             onAsignarClick={onAsignarClick}
@@ -399,7 +404,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
                   <Fragment key={r.codigo}>
                     <tr
                       onClick={() => abrirFila(r)}
-                      className={`group cursor-pointer active:animate-rowPop active:bg-brand-deep/30 transition-colors hover:bg-brand-deep/20 ${estiloFila}`}
+                      className={`group ${seguimientoEnFila ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${estiloFila}`}
                     >
                       <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
                         <span className={`inline-flex items-center justify-center size-7 rounded-full text-xs font-extrabold ${i % 2 === 0 ? 'bg-brand-navy text-white' : 'bg-brand-deep text-white'}`}>

@@ -140,7 +140,7 @@ export default function RecoleccionesListado() {
           </p>
         </div>
       ) : (
-        <RecoleccionesTable items={filtradas} onRowClick={setDetalle} mostrarNotificaciones />
+        <RecoleccionesTable items={filtradas} onRowClick={setDetalle} mostrarNotificaciones seguimientoEnFila />
       )}
 
       <RecoleccionDetalleModal
