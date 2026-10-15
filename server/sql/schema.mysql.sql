@@ -345,19 +345,73 @@ CREATE TABLE IF NOT EXISTS recolecciones (
   entrega_bodega    VARCHAR(120) NOT NULL DEFAULT '',
   adjuntos          JSON         NOT NULL,
   estado            VARCHAR(40)  NOT NULL DEFAULT 'Abierto',
+  asignado_a        VARCHAR(190) NOT NULL DEFAULT '',
+  asignado_correo   VARCHAR(190) NOT NULL DEFAULT '',
+  conductor         VARCHAR(190) NOT NULL DEFAULT '',
+  conductor_correo  VARCHAR(190) NOT NULL DEFAULT '',
+  vehiculo          VARCHAR(120) NOT NULL DEFAULT '',
+  placa             VARCHAR(20)  NOT NULL DEFAULT '',
+  historial         JSON         NULL,
   creado_en         DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   actualizado_en    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (codigo),
   KEY recolecciones_estado_idx (estado),
   KEY recolecciones_correo_idx (correo),
   KEY recolecciones_actualizado_idx (actualizado_en),
+  -- Lista alineada con ESTADOS_RECOLECCION (server/src/permisos.js): los mismos
+  -- estados de las solicitudes más «Fallido». 'Entregado' queda como valor
+  -- heredado del ciclo viejo (Abierto → Trámite → Entregado/Fallido) para no
+  -- invalidar las recolecciones ya cerradas; el módulo ya no lo ofrece.
+  -- Si la tabla ya existe con la restricción vieja, aplicar
+  -- server/sql/migracion-recolecciones.mysql.sql.
   CONSTRAINT recolecciones_estado_ck
-    CHECK (estado IN ('Abierto', 'Trámite', 'Fallido', 'Entregado'))
+    CHECK (estado IN (
+      'Abierto',
+      'Devolución a Solicitante',
+      'En Trámite',
+      'En Tránsito',
+      'Cancelado',
+      'Fallido',
+      'Entregado'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Contador propio de recolecciones (mismo patrón que solicitudes_codigo).
 INSERT INTO contadores (nombre, valor) VALUES ('recolecciones_codigo', 1)
   ON DUPLICATE KEY UPDATE nombre = nombre;
+
+-- ----------------------------------------------------------------------------
+-- 6d. HISTORIAL DE RECOLECCIONES
+--     Tabla propia, igual que `historial` lo es para las solicitudes: cada cambio
+--     de estado, de responsable o de conductor es una fila, así que se puede
+--     consultar desde phpMyAdmin y el frontend recibe un array de entradas.
+--     La crea sola server/src/routes.js (`asegurarRecolecciones`) en el primer
+--     uso; se deja aquí para que una instalación nueva quede completa desde SQL.
+--     Debe coincidir con el INSERT de la ruta PUT /recolecciones/:codigo.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS recoleccion_historial (
+  id            CHAR(36)     NOT NULL,
+  recoleccion   VARCHAR(32)  NOT NULL,
+  campo         VARCHAR(20)  NOT NULL DEFAULT 'estado',
+  anterior      TEXT         NOT NULL,
+  nuevo         TEXT         NOT NULL,
+  nota          TEXT         NOT NULL,
+  referencia    TEXT         NOT NULL,
+  adjunto       TEXT         NOT NULL,
+  conductor     VARCHAR(190) NOT NULL DEFAULT '',
+  vehiculo      VARCHAR(120) NOT NULL DEFAULT '',
+  placa         VARCHAR(20)  NOT NULL DEFAULT '',
+  evidencia_url TEXT         NOT NULL,
+  encuesta      JSON         NULL,
+  persona       VARCHAR(190) NOT NULL DEFAULT '',
+  fecha         VARCHAR(40)  NOT NULL DEFAULT '',
+  hora          VARCHAR(40)  NOT NULL DEFAULT '',
+  creado_en     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY recoleccion_historial_rec_idx (recoleccion, creado_en),
+  KEY recoleccion_historial_campo_idx (campo),
+  CONSTRAINT recoleccion_historial_fk
+    FOREIGN KEY (recoleccion) REFERENCES recolecciones (codigo) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
 -- 7. ROLES INICIALES
