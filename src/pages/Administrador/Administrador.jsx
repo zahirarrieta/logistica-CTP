@@ -24,7 +24,6 @@ import DashboardTab from './Components/DashboardTab.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
 import ClientesModal from './Components/modals/ClientesModal.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud, suscribir, peekNextId, refrescarProximoCodigo } from '../../store/solicitudesStore.js'
-import { descargarHistorialRecoleccion } from '../../services/recoleccionesApi.js'
 import {
   loadRecolecciones,
   suscribirRecolecciones,
@@ -349,16 +348,13 @@ const esSuper = esSuperAdmin(rol)
     }
   }
 
-  const handleRecoleccionHistorial = async (recoleccion) => {
-    try {
-      const historial = await descargarHistorialRecoleccion(recoleccion.codigo)
-      const adaptada = adaptarRecoleccion(recoleccion)
-      adaptada.historial = historial
-      setHistorialSolicitud(adaptada)
-    } catch (e) {
-      console.error('[Admin] error cargando historial recolección:', e)
-      setHistorialSolicitud(adaptarRecoleccion(recoleccion))
-    }
+  // El listado de recolecciones ya trae el historial en cada fila (columna JSON),
+  // así que no hace falta una petición aparte: se usa la fila tal cual, igual que
+  // el HistorialModal de solicitudes.
+  const handleRecoleccionHistorial = (recoleccion) => {
+    const adaptada = adaptarRecoleccion(recoleccion)
+    adaptada.historial = Array.isArray(recoleccion.historial) ? recoleccion.historial : []
+    setHistorialSolicitud(adaptada)
   }
 
   return (

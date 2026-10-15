@@ -88,11 +88,3 @@ export async function actualizarRecoleccion(codigo, cambios) {
   return true
 }
 
-// Descarga el historial de una recolección desde la tabla recolecciones (campo JSON).
-export async function descargarHistorialRecoleccion(codigo) {
-  await iniciarSesion()
-  const rec = await apiFetch(`/api/recolecciones/${encodeURIComponent(codigo)}`)
-  if (!rec) return []
-  console.info(`[API] historial recolección ${codigo}: ${(rec.historial || []).length} entrada(s)`)
-  return rec.historial || []
-}
