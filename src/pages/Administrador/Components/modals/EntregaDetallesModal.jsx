@@ -1,15 +1,14 @@
-import { MdClose, MdDescription, MdTag, MdVerified, MdDoneAll, MdEvent } from 'react-icons/md'
-import EntregaInfo from '../../../../components/EntregaInfo.jsx'
-import { getSoftColor } from '../../../../utils/estadoColors.js'
-import { safeText, buscarEntrega } from '../../../../store/solicitudesStore.js'
+import { MdClose, MdDescription } from 'react-icons/md'
+import EntregasLista from '../../../../components/EntregasLista.jsx'
+import { buscarEntregas } from '../../../../store/solicitudesStore.js'
 import Modal from '../../../../components/Modal.jsx'
 
 export default function EntregaDetallesModal({ solicitud, open, onClose }) {
   if (!open || !solicitud) return null
 
-  const entrega = buscarEntrega(solicitud)
-  const estado = entrega?.nuevo || 'Entregado'
-  const soft = getSoftColor(estado)
+  // Todas las entregas registradas (parcial y final), en orden cronológico.
+  const entregas = buscarEntregas(solicitud)
+  const varias = entregas.length > 1
 
   return (
     <Modal
@@ -29,11 +28,17 @@ export default function EntregaDetallesModal({ solicitud, open, onClose }) {
           </span>
           <div className="min-w-0 flex-1">
             <h3 className="text-base sm:text-lg font-extrabold text-white tracking-tight">
-              Detalles de la entrega
+              {varias ? 'Detalles de las entregas' : 'Detalles de la entrega'}
             </h3>
             <p className="text-[11px] sm:text-xs text-white/60 truncate">
               Solicitud{' '}
               <span className="font-bold text-brand-cyan">{solicitud.id}</span>
+              {varias && (
+                <>
+                  {' · '}
+                  <span className="font-bold text-brand-cyan">{entregas.length} entregas</span>
+                </>
+              )}
             </p>
           </div>
           <button
@@ -46,37 +51,13 @@ export default function EntregaDetallesModal({ solicitud, open, onClose }) {
         </header>
 
         {/* Cuerpo */}
-        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto">
-          {!entrega ? (
+        <div className="p-4 sm:p-6 overflow-y-auto">
+          {entregas.length === 0 ? (
             <div className="rounded-xl border border-brand-ink/10 bg-brand-mist/40 px-4 py-6 text-center text-sm text-brand-ink/60">
               Aún no hay una entrega registrada en esta solicitud.
             </div>
           ) : (
-            <>
-              {/* Estado final */}
-              <div className={`rounded-2xl px-4 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 ${soft}`}>
-                <span className="grid place-items-center size-11 shrink-0 rounded-full bg-white shadow-sm">
-                  {estado === 'Entregado' ? (
-                    <MdVerified className="text-2xl text-green-600" />
-                  ) : (
-                    <MdDoneAll className="text-2xl text-orange-500" />
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-lg font-black tracking-tight">{estado}</p>
-                  <p className="text-xs font-semibold opacity-80 flex items-center gap-1">
-                    <MdEvent className="text-sm" />
-                    {safeText(entrega.fecha)} · {safeText(entrega.hora) || '—'}
-                  </p>
-                </div>
-                <span className="sm:ml-auto shrink-0 rounded-full bg-white px-3 py-1 text-xs font-extrabold shadow-sm flex items-center gap-1">
-                  <MdTag className="text-brand-cyan" />
-                  {safeText(entrega.referencia) || 'Sin remisión'}
-                </span>
-              </div>
-
-              <EntregaInfo solicitud={solicitud} entrega={entrega} />
-            </>
+            <EntregasLista solicitud={solicitud} entregas={entregas} />
           )}
         </div>
 

@@ -344,6 +344,19 @@ export function buscarEntrega(solicitud) {
   )
 }
 
+// TODAS las entregas de la solicitud en orden cronológico (más antigua primero).
+// Cada entrega es una entrada de historial con campo «estado» y nuevo en
+// ESTADOS_ENTREGA, así que una solicitud que pasó por «Entregado Parcial» y luego
+// se completó devuelve las dos (la parcial en el índice 0 y la final al final),
+// cada una con su propia evidencia y encuesta. El historial se guarda con la
+// entrada más reciente primero, por eso se invierte para quedar cronológico.
+export function buscarEntregas(solicitud) {
+  const historial = Array.isArray(solicitud?.historial) ? solicitud.historial : []
+  return historial
+    .filter((h) => h?.campo === 'estado' && ESTADOS_ENTREGA.includes(h.nuevo))
+    .reverse()
+}
+
 // Devuelve la última entrada de historial que marcó la devolución al solicitante,
 // para poder mostrar el motivo indicado por el administrador.
 export function buscarDevolucion(solicitud) {

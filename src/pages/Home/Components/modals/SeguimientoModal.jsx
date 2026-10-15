@@ -20,10 +20,10 @@ import {
 import { RiSteering2Line } from 'react-icons/ri'
 import { getBadgeColor } from '../../../../utils/estadoColors.js'
 import { formatearMs } from '../../../../utils/dashboardUtils.js'
-import { nombreDeAsignado, buscarEntrega, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteEliminar } from '../../../../store/solicitudesStore.js'
+import { nombreDeAsignado, buscarEntregas, buscarDevolucion, parsearMotivoDevolucion, CAMPOS_DEVOLUCION, restanteEliminar } from '../../../../store/solicitudesStore.js'
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import NotificationsPanel from '../../../../components/NotificationsPanel.jsx'
-import EntregaInfo from '../../../../components/EntregaInfo.jsx'
+import EntregasLista from '../../../../components/EntregasLista.jsx'
 import imgAbierto from '../../../../assets/estado/Abierto.png'
 import imgPdAuto from '../../../../assets/estado/PdAuto.png'
 import imgDevoSol from '../../../../assets/estado/DevoSol.png'
@@ -86,7 +86,7 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
   const esDiegoPena = conductorNorm.includes('diego peña') || conductorNorm.includes('diego pena')
   const esCarroBogota = solicitud.vehiculo === 'KWL-381' || solicitud.placa === 'KWL-381'
   const estado = solicitud.estado || 'Abierto'
-  const entrega = buscarEntrega(solicitud)
+  const entregas = buscarEntregas(solicitud)
 
   // Ventana de 3 min para cambiar el estado a «Cancelado» (antes era el botón
   // de eliminar). El tick de `ahora` hace que la cuenta baje en pantalla y que el
@@ -194,14 +194,14 @@ export default function SeguimientoModal({ solicitud, open, onClose, solicitudes
               )}
             </div>
           </div>
-        ) : entrega ? (
-          /* Detalles de la entrega: sin pista animada ni encuesta */
+        ) : entregas.length > 0 ? (
+          /* Detalles de la entrega (parcial y final): sin pista animada */
           <div className="relative">
             <div className="absolute right-3 sm:right-4 top-3 sm:top-4 z-30">
               <NotificationsPanel solicitudes={solicitudes || []} glow solicitudId={solicitud.id} paginado fixed />
             </div>
             <div className="overflow-y-auto p-4 sm:p-6 pt-14 sm:pt-14 max-h-[calc(92vh-4.5rem)]">
-              <EntregaInfo solicitud={solicitud} entrega={entrega} mostrarEncuesta />
+              <EntregasLista solicitud={solicitud} entregas={entregas} mostrarEncuesta />
             </div>
           </div>
         ) : (

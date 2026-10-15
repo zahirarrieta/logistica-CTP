@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.15-64",
+  "version": "2026.10.15-65",
   "fecha": "2026-10-15",
   "cambios": [
+    "Entregas: cuando una solicitud se entrega en dos partes, los detalles muestran ahora las DOS entregas juntas —la «Entrega parcial» y la «Entrega final»—, cada una con su propia evidencia, encuesta, conductor, vehículo, fecha y remisión, e indicando cuál es la 1ª y cuál la 2ª. Antes solo se veía una entrega (la más antigua), así que la final quedaba oculta. Aplica al modal «Detalles de la entrega» (administrador y conductor), al detalle del pedido y al seguimiento del solicitante.",
     "Recolecciones: los estados ahora son los mismos que en «Mis solicitudes» (Abierto, Devolución a Solicitante, En Trámite, En Tránsito y Cancelado) más el nuevo estado «Fallido» en color vinotinto. Trabajan igual que en solicitudes: motivo obligatorio al cancelar o devolver, asignación de conductor al pasar a «En Tránsito» y avisos en vivo. En recolecciones el estado «En Trámite» admite solo observaciones (la factura o remisión es exclusiva de las solicitudes).",
     "Conductor: nueva pestaña «Recogidas» que muestra las recolecciones asignadas a ese conductor, con la tabla de recolecciones (recoge/entrega, qué recogemos, adjuntos, estado e historial). El conductor puede ver el detalle, el historial y reportar una recogida como «Fallido». Recibe un aviso en vivo cuando le asignan una recogida o cuando otro usuario le cambia el estado.",
     "Administrador y Superadministrador: en la pestaña «Solicitudes», cuando una solicitud está en «Entregado Parcial» el superadministrador puede reabrirla y volver a asignar o cambiar su estado a «Abierto» en adelante. Para el administrador normal sigue cerrada. Una «Entregado» completa continúa sin admitir cambios.",

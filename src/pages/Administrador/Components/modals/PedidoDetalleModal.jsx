@@ -14,9 +14,9 @@ import {
   MdBlock,
 } from 'react-icons/md'
 import { getBadgeColor } from '../../../../utils/estadoColors.js'
-import { nombreDeAsignado, buscarEntrega } from '../../../../store/solicitudesStore.js'
+import { nombreDeAsignado, buscarEntregas } from '../../../../store/solicitudesStore.js'
 import { tiempoEntrega, formatHoras } from '../../../../utils/dashboardUtils.js'
-import EntregaInfo from '../../../../components/EntregaInfo.jsx'
+import EntregasLista from '../../../../components/EntregasLista.jsx'
 import AdjuntosModal from '../../../../components/AdjuntosModal.jsx'
 import AdjuntoEnlace from '../../../../components/AdjuntoEnlace.jsx'
 import VisorPdfModal from '../../../../components/VisorPdfModal.jsx'
@@ -44,7 +44,7 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
   const detalleRef = useRef(null)
   if (!open || !solicitud) return null
 
-  const entrega = buscarEntrega(solicitud)
+  const entregas = buscarEntregas(solicitud)
   const temporal = tiempoEntrega(solicitud)
   const esCancelado = (solicitud.estado || '') === 'Cancelado'
   const motivoCancelacion = esCancelado
@@ -212,8 +212,8 @@ export default function PedidoDetalleModal({ solicitud, open, onClose }) {
               </div>
             )}
 
-            {/* Entrega */}
-            {entrega && <EntregaInfo solicitud={solicitud} entrega={entrega} />}
+            {/* Entrega (parcial y final) */}
+            {entregas.length > 0 && <EntregasLista solicitud={solicitud} entregas={entregas} />}
 
             {/* Historial */}
             {historial.length > 0 && (
