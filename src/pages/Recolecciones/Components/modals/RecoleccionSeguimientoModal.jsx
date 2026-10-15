@@ -1,5 +1,6 @@
 import {
-  MdClose, MdTag, MdMap, MdFileOpen, MdReceipt, MdCancel, MdVerified, MdDirectionsCar,
+  MdClose, MdTag, MdMap, MdFileOpen, MdReceipt, MdCancel, MdDirectionsCar,
+  MdAssignmentReturn, MdReportProblem,
 } from 'react-icons/md'
 import Modal from '../../../../components/Modal.jsx'
 import { getRecoleccionBadge } from '../../../../utils/estadoRecoleccion.js'
@@ -7,19 +8,21 @@ import imgAbierto from '../../../../assets/estado/Abierto.png'
 import imgRemision from '../../../../assets/estado/Remision.png'
 import imgCancelado from '../../../../assets/estado/Cancelado.png'
 
-// Imágenes por estado (las mismas del seguimiento de solicitudes). «Entregado»
-// no tiene imagen propia, así que cae al ícono que viaja por la pista.
+// Imágenes por estado (las mismas del seguimiento de solicitudes). Los estados
+// sin imagen propia caen al ícono que viaja por la pista.
 const IMAGENES_POR_ESTADO = {
   Abierto: imgAbierto,
-  'Trámite': imgRemision,
-  Fallido: imgCancelado,
+  'En Trámite': imgRemision,
+  'Cancelado': imgCancelado,
 }
 
 const ICONOS_POR_ESTADO = {
   Abierto: MdFileOpen,
-  'Trámite': MdReceipt,
-  Fallido: MdCancel,
-  Entregado: MdVerified,
+  'En Trámite': MdReceipt,
+  'En Tránsito': MdDirectionsCar,
+  'Devolución a Solicitante': MdAssignmentReturn,
+  Cancelado: MdCancel,
+  Fallido: MdReportProblem,
 }
 
 // Seguimiento de una recolección: la misma pista animada del seguimiento de las

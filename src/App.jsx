@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { Toaster } from 'sileo'
 import Loader from './loader/Loader.jsx'
 import { AuthProvider, useAuth } from './auth/AuthContext.jsx'
-import { puedeVer, rutaInicial, RUTA_INICIO, puedeRecolectar } from './auth/roles.js'
+import { puedeVer, rutaInicial, RUTA_INICIO, consumeRecolecciones } from './auth/roles.js'
 import { sincronizarInicial, iniciarTiempoReal, detenerTiempoReal } from './store/solicitudesStore.js'
 import {
   sincronizarRecolecciones,
@@ -94,10 +94,10 @@ function Root() {
     }
   }, [account])
 
-  // Recolecciones: el mismo polling, pero solo para los roles que ven el módulo.
-  // Un conductor (o un solicitante con «Recolecciones» apagado) recibiría un 403
-  // en cada ciclo, así que ahí no se arranca.
-  const veRecolecciones = Boolean(account) && puedeRecolectar(rol, modulosSolicitante)
+  // Recolecciones: el mismo polling, pero solo para los roles que leen el módulo.
+  // Un solicitante con «Recolecciones» apagado recibiría un 403 en cada ciclo, así
+  // que ahí no se arranca. El conductor sí lo necesita: ve sus recogidas asignadas.
+  const veRecolecciones = Boolean(account) && consumeRecolecciones(rol, modulosSolicitante)
   useEffect(() => {
     if (!veRecolecciones) return undefined
     iniciarTiempoRealRecolecciones()

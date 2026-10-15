@@ -14,6 +14,9 @@ const ESTADO_DEVOLUCION = 'Devolución a Solicitante'
 // Cierre de la solicitud sin entrega: exige observaciones y deja la solicitud
 // sin más opciones de cambio (la lista desaparece de la tabla).
 const ESTADO_CANCELADO = 'Cancelado'
+// Entrega parcial: queda cerrada para el administrador, pero el superadmin puede
+// reabrirla (`permitirReabrir`) y volver a cambiar su estado a «Abierto» en adelante.
+const ESTADO_ENTREGADO_PARCIAL = 'Entregado Parcial'
 // «En Trámite» y «En Trámite Parcial» se comportan igual: panel de observaciones,
 // factura/remisión opcional y reaplicación sobre el estado actual.
 const esTramite = (e) => ESTADOS_TRAMITE.includes(e)
@@ -70,15 +73,12 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     abiertoRef.current = true
     // Si la única opción es «Cancelado» se preselecciona
     // para que el motivo quede a la vista de una vez. Al reabrir una solicitud
-    // cancelada (super admin) se parte de «Abierto» porque «Cancelado» no está
-    // en la lista de estados disponibles.
-    setEstado(
-      soloCancelar
-        ? ESTADO_CANCELADO
-        : (solicitud.estado || '') === ESTADO_CANCELADO && permitirReabrir
-          ? 'Abierto'
-          : (solicitud.estado || 'Abierto')
-    )
+    // cancelada o entregada-parcial (super admin) se parte de «Abierto» porque el
+    // estado cerrado no está en la lista de estados disponibles.
+    const actual = solicitud.estado || 'Abierto'
+    const reabriendo =
+      permitirReabrir && (actual === ESTADO_CANCELADO || actual === ESTADO_ENTREGADO_PARCIAL)
+    setEstado(soloCancelar ? ESTADO_CANCELADO : reabriendo ? 'Abierto' : actual)
     setNota('')
     setCamposCorregir([])
     setNumeroRef(solicitud.numeroReferencia || '')
@@ -99,6 +99,15 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   }, [])
 
   if (!open || !solicitud) return null
+
+  // Recolecciones comparten este modal (bandera `_esRecoleccion`). Sus estados se
+  // comportan igual que en solicitudes, con una excepción: el panel de factura o
+  // remisión del estado «En Trámite» es solo de solicitudes. Sube el PDF al disco
+  // con el código de la solicitud y guarda la referencia en la tabla solicitudes;
+  // una recolección (código REC-) escribiría el archivo pero su PUT solo persiste
+  // estado y observaciones, así que la referencia quedaría huérfana. Por eso en
+  // recolecciones «En Trámite» admite únicamente observaciones.
+  const esRecoleccion = Boolean(solicitud._esRecoleccion)
 
   const claveArchivo = (f) => `${f.name}|${f.size}|${f.lastModified}`
   // Los PDFs ya guardados en los pasos anteriores por «En Trámite» siguen contando:
@@ -246,7 +255,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
       estado,
       notaEstado: esDevolucion ? componerMotivoDevolucion(camposCorregir, nota.trim()) : nota.trim(),
     }
-    if (esTramite(estado) && asignarFactura) {
+    if (esTramite(estado) && asignarFactura && !esRecoleccion) {
       if (!numeroRef.trim() || adjuntoTramite.length === 0) return
       setSubiendo(true)
       try {
@@ -479,7 +488,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                           Escribe el motivo de la cancelación para poder cerrar la solicitud.
                         </p>
                       )}
-                      {esTramite(e) && (
+                      {esTramite(e) && !esRecoleccion && (
                         <div className="mt-2 space-y-2">
                           <button
                             type="button"

@@ -49,8 +49,8 @@ function Campana({ r }) {
 }
 
 // Estados que cierran la recolección: ya no admiten asignación ni cambio de
-// estado (solo queda el historial), igual que «Entregado» en solicitudes.
-const ESTADOS_TERMINALES = ['Entregado', 'Fallido']
+// estado (solo queda el historial), igual que «Cancelado» en solicitudes.
+const ESTADOS_TERMINALES = ['Cancelado', 'Fallido']
 const esTerminal = (r) => ESTADOS_TERMINALES.includes(r?.estado)
 
 // Dato de una tarjeta del panel «Recoge / Entrega».

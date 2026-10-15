@@ -46,8 +46,7 @@ const ESTADO_TIPO = {
   'En Trámite': 'info',
   'En Trámite Parcial': 'info',
   'Abierto': 'info',
-  // Estados del módulo de recolección (el resto coincide con los de solicitudes).
-  'Trámite': 'info',
+  // «Fallido» es el único estado propio de recolección (no existe en solicitudes).
   'Fallido': 'error',
 }
 
@@ -137,6 +136,7 @@ function exito() { tocar([[659, 0, 0.2, 0.2], [988, 0.16, 0.32, 0.18]]) } // din
 function conductor() { tocar([[900, 0, 0.1, 0.22]]) } // pop corto
 function defaultNotif() { tocar([[440, 0, 0.15, 0.18]]) } // nota simple
 function asignada() { tocar([[880, 0, 0.12, 0.2], [1320, 0.15, 0.18, 0.18]]) } // doble ascendente
+function fallido() { tocar([[180, 0, 0.14, 0.24], [140, 0.16, 0.2, 0.24]], 'sawtooth') } // grave descendente, recolección no recogida
 
 // Sonido por tipo: cada estado tiene el suyo para distinguirlos al oído.
 const SONIDOS = {
@@ -154,6 +154,7 @@ const SONIDOS = {
   'Retenido por Cartera': retenido,
   'Entregado Parcial': exitoParcial,
   'Entregado': exito,
+  'Fallido': fallido,
 }
 
 export function sonidoNotificacion(tipo) {

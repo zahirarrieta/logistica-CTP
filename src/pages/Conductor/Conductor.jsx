@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MdLocalShipping, MdPendingActions, MdCheckCircle, MdDateRange, MdClose, MdInsights, MdSearch } from 'react-icons/md'
+import { MdLocalShipping, MdPendingActions, MdCheckCircle, MdDateRange, MdClose, MdInsights, MdSearch, MdInventory2 } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudesTable from '../../components/SolicitudesTable.jsx'
@@ -7,6 +7,10 @@ import IndicadorSinConexion from '../../components/IndicadorSinConexion.jsx'
 import EntregaConductor from './Components/modals/EntregaConductor.jsx'
 import ConductorDashboard from './Components/ConductorDashboard.jsx'
 import EntregaDetallesModal from '../Administrador/Components/modals/EntregaDetallesModal.jsx'
+import RecoleccionesTable from '../Recolecciones/Components/RecoleccionesTable.jsx'
+import RecoleccionDetalleModal from '../Recolecciones/Components/modals/RecoleccionDetalleModal.jsx'
+import EstadosModal from '../Administrador/Components/modals/EstadosModal.jsx'
+import HistorialModal from '../Administrador/Components/modals/HistorialModal.jsx'
 import {
   loadSolicitudes,
   updateSolicitud,
@@ -14,7 +18,17 @@ import {
   sincronizarPendientes,
   suscribir,
 } from '../../store/solicitudesStore.js'
-import { estadoActualizado, syncRestablecida } from '../../services/notificaciones.jsx'
+import {
+  loadRecolecciones,
+  suscribirRecolecciones,
+  cambiarEstadoRecoleccion,
+} from '../../store/recoleccionesStore.js'
+import {
+  estadoActualizado,
+  syncRestablecida,
+  recoleccionEstadoActualizado,
+  errorRecoleccion,
+} from '../../services/notificaciones.jsx'
 import { useAuth } from '../../auth/AuthContext.jsx'
 import { esConductorDe } from '../../auth/roles.js'
 
@@ -90,6 +104,10 @@ export default function Conductor() {
   const [solicitudes, setSolicitudes] = useState(loadSolicitudes())
   const [editarSolicitud, setEditarSolicitud] = useState(null)
   const [detalleEntrega, setDetalleEntrega] = useState(null)
+  const [recolecciones, setRecolecciones] = useState(loadRecolecciones())
+  const [detalleRecoleccion, setDetalleRecoleccion] = useState(null)
+  const [historialRecoleccion, setHistorialRecoleccion] = useState(null)
+  const [editRecoleccion, setEditRecoleccion] = useState(null)
   const [tab, setTab] = useState('pendientes')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
@@ -100,6 +118,7 @@ export default function Conductor() {
   const nombre = (usuario?.nombre || account?.name || '').trim()
 
   useEffect(() => suscribir(setSolicitudes), [])
+  useEffect(() => suscribirRecolecciones(setRecolecciones), [])
 
   // Identidad del conductor conectado: sirve para mostrar SOLO las solicitudes
   // que le fueron asignadas (por correo o por nombre), nunca las de otros.
@@ -133,6 +152,53 @@ export default function Conductor() {
     () => mias.filter((s) => ESTADOS_ENTREGADOS.includes(s.estado || '')),
     [mias]
   )
+
+  // Recogidas: recolecciones donde este conductor figura como conductor asignado
+  // (por correo o por nombre). Las asigna el administrador al ponerlas «En
+  // Tránsito». El backend ya filtra por conductor; este filtro es defensivo.
+  const misRecogidas = useMemo(
+    () =>
+      recolecciones.filter((r) =>
+        esConductorDe({ conductor: r.conductor, conductorCorreo: r.conductor_correo }, identidad)
+      ),
+    [recolecciones, identidad]
+  )
+
+  // Adaptador mínimo a forma de solicitud para reutilizar EstadosModal e
+  // HistorialModal (los mismos del módulo Administrador).
+  const adaptarRecoleccion = (r) => ({
+    id: r.codigo,
+    codigo: r.codigo,
+    estado: r.estado,
+    conductor: r.conductor || '',
+    conductorCorreo: r.conductor_correo || '',
+    vehiculo: r.vehiculo || '',
+    placa: r.placa || '',
+    nombreCompleto: r.nombre_completo,
+    cliente: r.recoge_cliente,
+    zona: r.zona,
+    historial: Array.isArray(r.historial) ? r.historial : [],
+    numeroReferencia: '',
+    _esRecoleccion: true,
+  })
+
+  // El conductor solo reporta el resultado operativo de la recogida: «Fallido»
+  // cuando no pudo recoger. La escritura va por el store, que re-descarga y
+  // marca la fila como eco local para no duplicar el aviso en vivo.
+  const handleRecoleccionEstado = async (codigo, { estado, notaEstado }) => {
+    try {
+      await cambiarEstadoRecoleccion(codigo, estado, notaEstado || '')
+      recoleccionEstadoActualizado(codigo, estado)
+      setEditRecoleccion(null)
+    } catch (e) {
+      console.error('[Conductor] error cambiando estado de recolección:', e)
+      errorRecoleccion(e?.message || 'No se pudo guardar el estado de la recogida')
+    }
+  }
+
+  const handleRecoleccionHistorial = (r) => {
+    setHistorialRecoleccion(adaptarRecoleccion(r))
+  }
 
   // Las entregas en tránsito (parcial o no) y las entregadas (parcial o no)
   // son el universo que ve el dashboard del conductor. Los pedidos cancelados
@@ -206,6 +272,7 @@ export default function Conductor() {
   const TABS = [
     { id: 'pendientes', label: 'Entregas pendientes', Icon: MdPendingActions, cuenta: pendientes.length },
     { id: 'entregados', label: 'Entregados', Icon: MdCheckCircle, cuenta: entregados.length },
+    { id: 'recogidas', label: 'Recogidas', Icon: MdInventory2, cuenta: misRecogidas.length },
     { id: 'dashboard', label: 'Dashboard', Icon: MdInsights, cuenta: solicitudesDash.length },
   ]
 
@@ -265,6 +332,13 @@ export default function Conductor() {
 
           {tab === 'dashboard' ? (
             <ConductorDashboard solicitudes={solicitudesDash} />
+          ) : tab === 'recogidas' ? (
+            <RecoleccionesTable
+              items={misRecogidas}
+              onRowClick={(r) => setDetalleRecoleccion(r)}
+              onCambiarEstadoClick={(r) => setEditRecoleccion(adaptarRecoleccion(r))}
+              onHistorialClick={handleRecoleccionHistorial}
+            />
           ) : (
             <>
           {/* Filtro por fechas */}
@@ -415,6 +489,29 @@ export default function Conductor() {
         open={detalleEntrega !== null}
         onClose={() => setDetalleEntrega(null)}
       />
+
+      {/* Recogidas: el conductor solo puede reportar la recogida como «Fallido». */}
+      <EstadosModal
+        solicitud={editRecoleccion}
+        open={editRecoleccion !== null}
+        onClose={() => setEditRecoleccion(null)}
+        onUpdate={handleRecoleccionEstado}
+        permitidos={['Fallido']}
+      />
+
+      <HistorialModal
+        solicitud={historialRecoleccion}
+        open={historialRecoleccion !== null}
+        onClose={() => setHistorialRecoleccion(null)}
+      />
+
+      {detalleRecoleccion && (
+        <RecoleccionDetalleModal
+          open
+          recoleccion={detalleRecoleccion}
+          onClose={() => setDetalleRecoleccion(null)}
+        />
+      )}
 
       <IndicadorSinConexion />
     </div>

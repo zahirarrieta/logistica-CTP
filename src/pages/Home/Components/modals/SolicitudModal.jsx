@@ -351,6 +351,7 @@ useEffect(() => {
 
     const esAdministrativa = (formData.tipoSolicitud || '').trim().toUpperCase() === 'ADMINISTRATIVA'
     const esVentaDirecta = (formData.tipoSolicitud || '').trim().toUpperCase() === 'VENTA DIRECTA'
+    const esTomaInventario = (formData.tipoSolicitud || '').trim().toUpperCase() === 'TOMA DE INVENTARIO'
 
     const obligatorios = [
       { campo: 'nombreCompleto', etiqueta: 'Nombre completo' },
@@ -366,8 +367,9 @@ useEffect(() => {
       // sigue existiendo para las solicitudes antiguas, pero ya no se escribe.
       obligatorios.push({ campo: 'cliente', etiqueta: 'Usuario' })
     } else {
+      // «TOMA DE INVENTARIO» tampoco exige adjunto: el resto de campos sí.
+      if (!esTomaInventario) obligatorios.push({ campo: 'adjuntos', etiqueta: 'Adjuntos' })
       obligatorios.push(
-        { campo: 'adjuntos', etiqueta: 'Adjuntos' },
         { campo: 'cliente', etiqueta: 'Cliente' },
         { campo: 'bodega', etiqueta: 'Bodega' },
         { campo: 'nit', etiqueta: 'NIT' },
@@ -504,6 +506,9 @@ useEffect(() => {
   const siguienteId = modoEdicion ? solicitud.id : siguiente
   const esAdministrativa = (formData.tipoSolicitud || '').trim().toUpperCase() === 'ADMINISTRATIVA'
   const esVentaDirecta = (formData.tipoSolicitud || '').trim().toUpperCase() === 'VENTA DIRECTA'
+  const esTomaInventario = (formData.tipoSolicitud || '').trim().toUpperCase() === 'TOMA DE INVENTARIO'
+  // El adjunto es opcional en ADMINISTRATIVA y en TOMA DE INVENTARIO.
+  const adjuntoOpcional = esAdministrativa || esTomaInventario
 
   return (
     <>
@@ -787,7 +792,7 @@ useEffect(() => {
           <div>
             <label className="block text-sm font-semibold text-brand-deep mb-1.5">
               Adjuntos{' '}
-              {esAdministrativa && (
+              {adjuntoOpcional && (
                 <span className="text-xs font-medium text-brand-ink/50">(opcional)</span>
               )}
               {formData.adjuntos.length > 0 && <span className="text-brand-cyan">({formData.adjuntos.length}/3)</span>}
@@ -797,7 +802,7 @@ useEffect(() => {
                 <MdCloudUpload className="text-3xl text-brand-cyan" />
                 <span className="text-sm font-medium">Haz clic para adjuntar archivos</span>
                 <span className="text-xs text-brand-ink/50">
-                  {esAdministrativa
+                  {adjuntoOpcional
                     ? 'Opcional — máximo 3 archivos'
                     : 'PDF, imágenes, Excel — mínimo 1, máximo 3 archivos'}
                 </span>

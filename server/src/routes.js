@@ -934,6 +934,10 @@ async function asegurarRecolecciones() {
         estado            VARCHAR(40)  NOT NULL DEFAULT 'Abierto',
         asignado_a        VARCHAR(190) NOT NULL DEFAULT '',
         asignado_correo   VARCHAR(190) NOT NULL DEFAULT '',
+        conductor         VARCHAR(190) NOT NULL DEFAULT '',
+        conductor_correo  VARCHAR(190) NOT NULL DEFAULT '',
+        vehiculo          VARCHAR(120) NOT NULL DEFAULT '',
+        placa             VARCHAR(20)  NOT NULL DEFAULT '',
         historial         JSON         NULL,
         creado_en         DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         actualizado_en    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -953,6 +957,10 @@ async function asegurarRecolecciones() {
       "ALTER TABLE recolecciones ADD COLUMN telefono_contacto VARCHAR(40) NOT NULL DEFAULT '' AFTER persona_contacto",
       "ALTER TABLE recolecciones ADD COLUMN asignado_a VARCHAR(190) NOT NULL DEFAULT '' AFTER estado",
       "ALTER TABLE recolecciones ADD COLUMN asignado_correo VARCHAR(190) NOT NULL DEFAULT '' AFTER asignado_a",
+      "ALTER TABLE recolecciones ADD COLUMN conductor VARCHAR(190) NOT NULL DEFAULT '' AFTER asignado_correo",
+      "ALTER TABLE recolecciones ADD COLUMN conductor_correo VARCHAR(190) NOT NULL DEFAULT '' AFTER conductor",
+      "ALTER TABLE recolecciones ADD COLUMN vehiculo VARCHAR(120) NOT NULL DEFAULT '' AFTER conductor_correo",
+      "ALTER TABLE recolecciones ADD COLUMN placa VARCHAR(20) NOT NULL DEFAULT '' AFTER vehiculo",
       "ALTER TABLE recolecciones ADD COLUMN historial JSON NULL AFTER asignado_correo",
     ]) {
       try {
@@ -1287,22 +1295,35 @@ router.put(
     // Solo se actualizan las columnas que llegaron en el cuerpo: así un cambio de
     // estado no borra el resto de los datos por no reenviarlos.
     const cuerpo = req.body || {}
-    // La asignación de responsable y el historial los mueve solo un privilegiado
-    // (los botones viven en el tab Recolecciones del Administrador); el dueño de
-    // la recolección sigue pudiendo editar sus campos y su estado.
-    const tocaGestion =
-      Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_a') ||
-      Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_correo') ||
-      Object.prototype.hasOwnProperty.call(cuerpo, 'estado')
-    if (tocaGestion && !P.esPrivilegiado(ctx.rol)) {
+    const tiene = (k) => Object.prototype.hasOwnProperty.call(cuerpo, k)
+    const esPrivilegiado = P.esPrivilegiado(ctx.rol)
+    const conductorAsignado = P.esConductorDeRecoleccion(ctx, actual)
+
+    // Asignar responsable y asignar conductor (con vehículo y placa) son gestiones
+    // de un privilegiado: los botones viven en el tab Recolecciones del
+    // Administrador.
+    const tocaAsignacion =
+      tiene('asignado_a') || tiene('asignado_correo') ||
+      tiene('conductor') || tiene('conductor_correo') ||
+      tiene('vehiculo') || tiene('placa')
+    if (tocaAsignacion && !esPrivilegiado) {
       return res.status(403).json({ error: 'No autorizado' })
     }
+    // Cambiar el estado: un privilegiado, o el conductor asignado sobre su propia
+    // recogida (desde el tab «Recogidas»). El dueño de la recolección no cambia el
+    // estado, igual que antes.
+    if (tiene('estado') && !esPrivilegiado && !conductorAsignado) {
+      return res.status(403).json({ error: 'No autorizado' })
+    }
+    // Un conductor solo mueve el estado (y su nota) de su recogida: se ignora
+    // cualquier otra columna que intente escribir.
+    const soloConductor = !esPrivilegiado && conductorAsignado
 
     // El responsable solo puede ser uno del listado cerrado: se valida el correo
     // y el nombre se toma del listado, para que no quede guardado un par
     // nombre/correo desalineado.
     let responsable = null
-    if (Object.prototype.hasOwnProperty.call(cuerpo, 'asignado_correo')) {
+    if (tiene('asignado_correo')) {
       const correoNuevo = textoRec(cuerpo.asignado_correo, 190).toLowerCase()
       if (correoNuevo) {
         responsable = P.responsableRecoleccion(correoNuevo)
@@ -1312,6 +1333,14 @@ router.put(
       }
     }
 
+    // Conductor asignado (con vehículo y placa) al pasar a «En Tránsito»: solo lo
+    // escribe un privilegiado. `null` significa «no vino en el cuerpo», distinto
+    // de '' que sí desasigna.
+    const conductorNuevo = tiene('conductor') ? textoRec(cuerpo.conductor, 190) : null
+    const conductorCorreoNuevo = tiene('conductor_correo') ? textoRec(cuerpo.conductor_correo, 190).toLowerCase() : null
+    const vehiculoNuevo = tiene('vehiculo') ? textoRec(cuerpo.vehiculo, 120) : null
+    const placaNueva = tiene('placa') ? textoRec(cuerpo.placa, 20) : null
+
     // Prepara entradas de historial para cambios de estado y asignación
     const historialEntradas = []
     const ahora = new Date()
@@ -1320,7 +1349,7 @@ router.put(
     const persona = ctx.nombre || ctx.correo || ''
 
     // Cambio de estado
-    if (Object.prototype.hasOwnProperty.call(cuerpo, 'estado')) {
+    if (tiene('estado')) {
       const nuevoEstado = cuerpo.estado
       if (!P.ESTADOS_RECOLECCION.includes(nuevoEstado)) {
         return res.status(400).json({ error: 'Estado inválido' })
@@ -1376,10 +1405,35 @@ router.put(
       })
     }
 
+    // Asignación de conductor (al pasar a «En Tránsito»): queda su entrada de
+    // historial con el transporte, igual que en las solicitudes.
+    if (conductorNuevo !== null && conductorNuevo !== (actual.conductor || '')) {
+      historialEntradas.push({
+        id: crypto.randomUUID(),
+        recoleccion: codigo,
+        campo: 'conductor',
+        anterior: actual.conductor || 'Sin conductor',
+        nuevo: conductorNuevo || 'Sin conductor',
+        nota: cuerpo.nota || '',
+        referencia: '',
+        adjunto: '',
+        conductor: conductorNuevo || '',
+        vehiculo: vehiculoNuevo || '',
+        placa: placaNueva || '',
+        evidencia_url: '',
+        encuesta: null,
+        persona,
+        fecha: fechaHoy,
+        hora: horaAhora,
+      })
+    }
+
     const cambios = []
     const params = []
     for (const col of COLUMNAS_RECOLECCION) {
       if (!Object.prototype.hasOwnProperty.call(cuerpo, col)) continue
+      // Un conductor solo escribe el estado de su recogida.
+      if (soloConductor && col !== 'estado') continue
       let valor
       if (col === 'adjuntos') {
         valor = JSON.stringify(aArrayJson(cuerpo[col]))
@@ -1412,6 +1466,11 @@ router.put(
         params.push(textoRec(cuerpo.asignado_correo, 190).toLowerCase())
       }
     }
+    // Columnas del conductor y su transporte (solo privilegiado; ya validado).
+    if (conductorNuevo !== null) { cambios.push('conductor = ?'); params.push(conductorNuevo) }
+    if (conductorCorreoNuevo !== null) { cambios.push('conductor_correo = ?'); params.push(conductorCorreoNuevo) }
+    if (vehiculoNuevo !== null) { cambios.push('vehiculo = ?'); params.push(vehiculoNuevo) }
+    if (placaNueva !== null) { cambios.push('placa = ?'); params.push(placaNueva) }
 if (cambios.length === 0 && historialEntradas.length === 0) return res.json({ ok: true })
 
     // Se actualizan las columnas que cambiaron y se sella actualizado_en (la marca

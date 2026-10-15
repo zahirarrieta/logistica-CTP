@@ -1,5 +1,5 @@
 import { descargarRecolecciones, actualizarRecoleccion } from '../services/recoleccionesApi.js'
-import { esAsignadoA } from '../auth/roles.js'
+import { esAsignadoA, esConductorDe } from '../auth/roles.js'
 import {
   recoleccionNueva,
   recoleccionEstadoActualizado,
@@ -76,6 +76,15 @@ function esDueno(r) {
   return Boolean(identidad.correo) && correo === identidad.correo
 }
 
+// Recogida asignada al conductor conectado (por correo o por nombre). Es el
+// equivalente de `asignadaAMi` pero para el conductor, que no es el responsable.
+function esMiRecogida(r) {
+  return esConductorDe(
+    { conductor: r?.conductor, conductorCorreo: r?.conductor_correo },
+    identidad
+  )
+}
+
 // Lectura síncrona de la caché (para inicializar estados sin esperar la red).
 export function loadRecolecciones() {
   return lista
@@ -100,6 +109,7 @@ function avisarCambiosRemotos(siguiente) {
   }
   const esPrivilegiado = identidad.rol === 'administrador' || identidad.rol === 'superadmin'
   const esSolicitante = identidad.rol === 'solicitante'
+  const esConductor = identidad.rol === 'conductor'
   const previas = new Map(listaPrevia.map((r) => [r.codigo, r]))
 
   for (const r of siguiente) {
@@ -107,6 +117,16 @@ function avisarCambiosRemotos(siguiente) {
     const eco = ecosLocales.get(r.codigo) === huella(r)
 
     if (!prev) {
+      // Al conductor una recogida recién asignada le llega como fila nueva (antes
+      // no estaba en su lista porque el backend filtra por conductor): se le avisa
+      // que se la asignaron. El resto de filas nuevas solo importan a quien gestiona.
+      if (esConductor) {
+        if (esMiRecogida(r) && !idsAvisados.has(`recogida:${r.codigo}`)) {
+          idsAvisados.add(`recogida:${r.codigo}`)
+          asignacionRecoleccionRecibida(r.codigo, r.recoge_cliente)
+        }
+        continue
+      }
       // Recolección que no estaba: solo le importa a quien gestiona, y no si la
       // creó él mismo (ya vio «Recolección creada»).
       if (!esPrivilegiado) continue
@@ -134,6 +154,16 @@ function avisarCambiosRemotos(siguiente) {
     // Admin/super con la recolección asignada: aviso cuando le cambian el estado.
     if (esPrivilegiado && asignadaAMi(r) && !eco && cambioEstado) {
       const clave = `estadoAsignado:${r.codigo}:${r.estado}`
+      if (!idsAvisados.has(clave)) {
+        idsAvisados.add(clave)
+        recoleccionEstadoActualizado(r.codigo, r.estado)
+      }
+    }
+
+    // Conductor: le avisan cuando otro cambia el estado de una recogida suya. El
+    // eco silencia su propio cambio (p. ej. cuando la marca «Fallido»).
+    if (esConductor && !eco && esMiRecogida(r) && cambioEstado) {
+      const clave = `estadoConductor:${r.codigo}:${r.estado}`
       if (!idsAvisados.has(clave)) {
         idsAvisados.add(clave)
         recoleccionEstadoActualizado(r.codigo, r.estado)
@@ -195,6 +225,18 @@ export async function asignarRecoleccion(codigo, asignadoA, asignadoCorreo) {
   await actualizarRecoleccion(codigo, {
     asignado_a: asignadoA,
     asignado_correo: asignadoCorreo,
+  })
+  return sincronizarRecolecciones(codigo)
+}
+
+// Asigna el conductor (con vehículo y placa) que va a recoger, igual que en las
+// solicitudes al pasar a «En Tránsito». Es gestión de un privilegiado.
+export async function asignarConductorRecoleccion(codigo, { conductor, conductorCorreo, vehiculo, placa } = {}) {
+  await actualizarRecoleccion(codigo, {
+    conductor: conductor || '',
+    conductor_correo: conductorCorreo || '',
+    vehiculo: vehiculo || '',
+    placa: placa || '',
   })
   return sincronizarRecolecciones(codigo)
 }

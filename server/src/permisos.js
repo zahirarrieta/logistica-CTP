@@ -68,21 +68,33 @@ function esSuperAdmin(rol) {
 // ---------------------------------------------------------------------------
 // recolecciones
 // ---------------------------------------------------------------------------
-// Estados propios del módulo de recolección, independientes de los de las
-// solicitudes: una recolección se abre, pasa a trámite y termina entregada o
-// fallida.
-const ESTADOS_RECOLECCION = ['Abierto', 'Trámite', 'Fallido', 'Entregado']
+// Las recolecciones comparten el mismo flujo de estados que las solicitudes
+// (Abierto → En Trámite → En Tránsito, con Devolución/Cancelado como salidas y
+// el responsable operando igual), más un estado propio: «Fallido» (no se pudo
+// recoger), que en las solicitudes no existe. Al usar los mismos nombres, el
+// modal de cambio de estado y los colores de solicitudes se reutilizan tal cual.
+const ESTADOS_RECOLECCION = [
+  'Abierto', 'Devolución a Solicitante', 'En Trámite',
+  'En Tránsito', 'Cancelado', 'Fallido',
+]
 
-// El conductor no entra al módulo: mueve entregas de solicitudes, no
-// recolecciones. Mismo criterio que el inventario.
-function puedeVerRecolecciones(ctx) {
-  return ctx.rol !== 'conductor'
+// El conductor asignado a una recolección (columna conductor_correo) también la
+// ve: es quien va a recogerla, igual que ve sus entregas en las solicitudes.
+function puedeVerRecolecciones() {
+  return true
 }
 
-// Quién ve qué: los privilegiados todas; el resto solo las que creó (la columna
-// `correo` guarda la cuenta que registró la recolección).
+// Quién ve qué: los privilegiados todas; el conductor las que tiene asignadas
+// para recoger; el resto solo las que creó (la columna `correo` guarda la cuenta
+// que registró la recolección).
 function filtroRecolecciones(ctx) {
   if (esPrivilegiado(ctx.rol)) return { sql: '1 = 1', params: [] }
+  if (ctx.rol === 'conductor') {
+    return {
+      sql: "(NULLIF(conductor_correo, '') = ? OR NULLIF(conductor, '') = ?)",
+      params: [ctx.correo, ctx.nombre],
+    }
+  }
   return { sql: 'correo = ?', params: [ctx.correo] }
 }
 
@@ -91,9 +103,23 @@ function permiteCrearRecoleccion(ctx) {
   return ['solicitante', ...PRIVILEGIADOS].includes(ctx.rol)
 }
 
-// Editan (y cambian el estado de) el dueño de la recolección o un privilegiado.
+// La recolección la asigna un privilegiado a un conductor (con vehículo y placa)
+// al pasarla a «En Tránsito»; ese conductor es quien la recoge.
+function esConductorDeRecoleccion(ctx, actual) {
+  if (ctx.rol !== 'conductor') return false
+  const correo = String(ctx.correo || '').toLowerCase()
+  return (
+    (String(actual.conductor_correo || '').toLowerCase() === correo && correo !== '') ||
+    (String(actual.conductor || '') !== '' && String(actual.conductor) === String(ctx.nombre || ''))
+  )
+}
+
+// Editan (y cambian el estado de) un privilegiado, el dueño de la recolección o
+// el conductor que la tiene asignada. El alcance concreto de lo que cada uno
+// puede escribir se acota en la ruta PUT.
 function permiteActualizarRecoleccion(ctx, actual) {
   if (esPrivilegiado(ctx.rol)) return true
+  if (esConductorDeRecoleccion(ctx, actual)) return true
   return (actual.correo || '') === ctx.correo
 }
 
@@ -287,6 +313,7 @@ module.exports = {
   filtroRecolecciones,
   permiteCrearRecoleccion,
   permiteActualizarRecoleccion,
+  esConductorDeRecoleccion,
   RESPONSABLES_RECOLECCION,
   responsableRecoleccion,
   filtroSolicitudes,

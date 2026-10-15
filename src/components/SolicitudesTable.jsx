@@ -47,6 +47,12 @@ const ITEMS_PER_PAGE = 10
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 const enTransito = (s) => ESTADOS_TRANSITO.includes(s.estado)
 const esEntregado = (s) => ['Entregado', 'Entregado Parcial'].includes(s.estado)
+const esEntregadoParcial = (s) => s.estado === 'Entregado Parcial'
+// Una solicitud entregada queda cerrada (sin asignar ni cambiar estado). Excepción:
+// el superadmin (`reabrirParcial`) puede reabrir una «Entregado Parcial» y volver a
+// cambiar su estado a «Abierto» en adelante. Una «Entregado» completa sigue cerrada.
+const admiteCambioEstado = (s, reabrirParcial) =>
+  !esEntregado(s) || (esEntregadoParcial(s) && reabrirParcial)
 const esDevolucion = (s) => s.estado === 'Devolución a Solicitante'
 // Cancelada: se cerró sin entrega. Ya no admite cambios de estado ni asignación,
 // solo queda el historial (igual que una entregada, pero sin detalles de entrega).
@@ -162,7 +168,7 @@ function DocEntregaIcono({ count, onClick }) {
   )
 }
 
-function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCancelarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, puedeEliminar, restanteEliminar, puedeCancelar, restanteCancelar, accionesCancelado, mostrarNotificaciones }) {
+function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstadoClick, onClickObs, colorRow, onAsignarClick, onCambiarEstadoClick, onSeguimientoClick, onEntregaDetallesClick, onEliminarClick, onCancelarClick, onVerAdjuntosClick, onCorregirClick, mostrarDocEntrega, puedeEliminar, restanteEliminar, puedeCancelar, restanteCancelar, accionesCancelado, reabrirParcial, mostrarNotificaciones }) {
   const isEven = index % 2 === 0
   const action = actions ? actions(s) : null
   const cardBg = colorRow
@@ -170,7 +176,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
     : (isEven ? 'bg-white' : 'bg-brand-cyan/10')
   const mostrarCorregir = Boolean(onCorregirClick) && esDevolucion(s)
   const puedeTramitarCancelado = !esCancelado(s) || accionesCancelado
-  const mostrarEstado = Boolean(onCambiarEstadoClick) && !esEntregado(s) && puedeTramitarCancelado
+  const mostrarEstado = Boolean(onCambiarEstadoClick) && admiteCambioEstado(s, reabrirParcial) && puedeTramitarCancelado
   // El solicitante puede pasar su propia solicitud a «Cancelado» solo durante
   // los primeros 3 minutos: fuera de esa ventana el botón no se dibuja.
   const mostrarCancelar = Boolean(onCancelarClick) && (!puedeCancelar || puedeCancelar(s))
@@ -298,7 +304,7 @@ function SolicitudCard({ s, expanded, onToggle, index, number, actions, onEstado
                   Corregir
                 </button>
               )}
-              {onAsignarClick && !esEntregado(s) && puedeTramitarCancelado && (
+              {onAsignarClick && admiteCambioEstado(s, reabrirParcial) && puedeTramitarCancelado && (
                 <button
                   type="button"
                   onClick={() => {
@@ -440,6 +446,7 @@ export default function SolicitudesTable({
   puedeCancelar,
   restanteCancelar,
   accionesCancelado = false,
+  reabrirParcial = false,
   cardActions,
   empty,
   colorRowsPorEstado,
@@ -476,8 +483,8 @@ export default function SolicitudesTable({
   const puedeTramitar = (s) => !esCancelado(s) || accionesCancelado
   const filaConAccion = (s) =>
     Boolean(
-      (onAsignarClick && !esEntregado(s) && puedeTramitar(s)) ||
-        (onCambiarEstadoClick && !esEntregado(s) && puedeTramitar(s)) ||
+      (onAsignarClick && admiteCambioEstado(s, reabrirParcial) && puedeTramitar(s)) ||
+        (onCambiarEstadoClick && admiteCambioEstado(s, reabrirParcial) && puedeTramitar(s)) ||
         (onEntregaDetallesClick && esEntregado(s)) ||
         onEstadoClick ||
         (onEliminarClick && (!puedeEliminar || puedeEliminar(s))) ||
@@ -539,6 +546,7 @@ export default function SolicitudesTable({
                 colorRow={colorRowsPorEstado}
                 mostrarDocEntrega={mostrarDocEntrega}
                 accionesCancelado={accionesCancelado}
+                reabrirParcial={reabrirParcial}
                 puedeEliminar={puedeEliminar}
                 restanteEliminar={restDel}
                 puedeCancelar={puedeCancelar}
@@ -720,7 +728,7 @@ export default function SolicitudesTable({
                     <td className={`px-3 py-3 border-b border-l border-brand-ink/10 sticky right-0 z-10 transition-colors group-hover:bg-brand-deep/20 ${estiloFila(s, i)}`}>
                       <div className="flex items-center justify-center gap-1.5">
 
-                        {onAsignarClick && !esEntregado(s) && puedeTramitar(s) && (
+                        {onAsignarClick && admiteCambioEstado(s, reabrirParcial) && puedeTramitar(s) && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -736,7 +744,7 @@ export default function SolicitudesTable({
                             <MdPersonAdd className="text-xl" />
                           </button>
                         )}
-                        {onCambiarEstadoClick && !esEntregado(s) && puedeTramitar(s) && (
+                        {onCambiarEstadoClick && admiteCambioEstado(s, reabrirParcial) && puedeTramitar(s) && (
                           <button
                             type="button"
                             onClick={(e) => {

@@ -7,18 +7,12 @@ import {
 import Modal from '../../../../components/Modal.jsx'
 import AdjuntosModal from '../../../../components/AdjuntosModal.jsx'
 import TablaQueRecogemos from '../../../../components/TablaQueRecogemos.jsx'
-
-const ESTADO_BADGE = {
-  Abierto: 'bg-blue-100 text-blue-700 ring-blue-200',
-  'Trámite': 'bg-amber-100 text-amber-700 ring-amber-200',
-  Fallido: 'bg-red-100 text-red-700 ring-red-200',
-  Entregado: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
-}
+import { getBadgeColor } from '../../../../utils/estadoColors.js'
 
 export function EstadoBadge({ estado }) {
-  const clase = ESTADO_BADGE[estado] || 'bg-brand-ink/10 text-brand-ink ring-brand-ink/20'
+  const clase = getBadgeColor(estado)
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ${clase}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ring-1 ring-black/5 ${clase}`}>
       {estado}
     </span>
   )

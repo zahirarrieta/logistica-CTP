@@ -29,6 +29,7 @@ import {
   suscribirRecolecciones,
   cambiarEstadoRecoleccion,
   asignarRecoleccion,
+  asignarConductorRecoleccion,
 } from '../../store/recoleccionesStore.js'
 import {
   estadoActualizado,
@@ -314,7 +315,23 @@ const esSuper = esSuperAdmin(rol)
     solicitudAsignada(id, updates.asignadoA)
   }
 
-  const handleAsignarConductor = (id, updates) => {
+  const handleAsignarConductor = async (id, updates) => {
+    // En una recolección el conductor se guarda en su propia tabla (no en el store
+    // de solicitudes): el modal de tránsito es compartido, pero la escritura va
+    // por asignarConductorRecoleccion. Al sincronizar, el efecto de [recolecciones]
+    // re-apunta el EstadosModal abierto a la fila fresca y la compuerta de
+    // «En Tránsito» queda satisfecha.
+    if (asignarConductorSolicitud?._esRecoleccion) {
+      try {
+        await asignarConductorRecoleccion(id, updates)
+        conductorAsignado(id, updates.conductor)
+        setAsignarConductorSolicitud(null)
+      } catch (e) {
+        console.error('[Admin] error asignando conductor a recolección:', e)
+        errorRecoleccion(e?.message || 'No se pudo asignar el conductor')
+      }
+      return
+    }
     const siguiente = updateSolicitud(id, updates)
     setSolicitudes(siguiente)
     conductorAsignado(id, updates.conductor)
@@ -532,6 +549,7 @@ const esSuper = esSuperAdmin(rol)
                 onEntregaDetallesClick={(s) => setEntregaDetallesSolicitud(s)}
                 onEliminarClick={esSuper ? handleEliminar : undefined}
                 accionesCancelado={esSuper}
+                reabrirParcial={esSuper}
                 colorRowsPorEstado
                 empty={
                   hasFilters

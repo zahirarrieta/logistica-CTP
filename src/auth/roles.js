@@ -58,7 +58,12 @@ export const MODULOS_CONFIGURABLES = [
 ]
 
 // Estados del módulo de recolección. Espejo de P.ESTADOS_RECOLECCION del backend.
-export const ESTADOS_RECOLECCION = ['Abierto', 'Trámite', 'Fallido', 'Entregado']
+// Son los mismos nombres que los de las solicitudes (mismo flujo y colores) más
+// «Fallido», que es propio de recolección.
+export const ESTADOS_RECOLECCION = [
+  'Abierto', 'Devolución a Solicitante', 'En Trámite',
+  'En Tránsito', 'Cancelado', 'Fallido',
+]
 
 // Crean recolecciones el solicitante, el administrador y el superadmin. Espejo
 // de P.permiteCrearRecoleccion.
@@ -74,6 +79,14 @@ export function puedeRecolectar(rol, modulosSolicitante) {
   if (rol !== ROLES.SOLICITANTE) return true
   const lista = Array.isArray(modulosSolicitante) ? modulosSolicitante : MODULOS_SOLICITANTE_POR_DEFECTO
   return lista.includes(MODULO_RECOLECCIONES)
+}
+
+// ¿Arranca el polling de recolecciones? Lo necesitan quienes ven el módulo
+// (puedeRecolectar) y también los conductores: estos no crean recolecciones, pero
+// leen las que el administrador les asignó como conductor en el tab «Recogidas»
+// del módulo Conductor. El backend filtra por conductor, así que no hay 403.
+export function consumeRecolecciones(rol, modulosSolicitante) {
+  return puedeRecolectar(rol, modulosSolicitante) || rol === ROLES.CONDUCTOR
 }
 
 export function esSuperAdmin(rol) {
