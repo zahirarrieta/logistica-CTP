@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.15-66",
+  "version": "2026.10.15-67",
   "fecha": "2026-10-15",
   "cambios": [
+    "Recolecciones (tablas): al hacer clic en una fila se abre siempre el modal de SEGUIMIENTO, como en «Mis solicitudes», sin importar el estado. El detalle completo se abre únicamente al pulsar el ID de la recolección (en el móvil, con el botón «Detalle»). Antes, en el administrador, el clic en la fila abría el modal de detalles y el seguimiento solo aparecía si la recolección estaba «Abierto».",
     "Recolecciones (administrador): las filas de la tabla ahora se pintan con el color del estado, igual que en «Mis solicitudes», y la barra de filtros estrena el filtro «Asignado a» para ver las recolecciones de un responsable concreto.",
     "Recolecciones: al cambiar el estado a «Devolución a Solicitante» el formulario muestra los campos propios de una recolección (qué recogemos, quién recoge, fecha y hora, persona de contacto y teléfono, quién entrega, adjuntos y observaciones), en vez de los campos de una solicitud.",
     "Recolecciones: en el estado «En Trámite» se puede adjuntar el «N° de guía» (opcional y alfanumérico) junto con hasta 3 PDF de la guía de transporte, con su historial y su borrado, igual que la factura o remisión en las solicitudes. En el historial de la recolección esas guías se muestran bajo la etiqueta «N° de guía».",

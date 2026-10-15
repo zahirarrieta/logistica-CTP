@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   MdTag, MdCalendarToday, MdAccessTime, MdPerson, MdEmail, MdCategory,
-  MdPlace, MdAttachFile, MdNotes, MdStorefront, MdWarehouse, MdSupportAgent,
+  MdPlace, MdAttachFile, MdNotes, MdStorefront, MdWarehouse, MdSupportAgent, MdMap,
   MdPhone, MdEvent, MdNavigateBefore, MdNavigateNext, MdExpandMore, MdInbox,
   MdListAlt, MdOpenInFull, MdArrowForward, MdPersonAdd, MdSwapHoriz, MdHistory,
   MdAssignmentInd, MdNotificationsNone,
@@ -123,7 +123,7 @@ function Row({ icon, label, value }) {
   )
 }
 
-function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, onVerAdjuntos, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones, colorRowsPorEstado }) {
+function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimiento, onVerDetalle, onVerAdjuntos, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones, colorRowsPorEstado }) {
   const isEven = index % 2 === 0
   const cardBg = colorRowsPorEstado
     ? getRecoleccionBg(r.estado)
@@ -203,14 +203,24 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, o
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => onVerDetalle(r)}
-            className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan px-4 py-2.5 text-sm font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] transition"
-          >
-            <MdOpenInFull className="text-lg" />
-            Ver detalle completo
-          </button>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onVerSeguimiento(r)}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-navy px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-brand-deep transition"
+            >
+              <MdMap className="text-lg" />
+              Seguimiento
+            </button>
+            <button
+              type="button"
+              onClick={() => onVerDetalle(r)}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-cyan px-4 py-2.5 text-sm font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] transition"
+            >
+              <MdOpenInFull className="text-lg" />
+              Detalle
+            </button>
+          </div>
 
           {mostrarAcciones && (
             <div className="grid grid-cols-3 gap-2 pt-2">
@@ -290,12 +300,9 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
 
   const toggle = (codigo) => setExpandedId((prev) => (prev === codigo ? null : codigo))
 
-  // Clic en la fila: si la recolección está «Abierto» se abre el seguimiento
-  // (como en Mis solicitudes); en cualquier otro caso se abre el detalle.
-  const abrirFila = (r) => {
-    if ((r.estado || 'Abierto') === 'Abierto') setSeguimiento(r)
-    else onRowClick?.(r)
-  }
+  // Clic en la fila: siempre abre el seguimiento, como en «Mis solicitudes».
+  // El detalle completo solo se abre desde el ID (o el botón «Detalle» en móvil).
+  const abrirFila = (r) => setSeguimiento(r)
 
   if (items.length === 0) {
     return (
@@ -318,6 +325,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
             number={startIndex + i + 1}
             expanded={expandedId === r.codigo}
             onToggle={() => toggle(r.codigo)}
+            onVerSeguimiento={setSeguimiento}
             onVerDetalle={onRowClick}
             onVerAdjuntos={setAdjuntosRecoleccion}
             onAsignarClick={onAsignarClick}
@@ -391,7 +399,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
                   <Fragment key={r.codigo}>
                     <tr
                       onClick={() => abrirFila(r)}
-                      className={`group ${onRowClick ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${estiloFila}`}
+                      className={`group cursor-pointer active:animate-rowPop active:bg-brand-deep/30 transition-colors hover:bg-brand-deep/20 ${estiloFila}`}
                     >
                       <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
                         <span className={`inline-flex items-center justify-center size-7 rounded-full text-xs font-extrabold ${i % 2 === 0 ? 'bg-brand-navy text-white' : 'bg-brand-deep text-white'}`}>
