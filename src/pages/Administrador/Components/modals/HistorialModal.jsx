@@ -22,6 +22,8 @@ export default function HistorialModal({ solicitud, open, onClose }) {
   if (!open || !solicitud) return null
 
   const historial = Array.isArray(solicitud.historial) ? solicitud.historial : []
+  // En recolección el PDF del trámite se llama «N° de guía» (no factura/remisión).
+  const esRecoleccion = Boolean(solicitud._esRecoleccion)
   const deEstado = historial.filter((h) => h.campo === 'estado')
   const asignaciones = historial.filter((h) => h.campo !== 'estado')
   const listado = tab === 'estado' ? deEstado : asignaciones
@@ -87,7 +89,7 @@ export default function HistorialModal({ solicitud, open, onClose }) {
             <span className="inline-flex items-center gap-1 text-brand-ink/70"><MdBusiness className="text-brand-cyan" /> {solicitud.cliente || '—'}</span>
             <span className="inline-flex items-center gap-1 capitalize text-brand-ink/70"><MdPlace className="text-brand-cyan" /> {solicitud.zona || '—'}</span>
             {solicitud.ordenCompra && (
-              <span className="inline-flex items-center gap-1 text-brand-ink/70"><MdTag className="text-brand-cyan" /> Ord. compra: {solicitud.ordenCompra}</span>
+              <span className="inline-flex items-center gap-1 text-brand-ink/70"><MdTag className="text-brand-cyan" />                               Ord. compra: {solicitud.ordenCompra}</span>
             )}
             {solicitud.cedula && (
               <span className="inline-flex items-center gap-1 text-brand-ink/70"><MdTag className="text-brand-cyan" /> C.C. {solicitud.cedula}</span>
@@ -99,7 +101,7 @@ export default function HistorialModal({ solicitud, open, onClose }) {
             <div className="rounded-xl border border-brand-ink/10 bg-white shadow-sm p-3">
               <span className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-brand-deep mb-2">
                 <MdAttachFile className="text-brand-cyan" />
-                Documento adjunto del solicitante
+                {esRecoleccion ? 'Adjuntos de la recolección' : 'Documento adjunto del solicitante'}
               </span>
               <AdjuntoEnlace adjunto={solicitud.adjuntos.join(', ')} onVerPdf={setPdfUrl} />
             </div>
@@ -172,7 +174,7 @@ export default function HistorialModal({ solicitud, open, onClose }) {
                       )}
                       {h.referencia && (
                         <p className="mt-2 text-sm text-brand-ink/70 rounded-lg bg-brand-mist/60 border-l-2 border-brand-cyan px-2.5 py-1.5">
-                          Factura/Remisión: {h.referencia}
+                          {esRecoleccion ? 'N° de guía' : 'Factura/Remisión'}: {h.referencia}
                         </p>
                       )}
                       {h.adjunto && (

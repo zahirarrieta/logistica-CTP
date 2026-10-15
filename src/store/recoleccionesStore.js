@@ -216,8 +216,11 @@ export async function sincronizarRecolecciones(codigoEco = null) {
   return lista
 }
 
-export async function cambiarEstadoRecoleccion(codigo, estado, nota = '') {
-  await actualizarRecoleccion(codigo, { estado, nota })
+// `extra` lleva lo que acompaña al cambio de estado: el «N° de guía» del trámite
+// (`referencia`) y las rutas de sus PDF (`guiaUrls`). El servidor las guarda en la
+// entrada de historial del estado, como las facturas/remisiones de una solicitud.
+export async function cambiarEstadoRecoleccion(codigo, estado, nota = '', extra = {}) {
+  await actualizarRecoleccion(codigo, { estado, nota, ...extra })
   return sincronizarRecolecciones(codigo)
 }
 

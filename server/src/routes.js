@@ -1241,6 +1241,10 @@ router.post(
         [actual + 1, 'recolecciones_codigo']
       )
 
+      // La carpeta de la recolección se crea aunque no se suba ningún adjunto: es
+      // donde después se guardan la guía de transporte y la evidencia de entrega,
+      // y así queda lista desde el alta para que el operador guarde información.
+      archivos.crearCarpeta(`${usuario}/${codigo}`)
       for (const f of enviados) {
         rutas.push(archivos.guardar(`${usuario}/${codigo}`, nombreAdjuntoRec(f.originalname), f.buffer))
       }
@@ -1348,22 +1352,31 @@ router.put(
     const horaAhora = ahora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
     const persona = ctx.nombre || ctx.correo || ''
 
-    // Cambio de estado
+    // Cambio de estado. El «N° de guía» del trámite llega como `referencia` y sus
+    // PDF como `guiaUrls`: se guardan en la MISMA entrada de historial del estado,
+    // igual que la factura/remisión de una solicitud.
+    const referenciaGuia = textoRec(cuerpo.referencia, 190)
+    const guiaUrls = aArrayJson(cuerpo.guiaUrls).filter((u) => typeof u === 'string' && u)
+    const adjuntoGuia = guiaUrls.join(', ')
+    const notaCambio = textoLargoRec(cuerpo.nota)
     if (tiene('estado')) {
       const nuevoEstado = cuerpo.estado
       if (!P.ESTADOS_RECOLECCION.includes(nuevoEstado)) {
         return res.status(400).json({ error: 'Estado inválido' })
       }
-      if (nuevoEstado !== actual.estado) {
+      // Entrada propia cuando cambia el estado, cuando se adjunta una guía nueva
+      // o cuando se reaplica «En Trámite» con una observación (como en solicitudes).
+      const reaplicaTramite = P.ESTADOS_TRAMITE.includes(nuevoEstado) && Boolean(notaCambio)
+      if (nuevoEstado !== actual.estado || referenciaGuia || adjuntoGuia || reaplicaTramite) {
         historialEntradas.push({
           id: crypto.randomUUID(),
           recoleccion: codigo,
           campo: 'estado',
           anterior: actual.estado || 'Abierto',
           nuevo: nuevoEstado,
-          nota: cuerpo.nota || '',
-          referencia: '',
-          adjunto: '',
+          nota: notaCambio,
+          referencia: referenciaGuia,
+          adjunto: adjuntoGuia,
           conductor: '',
           vehiculo: '',
           placa: '',
@@ -2417,10 +2430,13 @@ router.post(
     if (limpio.split('/').some((seg) => seg === '.' || seg === '..')) {
       return res.status(400).json({ error: 'Ruta no válida' })
     }
-    // El borrado se limita a la carpeta de facturas/remisiones: los adjuntos de
-    // la creación y la evidencia de la entrega no se pueden tirar por aquí.
-    if (!/(^|\/)FacturasoRemisiones\//i.test(limpio)) {
-      return res.status(400).json({ error: 'Solo se pueden borrar facturas o remisiones del trámite' })
+    // El borrado se limita a la carpeta de facturas/remisiones (solicitudes) y a
+    // la de guías de transporte (recolecciones): los adjuntos de la creación y la
+    // evidencia de la entrega no se pueden tirar por aquí.
+    const esFactura = /(^|\/)FacturasoRemisiones\//i.test(limpio)
+    const esGuia = /(^|\/)GuiasTransporte\//i.test(limpio)
+    if (!esFactura && !esGuia) {
+      return res.status(400).json({ error: 'Solo se pueden borrar facturas, remisiones o guías de transporte del trámite' })
     }
     if (!archivos.rutaSegura(limpio)) {
       return res.status(400).json({ error: 'Ruta no válida' })
@@ -2437,69 +2453,110 @@ router.post(
     try {
       await conexion.beginTransaction()
 
-      const [filas] = await conexion.execute(
-        'SELECT estado FROM solicitudes WHERE codigo = ? LIMIT 1',
-        [codigo]
-      )
-      if (!filas[0]) {
-        await conexion.rollback()
-        return res.status(404).json({ error: 'No existe la solicitud' })
-      }
-      // Fuera de los estados de trámite no hay facturas que corregir y borrar
-      // documentos aquí rompería el registro de lo que se entregó.
-      if (!P.ESTADOS_TRAMITE.includes(filas[0].estado)) {
-        await conexion.rollback()
-        return res.status(409).json({ error: 'La solicitud no está en trámite' })
-      }
-
-      // El adjunto es un CSV separado por ', ' con las varias facturas de una
-      // misma tanda, así que se filtra la ruta y se reescribe la celda. Se
-      // normaliza cada entrada porque puede estar guardada como URL firmada.
-      const [registros] = await conexion.execute(
-        'SELECT id, adjunto FROM historial WHERE solicitud = ?',
-        [codigo]
-      )
-      for (const reg of registros) {
-        const entradas = String(reg.adjunto || '')
-          .split(',')
-          .map((e) => e.trim())
-          .filter(Boolean)
-        if (entradas.length === 0) continue
-        const restantes = entradas.filter((e) => rutaCruda(e) !== limpio)
-        if (restantes.length === entradas.length) continue
-        quitadas += entradas.length - restantes.length
-        await conexion.execute('UPDATE historial SET adjunto = ? WHERE id = ?', [
-          restantes.join(', '),
-          reg.id,
-        ])
-      }
-
-      // La lista de adjuntos de la solicitud no guarda facturas en el flujo
-      // normal, pero una fila antigua podría traerla: se limpia también para que
-      // no quede un enlace muerto en el visor de documentos.
-      const [sols] = await conexion.execute(
-        'SELECT adjuntos FROM solicitudes WHERE codigo = ? LIMIT 1',
-        [codigo]
-      )
-      const adjuntos = aArrayJson(sols[0]?.adjuntos)
-      const restantesAdj = adjuntos.filter((u) => rutaCruda(u) !== limpio)
-      if (restantesAdj.length !== adjuntos.length) {
-        quitadas += adjuntos.length - restantesAdj.length
-        await conexion.execute('UPDATE solicitudes SET adjuntos = ? WHERE codigo = ?', [
-          JSON.stringify(restantesAdj),
-          codigo,
-        ])
-      }
-
-      // La marca de agua es lo que hace que los demás dispositivos re-descarguen
-      // el historial de ESTA solicitud en el siguiente tick de 8 s. Sin subirla
-      // seguirían con la referencia vieja en local y, al guardar cualquier cosa
-      // desde allí, la devolverían a la base con el upsert del historial.
-      if (quitadas > 0) {
-        await conexion.execute(
-          'UPDATE solicitudes SET actualizado_en = CURRENT_TIMESTAMP(3) WHERE codigo = ?',
+      // Una guía de transporte lleva código Rec- y su referencia vive en
+      // recoleccion_historial; el resto es el trámite de una solicitud (historial).
+      if (/^Rec-/i.test(codigo)) {
+        const [recs] = await conexion.execute(
+          'SELECT estado FROM recolecciones WHERE codigo = ? LIMIT 1',
           [codigo]
         )
+        if (!recs[0]) {
+          await conexion.rollback()
+          return res.status(404).json({ error: 'No existe la recolección' })
+        }
+        if (!P.ESTADOS_TRAMITE.includes(recs[0].estado)) {
+          await conexion.rollback()
+          return res.status(409).json({ error: 'La recolección no está en trámite' })
+        }
+        const [regsRec] = await conexion.execute(
+          'SELECT id, adjunto FROM recoleccion_historial WHERE recoleccion = ?',
+          [codigo]
+        )
+        for (const reg of regsRec) {
+          const entradas = String(reg.adjunto || '')
+            .split(',')
+            .map((e) => e.trim())
+            .filter(Boolean)
+          if (entradas.length === 0) continue
+          const restantes = entradas.filter((e) => rutaCruda(e) !== limpio)
+          if (restantes.length === entradas.length) continue
+          quitadas += entradas.length - restantes.length
+          await conexion.execute('UPDATE recoleccion_historial SET adjunto = ? WHERE id = ?', [
+            restantes.join(', '),
+            reg.id,
+          ])
+        }
+        if (quitadas > 0) {
+          await conexion.execute(
+            'UPDATE recolecciones SET actualizado_en = CURRENT_TIMESTAMP(3) WHERE codigo = ?',
+            [codigo]
+          )
+        }
+      } else {
+        const [filas] = await conexion.execute(
+          'SELECT estado FROM solicitudes WHERE codigo = ? LIMIT 1',
+          [codigo]
+        )
+        if (!filas[0]) {
+          await conexion.rollback()
+          return res.status(404).json({ error: 'No existe la solicitud' })
+        }
+        // Fuera de los estados de trámite no hay facturas que corregir y borrar
+        // documentos aquí rompería el registro de lo que se entregó.
+        if (!P.ESTADOS_TRAMITE.includes(filas[0].estado)) {
+          await conexion.rollback()
+          return res.status(409).json({ error: 'La solicitud no está en trámite' })
+        }
+
+        // El adjunto es un CSV separado por ', ' con las varias facturas de una
+        // misma tanda, así que se filtra la ruta y se reescribe la celda. Se
+        // normaliza cada entrada porque puede estar guardada como URL firmada.
+        const [registros] = await conexion.execute(
+          'SELECT id, adjunto FROM historial WHERE solicitud = ?',
+          [codigo]
+        )
+        for (const reg of registros) {
+          const entradas = String(reg.adjunto || '')
+            .split(',')
+            .map((e) => e.trim())
+            .filter(Boolean)
+          if (entradas.length === 0) continue
+          const restantes = entradas.filter((e) => rutaCruda(e) !== limpio)
+          if (restantes.length === entradas.length) continue
+          quitadas += entradas.length - restantes.length
+          await conexion.execute('UPDATE historial SET adjunto = ? WHERE id = ?', [
+            restantes.join(', '),
+            reg.id,
+          ])
+        }
+
+        // La lista de adjuntos de la solicitud no guarda facturas en el flujo
+        // normal, pero una fila antigua podría traerla: se limpia también para que
+        // no quede un enlace muerto en el visor de documentos.
+        const [sols] = await conexion.execute(
+          'SELECT adjuntos FROM solicitudes WHERE codigo = ? LIMIT 1',
+          [codigo]
+        )
+        const adjuntos = aArrayJson(sols[0]?.adjuntos)
+        const restantesAdj = adjuntos.filter((u) => rutaCruda(u) !== limpio)
+        if (restantesAdj.length !== adjuntos.length) {
+          quitadas += adjuntos.length - restantesAdj.length
+          await conexion.execute('UPDATE solicitudes SET adjuntos = ? WHERE codigo = ?', [
+            JSON.stringify(restantesAdj),
+            codigo,
+          ])
+        }
+
+        // La marca de agua es lo que hace que los demás dispositivos re-descarguen
+        // el historial de ESTA solicitud en el siguiente tick de 8 s. Sin subirla
+        // seguirían con la referencia vieja en local y, al guardar cualquier cosa
+        // desde allí, la devolverían a la base con el upsert del historial.
+        if (quitadas > 0) {
+          await conexion.execute(
+            'UPDATE solicitudes SET actualizado_en = CURRENT_TIMESTAMP(3) WHERE codigo = ?',
+            [codigo]
+          )
+        }
       }
 
       await conexion.commit()

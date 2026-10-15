@@ -117,7 +117,9 @@ const esSuper = esSuperAdmin(rol)
     const frescoRec = (prev) => {
       if (!prev?._esRecoleccion) return prev
       const fila = recolecciones.find((r) => r.codigo === prev.codigo)
-      return fila ? { ...adaptarRecoleccion(fila), historial: prev.historial } : null
+      // adaptarRecoleccion ya trae el historial firmado de la fila fresca, así que
+      // el modal ve al día los PDF de la guía (y su borrado) en cada tick.
+      return fila ? adaptarRecoleccion(fila) : null
     }
     setEditSolicitud(frescoRec)
     setAsignarSolicitud(frescoRec)
@@ -148,7 +150,9 @@ const esSuper = esSuperAdmin(rol)
     fechaSubida: r.fecha_subida,
     horaSubida: r.hora_subida,
     tipoSolicitud: r.tipo_servicio,
-    historial: [], // se carga bajo demanda en handleRecoleccionHistorial
+    // El listado ya trae el historial en cada fila (y firmado), así que el modal
+    // de estados puede contar y listar los PDF de la guía de trámites previos.
+    historial: Array.isArray(r.historial) ? r.historial : [],
     adjuntos: r.adjuntos,
     observaciones: r.observaciones,
     // Bandera para distinguir en modales compartidos
@@ -249,6 +253,11 @@ const esSuper = esSuperAdmin(rol)
     const nombreBuscado = filtroNombre.trim().toLowerCase()
     return recolecciones.filter((r) => {
       if (filterEstado && r.estado !== filterEstado) return false
+      if (filtroAsignado) {
+        if (filtroAsignado === SIN_ASIGNAR) {
+          if (String(r.asignado_a || '').trim()) return false
+        } else if ((r.asignado_a || '') !== filtroAsignado) return false
+      }
       if (nombreBuscado && !(r.nombre_completo || r.nombreCompleto || '').toLowerCase().includes(nombreBuscado)) return false
       if (cliente && !(r.recoge_cliente || r.cliente || r.cliente_entrega || '').toLowerCase().includes(cliente)) return false
       if (zona && !(r.zona || '').toLowerCase().includes(zona)) return false
@@ -258,7 +267,7 @@ const esSuper = esSuperAdmin(rol)
       }
       return true
     })
-  }, [recolecciones, filterEstado, filtroNombre, filtroCliente, filtroZona, filtroId])
+  }, [recolecciones, filterEstado, filtroAsignado, filtroNombre, filtroCliente, filtroZona, filtroId])
 
   const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
 
@@ -353,11 +362,16 @@ const esSuper = esSuperAdmin(rol)
     }
   }
 
-  const handleRecoleccionCambiarEstado = async (codigo, { estado, notaEstado }) => {
+  const handleRecoleccionCambiarEstado = async (codigo, updates) => {
+    const { estado, notaEstado, numeroReferencia, nuevaFacturaUrls } = updates || {}
     try {
       // `notaEstado` es el campo que manda EstadosModal (no `nota`): es el motivo
-      // que escribe el admin y lo que queda guardado en recoleccion_historial.
-      await cambiarEstadoRecoleccion(codigo, estado, notaEstado || '')
+      // que escribe el admin y lo que queda guardado en recoleccion_historial. El
+      // «N° de guía» y sus PDF viajan como `referencia`/`guiaUrls` (trámite).
+      await cambiarEstadoRecoleccion(codigo, estado, notaEstado || '', {
+        referencia: numeroReferencia || '',
+        guiaUrls: Array.isArray(nuevaFacturaUrls) ? nuevaFacturaUrls : [],
+      })
       recoleccionEstadoActualizado(codigo, estado)
     } catch (e) {
       console.error('[Admin] error cambiando estado recolección:', e)
@@ -476,6 +490,12 @@ const esSuper = esSuperAdmin(rol)
                     getBadge={getRecoleccionBadge}
                     getDot={getRecoleccionDot}
                   />
+                  <AsignadoFilter
+                    solicitudes={recolecciones}
+                    value={filtroAsignado}
+                    onChange={setFiltroAsignado}
+                    getAsignado={(r) => r.asignado_a}
+                  />
                   <SearchFilters
                     cliente={filtroCliente}
                     onClienteChange={setFiltroCliente}
@@ -499,6 +519,7 @@ const esSuper = esSuperAdmin(rol)
                       type="button"
                       onClick={() => {
                         setFilterEstado(null)
+                        setFiltroAsignado(null)
                         setFiltroCliente('')
                         setFiltroZona('')
                         setFiltroNombre('')
@@ -517,6 +538,7 @@ const esSuper = esSuperAdmin(rol)
                   onAsignarClick={(r) => setAsignarSolicitud(adaptarRecoleccion(r))}
                   onCambiarEstadoClick={(r) => setEditSolicitud(adaptarRecoleccion(r))}
                   onHistorialClick={handleRecoleccionHistorial}
+                  colorRowsPorEstado
                 />
               )}
             </>

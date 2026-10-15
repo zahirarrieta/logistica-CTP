@@ -3,9 +3,10 @@ import { MdClose, MdCheckCircle, MdSwapHoriz, MdTag, MdCheck, MdNotes, MdNumbers
 import { RiSteering2Line } from 'react-icons/ri'
 import { ESTADOS, getBadgeColor, getDotColor } from '../../../../utils/estadoColors.js'
 import { MAXE_PDFS_TRAMITE, pdfsTramite, nombrePdfFromUrl } from '../../../../utils/pdfUtils.js'
-import { subirFacturasRemisiones, borrarArchivo } from '../../../../services/archivosApi.js'
+import { subirFacturasRemisiones, subirGuiasTransporte, borrarArchivo } from '../../../../services/archivosApi.js'
 import { documentosSubidos, errorSubida as notificarErrorSubida, solicitudDevuelta } from '../../../../services/notificaciones.jsx'
 import { CAMPOS_DEVOLUCION, componerMotivoDevolucion, quitarAdjuntoTramite } from '../../../../store/solicitudesStore.js'
+import { CAMPOS_DEVOLUCION_RECOLECCION } from '../../../../utils/estadoRecoleccion.js'
 import Modal from '../../../../components/Modal.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
@@ -108,6 +109,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   // estado y observaciones, así que la referencia quedaría huérfana. Por eso en
   // recolecciones «En Trámite» admite únicamente observaciones.
   const esRecoleccion = Boolean(solicitud._esRecoleccion)
+  // En una recolección la devolución usa los campos del formulario de recolección,
+  // no los de una solicitud (tipo, cliente, adjuntos, observaciones).
+  const camposDevolucion = esRecoleccion ? CAMPOS_DEVOLUCION_RECOLECCION : CAMPOS_DEVOLUCION
 
   const claveArchivo = (f) => `${f.name}|${f.size}|${f.lastModified}`
   // Los PDFs ya guardados en los pasos anteriores por «En Trámite» siguen contando:
@@ -170,7 +174,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setErrorSubida('')
     try {
       const datos = await borrarArchivo(url)
-      quitarAdjuntoTramite(solicitud.id, url)
+      // La copia local solo existe en el store de solicitudes: en una recolección
+      // el listado se re-descarga del servidor y se corrige solo en el polling.
+      if (!esRecoleccion) quitarAdjuntoTramite(solicitud.id, url)
       const quitadas = Number(datos?.quitadas || 0)
       if (quitadas === 0) {
         setErrorSubida(
@@ -253,13 +259,17 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     setErrorSubida('')
     const updates = {
       estado,
-      notaEstado: esDevolucion ? componerMotivoDevolucion(camposCorregir, nota.trim()) : nota.trim(),
+      notaEstado: esDevolucion ? componerMotivoDevolucion(camposCorregir, nota.trim(), camposDevolucion) : nota.trim(),
     }
-    if (esTramite(estado) && asignarFactura && !esRecoleccion) {
+    if (esTramite(estado) && asignarFactura) {
       if (!numeroRef.trim() || adjuntoTramite.length === 0) return
       setSubiendo(true)
       try {
-        const subidos = await subirFacturasRemisiones(adjuntoTramite, numeroRef.trim(), solicitud.id)
+        // En recolección el documento es la guía de transporte; en solicitudes, la
+        // factura o remisión. El resto del flujo (adjuntos, rutas, tope) es igual.
+        const subidos = esRecoleccion
+          ? await subirGuiasTransporte(adjuntoTramite, numeroRef.trim(), solicitud.id)
+          : await subirFacturasRemisiones(adjuntoTramite, numeroRef.trim(), solicitud.id)
         updates.numeroReferencia = numeroRef.trim()
         updates.adjuntosTramite = adjuntoTramite.map((f) => f.name)
         const rutas = subidos.map((s) => s.ruta).filter(Boolean)
@@ -279,7 +289,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
     }
     onUpdate(solicitud.id, updates)
     if (esDevolucion) {
-      const motivo = componerMotivoDevolucion(camposCorregir, nota.trim())
+      const motivo = componerMotivoDevolucion(camposCorregir, nota.trim(), camposDevolucion)
       solicitudDevuelta(solicitud.id, motivo)
     }
     setNota('')
@@ -429,7 +439,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                             Campos que debe corregir el solicitante <span className="text-red-500">*</span>
                           </p>
                           <div className="grid grid-cols-2 gap-1.5">
-                            {CAMPOS_DEVOLUCION.map((c) => {
+                            {camposDevolucion.map((c) => {
                               const marcado = camposCorregir.includes(c.id)
                               return (
                                 <label
@@ -488,7 +498,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                           Escribe el motivo de la cancelación para poder cerrar la solicitud.
                         </p>
                       )}
-                      {esTramite(e) && !esRecoleccion && (
+                      {esTramite(e) && (
                         <div className="mt-2 space-y-2">
                           <button
                             type="button"
@@ -500,12 +510,14 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                             }`}
                           >
                             {asignarFactura ? <MdCheck className="text-base" /> : <MdNumbers className="text-base" />}
-                            {asignarFactura ? 'Factura o remisión asignada — quitar' : 'Asignar factura o remisión'}
+                            {esRecoleccion
+                              ? (asignarFactura ? 'N° de guía asignado — quitar' : 'Asignar N° de guía')
+                              : (asignarFactura ? 'Factura o remisión asignada — quitar' : 'Asignar factura o remisión')}
                           </button>
                           {!asignarFactura && (
                             <p className="inline-flex items-start gap-1.5 text-[11px] font-semibold text-brand-ink/60">
                               <MdInfoOutline className="text-sm shrink-0 mt-0.5" />
-                              Puedes guardar «{e}» con solo observaciones. Cuando tengas la factura o remisión, actívala aquí para adjuntarla.
+                              Puedes guardar «{e}» con solo observaciones. Cuando tengas {esRecoleccion ? 'el número y PDF de la guía de transporte' : 'la factura o remisión'}, actívalo aquí para adjuntarlo.
                             </p>
                           )}
                           {pdfsPrevios.length > 0 && (
@@ -516,7 +528,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                               </p>
                               <ul className="space-y-1.5">
                                 {pdfsPrevios.map((url) => {
-                                  const nombre = nombrePdfFromUrl(url, 'Factura o remisión')
+                                  const nombre = nombrePdfFromUrl(url, esRecoleccion ? 'Guía de transporte' : 'Factura o remisión')
                                   const enCurso = borrando === url
                                   const pendiente = confirmarBorrar === url
                                   return (
@@ -571,7 +583,7 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                               </ul>
                               <p className="inline-flex items-start gap-1.5 text-[11px] font-semibold text-brand-ink/50">
                                 <MdInfoOutline className="text-sm shrink-0 mt-0.5" />
-                                Se borran del servidor para dejar sitio a la factura o remisión correcta.
+                                Se borran del servidor para dejar sitio a {esRecoleccion ? 'la guía de transporte correcta' : 'la factura o remisión correcta'}.
                               </p>
                             </div>
                           )}
@@ -580,22 +592,22 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                             <div>
                               <label className="flex items-center gap-2 text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-2">
                                 <MdNumbers className="text-base text-brand-cyan" />
-                                Número de factura o remisión <span className="text-red-500">*</span>
+                                {esRecoleccion ? 'Número de guía de transporte' : 'Número de factura o remisión'} <span className="text-red-500">*</span>
                               </label>
                             <input
                               type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
+                              inputMode={esRecoleccion ? 'text' : 'numeric'}
+                              pattern={esRecoleccion ? undefined : '[0-9]*'}
                               value={numeroRef}
-                              onChange={(ev) => setNumeroRef(ev.target.value.replace(/\D/g, ''))}
-                              placeholder="Ej. 12345678"
+                              onChange={(ev) => setNumeroRef(esRecoleccion ? ev.target.value : ev.target.value.replace(/\D/g, ''))}
+                              placeholder={esRecoleccion ? 'Ej. GT-12345' : 'Ej. 12345678'}
                               className="w-full rounded-xl border border-brand-deep/20 bg-white px-3 py-2.5 text-sm text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
                             />
                           </div>
                           <div>
                             <label className="flex items-center gap-2 text-xs font-extrabold text-brand-deep uppercase tracking-wide mb-2">
                               <MdCloudUpload className="text-base text-brand-cyan" />
-                              Adjuntar factura o remisión <span className="text-red-500">*</span>
+                              {esRecoleccion ? 'Adjuntar guía de transporte' : 'Adjuntar factura o remisión'} <span className="text-red-500">*</span>
                             </label>
                             <label className="flex flex-col items-center justify-center gap-1.5 w-full px-3 py-4 border-2 border-dashed border-brand-ink/25 rounded-xl bg-white text-brand-ink/70 cursor-pointer hover:border-brand-cyan hover:bg-brand-mist/50 transition-colors">
                               <MdCloudUpload className="text-2xl text-brand-cyan" />

@@ -15,11 +15,15 @@ function initials(name) {
     .toUpperCase()
 }
 
-export default function AsignadoFilter({ solicitudes, value, onChange }) {
+export default function AsignadoFilter({ solicitudes, value, onChange, getAsignado }) {
   const [open, setOpen] = useState(false)
 
+  // Por defecto lee la forma de solicitud (`asignadoA`); la tabla de
+  // recolecciones pasa el suyo (`asignado_a`) para reutilizar el mismo filtro.
+  const asignadoDe = getAsignado || ((s) => s.asignadoA)
+
   const counts = solicitudes.reduce((acc, s) => {
-    const a = nombreDeAsignado(s.asignadoA)
+    const a = nombreDeAsignado(asignadoDe(s))
     if (!a) {
       acc[SIN_ASIGNAR] = (acc[SIN_ASIGNAR] || 0) + 1
       return acc

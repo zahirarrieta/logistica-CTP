@@ -30,6 +30,8 @@ import { apiFetch, apiPost } from './apiClient.js'
 
 const CARPETA_FACTURAS = 'FacturasoRemisiones'
 const CARPETA_ENTREGAS = 'DocEntregas'
+// Guías de transporte del módulo de recolección (el «N° de guía» del trámite).
+const CARPETA_GUIAS = 'GuiasTransporte'
 
 // Sufijo único por archivo. Sin esto, dos PDFs con el mismo nombre en la misma
 // solicitud se pisarían en el servidor: la ruta es {codigo}/{nombre} y el
@@ -112,6 +114,26 @@ export async function subirFacturasRemisiones(archivos, numeroFactura, codigo) {
     const ruta = await subir(codigo, CARPETA_FACTURAS, nombre, archivo)
     resultados.push({ nombre, ruta, url: ruta, cantidadBytes: archivo.size, tipo: archivo.type })
     console.info(`[Archivos] factura/remisión subida → ${ruta}`)
+  }
+  return resultados
+}
+
+// ---------------------------------------------------------------------------
+// Guías de transporte (el «N° de guía» del trámite de una recolección)
+// ---------------------------------------------------------------------------
+// Igual que las facturas/remisiones pero en su propia carpeta y con el número de
+// guía antepuesto al nombre. El número es alfanumérico (las guías de transporte
+// llevan letras), así que no se filtra a solo dígitos.
+export async function subirGuiasTransporte(archivos, numeroGuia, codigo) {
+  if (!Array.isArray(archivos) || archivos.length === 0) return []
+
+  const numero = String(numeroGuia || '').trim() || 'SinNumero'
+  const resultados = []
+  for (const archivo of archivos) {
+    const nombre = nombreEnDisco('guia', `${numero}_${archivo.name}`)
+    const ruta = await subir(codigo, CARPETA_GUIAS, nombre, archivo)
+    resultados.push({ nombre, ruta, url: ruta, cantidadBytes: archivo.size, tipo: archivo.type })
+    console.info(`[Archivos] guía de transporte subida → ${ruta}`)
   }
   return resultados
 }

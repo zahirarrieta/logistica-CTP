@@ -7,7 +7,7 @@ import {
   MdAssignmentInd, MdNotificationsNone,
 } from 'react-icons/md'
 import { paginasVisibles } from '../../../utils/paginacion.js'
-import { getRecoleccionBadge, getRecoleccionDot } from '../../../utils/estadoRecoleccion.js'
+import { getRecoleccionBadge, getRecoleccionDot, getRecoleccionBg } from '../../../utils/estadoRecoleccion.js'
 import AdjuntosModal from '../../../components/AdjuntosModal.jsx'
 import NotificationsPanel from '../../../components/NotificationsPanel.jsx'
 import TablaQueRecogemos from '../../../components/TablaQueRecogemos.jsx'
@@ -123,9 +123,13 @@ function Row({ icon, label, value }) {
   )
 }
 
-function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, onVerAdjuntos, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones }) {
+function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, onVerAdjuntos, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones, colorRowsPorEstado }) {
   const isEven = index % 2 === 0
-  const cardBg = isEven ? 'bg-white' : 'bg-brand-cyan/10'
+  const cardBg = colorRowsPorEstado
+    ? getRecoleccionBg(r.estado)
+    : isEven
+      ? 'bg-white'
+      : 'bg-brand-cyan/10'
   const adjuntos = adjuntosDe(r)
   const mostrarAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onHistorialClick)
 
@@ -258,7 +262,7 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerDetalle, o
   )
 }
 
-export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones = false }) {
+export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones = false, colorRowsPorEstado = false }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [adjuntosRecoleccion, setAdjuntosRecoleccion] = useState(null)
@@ -320,6 +324,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
             onCambiarEstadoClick={onCambiarEstadoClick}
             onHistorialClick={onHistorialClick}
             mostrarNotificaciones={mostrarNotificaciones}
+            colorRowsPorEstado={colorRowsPorEstado}
           />
         ))}
       </div>
@@ -377,7 +382,11 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
               {currentItems.map((r, i) => {
                 const adjuntos = adjuntosDe(r)
                 const abierto = expandedId === r.codigo
-                const estiloFila = i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/10'
+                const estiloFila = colorRowsPorEstado
+                  ? getRecoleccionBg(r.estado)
+                  : i % 2 === 0
+                    ? 'bg-white'
+                    : 'bg-brand-cyan/10'
                 return (
                   <Fragment key={r.codigo}>
                     <tr

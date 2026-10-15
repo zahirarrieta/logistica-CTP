@@ -32,9 +32,11 @@ const MOTIVO_PREFIJO = /^\[CORREGIR:\s*([^\]]*)\]\s*/
 
 // Codifica los campos marcados dentro de la nota del historial, que es lo único
 // que se sincroniza con la base, con el formato «[CORREGIR: A, B] texto».
-export function componerMotivoDevolucion(campos, texto) {
+// `catalogo` permite reusar el mismo formato en recolección, con sus propios
+// campos (ver CAMPOS_DEVOLUCION_RECOLECCION en utils/estadoRecoleccion.js).
+export function componerMotivoDevolucion(campos, texto, catalogo = CAMPOS_DEVOLUCION) {
   const etiquetas = (Array.isArray(campos) ? campos : [])
-    .map((id) => CAMPOS_DEVOLUCION.find((c) => c.id === id)?.etiqueta)
+    .map((id) => catalogo.find((c) => c.id === id)?.etiqueta)
     .filter(Boolean)
   const limpio = (texto || '').trim()
   if (etiquetas.length === 0) return limpio

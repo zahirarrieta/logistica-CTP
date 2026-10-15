@@ -13,16 +13,28 @@ import { firmarRutas } from './archivosApi.js'
 // las solicitudes por compatibilidad histórica.
 // ============================================================================
 
+// Trocea el CSV de rutas de una entrada de historial ("a, b, c").
+const rutasDeAdjunto = (adjunto) =>
+  String(adjunto || '')
+    .split(',')
+    .map((e) => e.trim())
+    .filter(Boolean)
+
 // Descarga todas las recolecciones visibles para el usuario y firma sus
-// adjuntos (rutas → URLs de 24 h) para poder verlos sin cabecera Authorization.
+// adjuntos y los PDF del trámite (rutas → URLs de 24 h) para poder verlos sin
+// cabecera Authorization. El historial trae las guías de transporte igual que
+// una solicitud trae sus facturas/remisiones.
 export async function descargarRecolecciones() {
   await iniciarSesion()
   const filas = (await apiFetch('/api/recolecciones')) || []
 
+  const historialDe = (f) => (Array.isArray(f.historial) ? f.historial : [])
   const rutas = [
     ...new Set(
-      filas
-        .flatMap((f) => (Array.isArray(f.adjuntos) ? f.adjuntos : []))
+      [
+        ...filas.flatMap((f) => (Array.isArray(f.adjuntos) ? f.adjuntos : [])),
+        ...filas.flatMap((f) => historialDe(f).flatMap((h) => rutasDeAdjunto(h.adjunto))),
+      ]
         .map((r) => String(r || '').trim())
         .filter((r) => r && !/^https?:\/\//i.test(r))
     ),
@@ -31,11 +43,17 @@ export async function descargarRecolecciones() {
   if (rutas.length > 0) {
     firmadas = await firmarRutas(rutas)
   }
+  const firmar = (r) => firmadas[r] || r
 
   console.info(`[API] descargadas ${filas.length} recolección(es)`)
   return filas.map((f) => ({
     ...f,
-    adjuntos: (Array.isArray(f.adjuntos) ? f.adjuntos : []).map((r) => firmadas[r] || r),
+    adjuntos: (Array.isArray(f.adjuntos) ? f.adjuntos : []).map(firmar),
+    historial: historialDe(f).map((h) =>
+      h && h.adjunto
+        ? { ...h, adjunto: rutasDeAdjunto(h.adjunto).map(firmar).join(', ') }
+        : h
+    ),
   }))
 }
 
