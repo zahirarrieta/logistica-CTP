@@ -6,6 +6,7 @@ import Modal from '../../../../components/Modal.jsx'
 import { getRecoleccionBadge } from '../../../../utils/estadoRecoleccion.js'
 import imgAbierto from '../../../../assets/estado/Abierto.png'
 import imgRemision from '../../../../assets/estado/Remision.png'
+import imgDevoSol from '../../../../assets/estado/DevoSol.png'
 import imgCancelado from '../../../../assets/estado/Cancelado.png'
 
 // Imágenes por estado (las mismas del seguimiento de solicitudes). Los estados
@@ -13,6 +14,7 @@ import imgCancelado from '../../../../assets/estado/Cancelado.png'
 const IMAGENES_POR_ESTADO = {
   Abierto: imgAbierto,
   'En Trámite': imgRemision,
+  'Devolución a Solicitante': imgDevoSol,
   'Cancelado': imgCancelado,
 }
 

@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.15-70",
+  "version": "2026.10.15-71",
   "fecha": "2026-10-15",
   "cambios": [
+    "Recolecciones: en el seguimiento, el estado «Devolución a Solicitante» vuelve a mostrar la imagen de la pista (la misma que en las solicitudes) en lugar del ícono genérico.",
     "Almacenamiento: las recolecciones se guardan en su propia carpeta `server/storage/recolecciones/…` (fuera de `evidencias`), separadas de los adjuntos y las evidencias de las solicitudes. Los archivos ya guardados de las solicitudes siguen en `server/storage/evidencias/…` sin cambios.",
     "Recolecciones: al devolverse al solicitante («Devolución a Solicitante») el seguimiento muestra el mismo aviso que en las solicitudes y el solicitante puede pulsar «Corregir y reenviar» para editar los datos de la recolección y volver a enviarla, que queda de nuevo en «Abierto» con su registro en el historial. El responsable no se cambia al corregir (lo reasigna el administrador).",
     "Backend: las recolecciones ahora se guardan bajo su propia raíz `recolecciones/<solicitante>/<codigo>` (adjuntos, guía de transporte y documento de entrega), en vez de en la carpeta del usuario que sube el archivo. Así la guía que carga el administrador ya no crea una ruta paralela con su nombre ni se mezcla con los documentos de las solicitudes. El dueño de la recolección puede reenviarla (volver a «Abierto» desde «Devolución a Solicitante») y solo él, el conductor asignado o un privilegiado puede escribir en ella.",
