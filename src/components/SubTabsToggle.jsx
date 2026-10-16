@@ -1,7 +1,7 @@
-// Selector segmentado que alterna entre las dos vistas del tab «Dashboard»:
-// pedidos (solicitudes) y recolecciones. Solo cambia lo que se pinta dentro del
-// tab, sin tocar la barra de pestañas principal.
-export default function DashboardVistaToggle({ vista, onChange, opciones }) {
+// Selector segmentado de segundo nivel: alterna entre las sub-vistas de una
+// misma pestaña principal (Pedidos / Recolecciones, Mis entregas / Mis
+// recogidas, etc.) sin tocar la barra de pestañas principal.
+export default function SubTabsToggle({ vista, onChange, opciones }) {
   if (!opciones || opciones.length < 2) return null
   return (
     <div className="mb-4 inline-flex items-center gap-1 rounded-2xl bg-brand-mist/70 ring-1 ring-brand-ink/10 p-1">

@@ -22,7 +22,7 @@ import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
 import DashboardTab from './Components/DashboardTab.jsx'
 import RecoleccionesDashboard from './Components/RecoleccionesDashboard.jsx'
-import DashboardVistaToggle from './Components/DashboardVistaToggle.jsx'
+import SubTabsToggle from '../../components/SubTabsToggle.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
 import ClientesModal from './Components/modals/ClientesModal.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud, suscribir, peekNextId, refrescarProximoCodigo } from '../../store/solicitudesStore.js'
@@ -51,7 +51,6 @@ const ORDEN_TABS = [
   { id: 'dashboard', label: 'Dashboard', Icon: MdInsights },
   { id: 'solicitudes', label: 'Solicitudes', Icon: MdInbox },
   { id: 'asignaciones', label: 'Mis solicitudes', Icon: MdAssignmentInd },
-  { id: 'recolecciones', label: 'Recolecciones', Icon: MdStorefront },
   { id: 'planillas', label: 'Planillas', Icon: MdDescription },
   // El catálogo de clientes abre un modal en vez de cambiar el contenido de la
   // página, así que se marca con `modal` para que el click lo abra en lugar de
@@ -68,6 +67,8 @@ const esSuper = esSuperAdmin(rol)
   const [recoleccionDetalle, setRecoleccionDetalle] = useState(null)
   const [tab, setTab] = useState('dashboard')
   const [dashboardVista, setDashboardVista] = useState('pedidos')
+  const [vistaSolicitudes, setVistaSolicitudes] = useState('pedidos')
+  const [vistaAsignaciones, setVistaAsignaciones] = useState('pedidos')
   const [editSolicitud, setEditSolicitud] = useState(null)
   const [asignarSolicitud, setAsignarSolicitud] = useState(null)
   const [asignarConductorSolicitud, setAsignarConductorSolicitud] = useState(null)
@@ -201,6 +202,13 @@ const esSuper = esSuperAdmin(rol)
     [recolecciones, misDatos]
   )
 
+  // Recolecciones que aún no tienen responsable. Espejo de `sinAsignar` para los
+  // pedidos: el administrador las ve en «Solicitudes» y puede auto-asignárselas.
+  const recoleccionesSinAsignar = useMemo(
+    () => recolecciones.filter((r) => !String(r.asignado_a || '').trim()),
+    [recolecciones]
+  )
+
   // El super admin ya ve todas las solicitudes en la pestaña "Solicitudes",
   // así que no necesita "Mis solicitudes".
   const TABS = esSuper
@@ -211,6 +219,16 @@ const esSuper = esSuperAdmin(rol)
   const baseDelTab = esSuper
     ? (tab === 'asignaciones' ? misAsignaciones : solicitudes)
     : (tab === 'asignaciones' ? misAsignaciones : sinAsignar)
+
+  // Recolecciones equivalentes a `baseDelTab`: en «Solicitudes» las que no tienen
+  // responsable (para auto-asignárselas) y en «Mis solicitudes» las propias.
+  const baseRecoDelTab = tab === 'asignaciones'
+    ? misRecoleccionesAsignadas
+    : (esSuper ? recolecciones : recoleccionesSinAsignar)
+
+  // Sub-vista activa (Pedidos / Recolecciones) del tab actual.
+  const subVistaActual = tab === 'asignaciones' ? vistaAsignaciones : vistaSolicitudes
+  const setSubVistaActual = tab === 'asignaciones' ? setVistaAsignaciones : setVistaSolicitudes
 
   // Aplica filtro mes/año si está activo (para dashboard y tabla)
   const baseConFiltroFecha = useMemo(() => {
@@ -256,7 +274,6 @@ const esSuper = esSuperAdmin(rol)
   const contadorTab = (id) => {
     if (id === 'solicitudes') return esSuper ? solicitudes.length : sinAsignar.length
     if (id === 'asignaciones') return misAsignaciones.length
-    if (id === 'recolecciones') return recolecciones.length
     return 0
   }
 
@@ -265,7 +282,7 @@ const esSuper = esSuperAdmin(rol)
     const zona = filtroZona.toLowerCase()
     const idBuscado = filtroId.trim().toLowerCase()
     const nombreBuscado = filtroNombre.trim().toLowerCase()
-    return recolecciones.filter((r) => {
+    return baseRecoDelTab.filter((r) => {
       if (filterEstado && r.estado !== filterEstado) return false
       if (filtroAsignado) {
         if (filtroAsignado === SIN_ASIGNAR) {
@@ -281,7 +298,7 @@ const esSuper = esSuperAdmin(rol)
       }
       return true
     })
-  }, [recolecciones, filterEstado, filtroAsignado, filtroNombre, filtroCliente, filtroZona, filtroId])
+  }, [baseRecoDelTab, filterEstado, filtroAsignado, filtroNombre, filtroCliente, filtroZona, filtroId])
 
   const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
 
@@ -472,7 +489,7 @@ const esSuper = esSuperAdmin(rol)
                   >
                     <Icon className="text-base" />
                     <span>{t.label}</span>
-                    {(t.id === 'solicitudes' || t.id === 'asignaciones' || t.id === 'recolecciones') && cuenta > 0 && (
+                    {(t.id === 'solicitudes' || t.id === 'asignaciones') && cuenta > 0 && (
                       <span className={`min-w-5 h-5 px-1 grid place-items-center rounded-full text-[10px] font-extrabold ${active ? 'bg-brand-cyan text-brand-ink' : 'bg-brand-deep/10 text-brand-deep'}`}>
                         {cuenta}
                       </span>
@@ -485,7 +502,7 @@ const esSuper = esSuperAdmin(rol)
 
           {tab === 'dashboard' ? (
             <>
-              <DashboardVistaToggle
+              <SubTabsToggle
                 vista={dashboardVista}
                 onChange={setDashboardVista}
                 opciones={[
@@ -516,12 +533,22 @@ const esSuper = esSuperAdmin(rol)
             <p className="rounded-2xl border border-brand-ink/10 bg-brand-mist/60 px-4 py-6 text-center text-sm font-semibold text-brand-ink/60">
               Pulsa «Clientes» para abrir el catálogo.
             </p>
-          ) : tab === 'recolecciones' ? (
+          ) : (
             <>
-              {recolecciones.length > 0 && (
+              <SubTabsToggle
+                vista={subVistaActual}
+                onChange={setSubVistaActual}
+                opciones={[
+                  { id: 'pedidos', label: 'Pedidos', Icon: MdInbox, cuenta: baseDelTab.length },
+                  { id: 'recolecciones', label: 'Recolecciones', Icon: MdStorefront, cuenta: baseRecoDelTab.length },
+                ]}
+              />
+              {subVistaActual === 'recolecciones' ? (
+                <>
+              {baseRecoDelTab.length > 0 && (
                 <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
                   <EstadoFilter
-                    solicitudes={recolecciones}
+                    solicitudes={baseRecoDelTab}
                     value={filterEstado}
                     onChange={setFilterEstado}
                     estados={ESTADOS_RECOLECCION}
@@ -529,7 +556,7 @@ const esSuper = esSuperAdmin(rol)
                     getDot={getRecoleccionDot}
                   />
                   <AsignadoFilter
-                    solicitudes={recolecciones}
+                    solicitudes={baseRecoDelTab}
                     value={filtroAsignado}
                     onChange={setFiltroAsignado}
                     getAsignado={(r) => r.asignado_a}
@@ -633,6 +660,8 @@ const esSuper = esSuperAdmin(rol)
                         }
                 }
               />
+                </>
+              )}
             </>
           )}
         </div>

@@ -7,7 +7,7 @@ import IndicadorSinConexion from '../../components/IndicadorSinConexion.jsx'
 import EntregaConductor from './Components/modals/EntregaConductor.jsx'
 import ConductorDashboard from './Components/ConductorDashboard.jsx'
 import RecoleccionesDashboard from '../Administrador/Components/RecoleccionesDashboard.jsx'
-import DashboardVistaToggle from '../Administrador/Components/DashboardVistaToggle.jsx'
+import SubTabsToggle from '../../components/SubTabsToggle.jsx'
 import EntregaDetallesModal from '../Administrador/Components/modals/EntregaDetallesModal.jsx'
 import RecoleccionesTable from '../Recolecciones/Components/RecoleccionesTable.jsx'
 import RecoleccionDetalleModal from '../Recolecciones/Components/modals/RecoleccionDetalleModal.jsx'
@@ -115,6 +115,8 @@ export default function Conductor() {
   const [detalleEntregaRecoleccion, setDetalleEntregaRecoleccion] = useState(null)
   const [tab, setTab] = useState('pendientes')
   const [dashboardVista, setDashboardVista] = useState('pedidos')
+  const [pendientesVista, setPendientesVista] = useState('pedidos')
+  const [entregadosVista, setEntregadosVista] = useState('pedidos')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [fechaEntregaSel, setFechaEntregaSel] = useState('')
@@ -168,6 +170,18 @@ export default function Conductor() {
         esConductorDe({ conductor: r.conductor, conductorCorreo: r.conductor_correo }, identidad)
       ),
     [recolecciones, identidad]
+  )
+
+  // Reparto de «Recogidas» en las dos pestañas del conductor: las que aún puede
+  // trabajar (todo menos Entregado/Fallido/Cancelado) y las ya entregadas.
+  // Fallido/Cancelado los marca el administrador; aquí solo se consultan.
+  const recogidasPendientes = useMemo(
+    () => misRecogidas.filter((r) => !['Entregado', 'Fallido', 'Cancelado'].includes(r.estado || '')),
+    [misRecogidas]
+  )
+  const recogidasEntregadas = useMemo(
+    () => misRecogidas.filter((r) => (r.estado || '') === 'Entregado'),
+    [misRecogidas]
   )
 
   // Adaptador mínimo a forma de solicitud para reutilizar la entrega
@@ -295,9 +309,12 @@ export default function Conductor() {
   const TABS = [
     { id: 'pendientes', label: 'Entregas pendientes', Icon: MdPendingActions, cuenta: pendientes.length },
     { id: 'entregados', label: 'Entregados', Icon: MdCheckCircle, cuenta: entregados.length },
-    { id: 'recogidas', label: 'Recogidas', Icon: MdInventory2, cuenta: misRecogidas.length },
     { id: 'dashboard', label: 'Dashboard', Icon: MdInsights, cuenta: solicitudesDash.length },
   ]
+
+  const subVistaConductor = tab === 'entregados' ? entregadosVista : pendientesVista
+  const setSubVistaConductor = tab === 'entregados' ? setEntregadosVista : setPendientesVista
+  const recogidasDelTab = tab === 'entregados' ? recogidasEntregadas : recogidasPendientes
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-white text-brand-ink">
@@ -355,7 +372,7 @@ export default function Conductor() {
 
           {tab === 'dashboard' ? (
             <>
-              <DashboardVistaToggle
+              <SubTabsToggle
                 vista={dashboardVista}
                 onChange={setDashboardVista}
                 opciones={[
@@ -374,16 +391,35 @@ export default function Conductor() {
                 <ConductorDashboard solicitudes={solicitudesDash} />
               )}
             </>
-          ) : tab === 'recogidas' ? (
-            <RecoleccionesTable
-              items={misRecogidas}
-              onRowClick={(r) => setDetalleRecoleccion(r)}
-              onFilaClick={handleRecoleccionFila}
-              onHistorialClick={handleRecoleccionHistorial}
-              colorRowsPorEstado
-            />
           ) : (
             <>
+              <SubTabsToggle
+                vista={subVistaConductor}
+                onChange={setSubVistaConductor}
+                opciones={[
+                  { id: 'pedidos', label: 'Pedidos', Icon: MdLocalShipping, cuenta: (tab === 'entregados' ? entregados : pendientes).length },
+                  { id: 'recolecciones', label: 'Recolecciones', Icon: MdInventory2, cuenta: recogidasDelTab.length },
+                ]}
+              />
+              {subVistaConductor === 'recolecciones' ? (
+                recogidasDelTab.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-brand-ink/20 bg-brand-mist/40 px-4 py-16 text-center text-brand-deep/60">
+                    <MdInventory2 className="text-4xl" />
+                    <p className="text-base font-bold">
+                      {tab === 'entregados' ? 'Aún no tienes recolecciones entregadas' : 'No tienes recolecciones pendientes'}
+                    </p>
+                  </div>
+                ) : (
+                  <RecoleccionesTable
+                    items={recogidasDelTab}
+                    onRowClick={(r) => setDetalleRecoleccion(r)}
+                    onFilaClick={handleRecoleccionFila}
+                    onHistorialClick={handleRecoleccionHistorial}
+                    colorRowsPorEstado
+                  />
+                )
+              ) : (
+                <>
           {/* Filtro por fechas */}
           <div className="mb-4 flex flex-col sm:flex-row sm:items-end gap-2.5">
             <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-3 py-2 flex-1 sm:max-w-[320px]">
@@ -512,6 +548,8 @@ export default function Conductor() {
                     }
             }
           />
+                </>
+              )}
             </>
           )}
         </div>
