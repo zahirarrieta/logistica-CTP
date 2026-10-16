@@ -2,9 +2,10 @@
 
 // ============================================================================
 // ALMACENAMIENTO DE ARCHIVOS
-// Todo archivo del sistema vive aquí, en disco, bajo server/storage/evidencias:
-// los adjuntos de la solicitud (facturas y remisiones) y la evidencia de la
-// entrega.
+// Todo archivo del sistema vive en disco bajo server/storage: los adjuntos de la
+// solicitud (facturas y remisiones) y la evidencia de la entrega, bajo
+// server/storage/evidencias, y todo lo de las recolecciones (adjuntos, guía de
+// transporte y documento de entrega), bajo server/storage/recolecciones.
 //
 // Antes estos archivos iban a dos sitios: los buckets privados de Supabase Storage
 // ('adjuntos' y 'evidencias') y, como respaldo, OneDrive/SharePoint. Ya no hay
@@ -26,6 +27,10 @@ const config = require('./config')
 
 const BASE = path.join(__dirname, '..', 'storage')
 const RAIZ_EVIDENCIAS = path.join(BASE, 'evidencias')
+// Las recolecciones viven en su propia raíz, hermana de evidencias, para que sus
+// documentos no se revuelvan con los de las solicitudes. La ruta guardada en la
+// base empieza por `recolecciones/` y el resolutor de abajo la manda aquí.
+const RAIZ_RECOLECCIONES = path.join(BASE, 'recolecciones')
 
 // El secreto llega validado desde config.js: en producción es obligatorio y ahí
 // ya se lance si falta. En desarrollo, si no se definió, se genera uno temporal.
@@ -35,15 +40,28 @@ const LIMITE_BYTES = config.firma.maxBytes
 
 function asegurarCarpeta() {
   fs.mkdirSync(RAIZ_EVIDENCIAS, { recursive: true })
+  fs.mkdirSync(RAIZ_RECOLECCIONES, { recursive: true })
 }
 asegurarCarpeta()
 
-// Impide salir de la carpeta de evidencias (.. o rutas absolutas).
-function rutaSegura(ruta) {
+// Decide la raíz según el primer segmento de la ruta guardada: `recolecciones/…`
+// va a su raíz propia y el resto a evidencias. Devuelve la raíz absoluta y los
+// segmentos SIN ese prefijo, para no duplicar la carpeta al resolver.
+function resolverRaiz(ruta) {
   const limpio = String(ruta || '').replace(/\\/g, '/').replace(/^\/+/, '')
-  const destino = path.resolve(RAIZ_EVIDENCIAS, limpio)
-  const base = path.resolve(RAIZ_EVIDENCIAS)
-  if (destino !== base && !destino.startsWith(base + path.sep)) return null
+  const partes = limpio.split('/').filter(Boolean)
+  const esRecoleccion = Boolean(partes[0]) && partes[0].toLowerCase() === 'recolecciones'
+  const base = esRecoleccion ? RAIZ_RECOLECCIONES : RAIZ_EVIDENCIAS
+  return { base, partes: esRecoleccion ? partes.slice(1) : partes }
+}
+
+// Impide salir de la raíz que corresponde (evidencias o recolecciones): ni '..'
+// ni rutas absolutas pueden escapar del directorio de almacenamiento.
+function rutaSegura(ruta) {
+  const { base, partes } = resolverRaiz(ruta)
+  const destino = path.resolve(base, partes.join('/'))
+  const baseAbs = path.resolve(base)
+  if (destino !== baseAbs && !destino.startsWith(baseAbs + path.sep)) return null
   return destino
 }
 
@@ -183,6 +201,7 @@ function borrar(ruta) {
 module.exports = {
   BASE,
   RAIZ_EVIDENCIAS,
+  RAIZ_RECOLECCIONES,
   LIMITE_BYTES,
   guardar,
   crearCarpeta,
