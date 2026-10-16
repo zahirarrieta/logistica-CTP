@@ -1,9 +1,8 @@
 {
-  "version": "2026.10.16-83",
+  "version": "2026.10.16-84",
   "fecha": "2026-10-16",
   "cambios": [
-    "Dashboards (admin, super y conductor): cuando el filtro mes/año no devuelve datos se mantiene la barra de filtros y un botón «Limpiar filtro» para restablecer.",
-    "Recolecciones (dashboard): revisión de textos y eliminación de palabras residuales internas en las tarjetas.",
-    "Conductor: el panel de entregas muestra filtro por mes/año también en estado vacío filtrado."
+    "Corrección de textos: los dashboards de Administrador, Superadmin (pedidos y recolecciones) y Conductor mostraban las palabras con caracteres dañados («aÃ±o», «trÃ¡nsito», «satisfacciÃ³n», «QuiÃ©n los tiene», «â€”»), que se leían como si estuvieran en portugués. Todos los textos vuelven a verse en español.",
+    "El archivo de estilos también tenía dos comentarios con el mismo daño de codificación; se corrigieron."
   ]
 }

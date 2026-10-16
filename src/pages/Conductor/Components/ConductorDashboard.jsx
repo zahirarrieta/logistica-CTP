@@ -101,11 +101,11 @@ export default function ConductorDashboard({ solicitudes: todas }) {
 
   const abrirDetalle = (id) => setDetalle(solicitudesFiltradas.find((s) => s.id === id) || null)
 
-  // Tarjetas clicables: cada nÃºmero abre la lista de pedidos que lo compone.
+  // Tarjetas clicables: cada número abre la lista de pedidos que lo compone.
   const fila = (s) => ({
     id: s.id,
-    cliente: s.cliente || 'â€”',
-    zona: s.zona || 'â€”',
+    cliente: s.cliente || '—',
+    zona: s.zona || '—',
     estado: s.estado || 'Abierto',
     fechaHora: `${s.fechaSubida || ''} ${s.horaSubida || ''}`.trim(),
   })
@@ -164,9 +164,9 @@ export default function ConductorDashboard({ solicitudes: todas }) {
   }
 
   // Un pedido cancelado se considera resuelto (como si se hubiera entregado):
-  // no penaliza el cumplimiento, ya que el pedido dejÃ³ de estar activo.
+  // no penaliza el cumplimiento, ya que el pedido dejó de estar activo.
   const cumplimiento = r.total ? Math.round(((r.entregados + r.cancelados) / r.total) * 100) : 0
-  const enTransitoParcial = solicitudesFiltradas.filter((s) => (s.estado || '') === 'En TrÃ¡nsito Parcial').length
+  const enTransitoParcial = solicitudesFiltradas.filter((s) => (s.estado || '') === 'En Tránsito Parcial').length
 
   return (
     <>
@@ -228,12 +228,12 @@ export default function ConductorDashboard({ solicitudes: todas }) {
           <Kpi
             icon={<MdLocalShipping />}
             accent="bg-gradient-to-br from-purple-500 to-fuchsia-400"
-            label="En trÃ¡nsito"
+            label="En tránsito"
             value={r.enTransito}
             sub={`${enTransitoParcial} parcial(es)`}
             onClick={() =>
               abrirLista(
-                'Mis pedidos en trÃ¡nsito',
+                'Mis pedidos en tránsito',
                 solicitudesFiltradas.filter((s) => ESTADOS_TRANSITO.includes(s.estado || ''))
               )
             }
@@ -299,7 +299,7 @@ export default function ConductorDashboard({ solicitudes: todas }) {
           <Seccion icon={<MdDonutLarge />} titulo="Mis pedidos por estado">
             <Donut porEstado={r.porEstado} total={r.total} />
           </Seccion>
-          <Seccion icon={<MdBarChart />} titulo="Actividad Ãºltimos 14 dÃ­as">
+          <Seccion icon={<MdBarChart />} titulo="Actividad últimos 14 días">
             <div className="mb-3">
               <EstadoMargen />
             </div>
@@ -338,20 +338,20 @@ export default function ConductorDashboard({ solicitudes: todas }) {
             </div>
             <div className="rounded-xl bg-brand-mist/60 ring-1 ring-brand-ink/5 p-3">
               <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-ink/50">
-                <MdCheckCircle /> MÃ¡ximo
+                <MdCheckCircle /> Máximo
               </span>
               <span className="block text-xl font-extrabold text-brand-ink mt-1">{formatHoras(r.tiempos.max)}</span>
             </div>
           </div>
 
           <div>
-            <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">DistribuciÃ³n por rango</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Distribución por rango</h3>
             <Histograma items={tiempos.buckets} />
           </div>
 
           {tiempos.ultimasEntregas.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Ãšltimas entregas</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Últimas entregas</h3>
               <div className="overflow-hidden rounded-xl border border-brand-ink/10">
                 {tiempos.ultimasEntregas.map((e, i) => (
                   <button
@@ -363,7 +363,7 @@ export default function ConductorDashboard({ solicitudes: todas }) {
                   >
                     <span className="shrink-0 font-extrabold text-brand-deep">{e.id}</span>
                     <span className="min-w-0 flex-1 truncate text-brand-ink/80">
-                      {e.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {e.zona || 'â€”'}</span>
+                      {e.cliente || '—'} <span className="text-brand-ink/40">· {e.zona || '—'}</span>
                     </span>
                     <span className={`hidden sm:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(e.estado)}`}>
                       {e.estado}
@@ -390,7 +390,7 @@ export default function ConductorDashboard({ solicitudes: todas }) {
               >
                 <span className="shrink-0 font-extrabold text-brand-deep">{s.id}</span>
                 <span className="min-w-0 flex-1 truncate text-brand-ink/80">
-                  {s.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {s.zona || 'â€”'}</span>
+                  {s.cliente || '—'} <span className="text-brand-ink/40">· {s.zona || '—'}</span>
                 </span>
                 <span className={`hidden md:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(s.estado || 'Abierto')}`}>
                   {s.estado || 'Abierto'}

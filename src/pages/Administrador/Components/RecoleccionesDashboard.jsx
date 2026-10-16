@@ -125,8 +125,8 @@ export default function RecoleccionesDashboard({
 
   const fila = (rec) => ({
     id: rec.codigo,
-    cliente: rec.recoge_cliente || 'â€”',
-    zona: rec.zona || 'â€”',
+    cliente: rec.recoge_cliente || '—',
+    zona: rec.zona || '—',
     estado: rec.estado || 'Abierto',
     fechaHora: `${rec.fecha_subida || ''} ${rec.hora_subida || ''}`.trim(),
   })
@@ -248,9 +248,9 @@ export default function RecoleccionesDashboard({
                 value={anoFiltro}
                 onChange={handleAnoChange}
                 className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
-                title="Filtrar por aÃ±o"
+                title="Filtrar por año"
               >
-                <option value="">Todos los aÃ±os</option>
+                <option value="">Todos los años</option>
                 {anosDisponibles.map((a) => (
                   <option key={a} value={a}>{a}</option>
                 ))}
@@ -292,22 +292,22 @@ export default function RecoleccionesDashboard({
             accent="bg-gradient-to-br from-brand-deep to-brand-cyan"
             label="Activas"
             value={r.activas}
-            sub={`${r.enTransito} en trÃ¡nsito`}
+            sub={`${r.enTransito} en tránsito`}
             onClick={() => abrirLista('recolecciones activas', recoleccionesFiltradas.filter(esActivaRec))}
           />
           <Kpi
             icon={<MdAssignmentInd />}
             accent="bg-gradient-to-br from-blue-500 to-sky-400"
-            label="En trÃ¡mite"
+            label="En trámite"
             value={r.enTramite}
-            onClick={() => abrirLista('recolecciones en trÃ¡mite', recoleccionesFiltradas.filter((rec) => (rec.estado || '') === 'En TrÃ¡mite'))}
+            onClick={() => abrirLista('recolecciones en trámite', recoleccionesFiltradas.filter((rec) => (rec.estado || '') === 'En Trámite'))}
           />
           <Kpi
             icon={<MdLocalShipping />}
             accent="bg-gradient-to-br from-purple-500 to-fuchsia-400"
-            label="En trÃ¡nsito"
+            label="En tránsito"
             value={r.enTransito}
-            onClick={() => abrirLista('recolecciones en trÃ¡nsito', recoleccionesFiltradas.filter((rec) => ESTADOS_TRANSITO_REC.includes(rec.estado || '')))}
+            onClick={() => abrirLista('recolecciones en tránsito', recoleccionesFiltradas.filter((rec) => ESTADOS_TRANSITO_REC.includes(rec.estado || '')))}
           />
           <Kpi
             icon={<MdCheckCircle />}
@@ -349,9 +349,9 @@ export default function RecoleccionesDashboard({
           <Kpi
             icon={<MdDescription />}
             accent="bg-gradient-to-br from-indigo-500 to-violet-400"
-            label="Con guÃ­a de transporte"
+            label="Con guía de transporte"
             value={r.conGuia}
-            onClick={() => abrirLista('recolecciones con guÃ­a de transporte', recoleccionesFiltradas.filter((rec) => guiasRecoleccion(rec).length > 0))}
+            onClick={() => abrirLista('recolecciones con guía de transporte', recoleccionesFiltradas.filter((rec) => guiasRecoleccion(rec).length > 0))}
           />
         </div>
 
@@ -359,7 +359,7 @@ export default function RecoleccionesDashboard({
           <Seccion icon={<MdDonutLarge />} titulo="recolecciones por estado">
             <Donut porEstado={r.porEstado} total={r.total} />
           </Seccion>
-          <Seccion icon={<MdAssignmentInd />} titulo="QuiÃ©n las tiene">
+          <Seccion icon={<MdAssignmentInd />} titulo="Quién las tiene">
             <div className="max-h-80 overflow-y-auto [scrollbar-width:thin] pr-1">
               <BarrasAsignado
                 items={asignados}
@@ -375,7 +375,7 @@ export default function RecoleccionesDashboard({
           </Seccion>
         </div>
 
-        <Seccion icon={<MdBarChart />} titulo="Actividad Ãºltimos 14 dÃ­as">
+        <Seccion icon={<MdBarChart />} titulo="Actividad últimos 14 días">
           <div className="mb-3">
             <EstadoMargen />
           </div>
@@ -387,10 +387,10 @@ export default function RecoleccionesDashboard({
         </Seccion>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          <Seccion icon={<MdToday />} titulo="recolecciones por dÃ­a de la semana">
+          <Seccion icon={<MdToday />} titulo="recolecciones por día de la semana">
             <Histograma items={semana.map((d) => ({ key: d.dia, label: d.nombre, count: d.count, color: '#003B73' }))} />
           </Seccion>
-          <Seccion icon={<MdAccessTime />} titulo="Franja horaria de creaciÃ³n">
+          <Seccion icon={<MdAccessTime />} titulo="Franja horaria de creación">
             <Histograma items={franjas.map((f) => ({ key: f.key, label: `${f.label} ${f.rango}`, count: f.count, color: f.color }))} />
           </Seccion>
         </div>
@@ -419,13 +419,13 @@ export default function RecoleccionesDashboard({
             <BarrasH
               items={etapas.map((e) => ({ nombre: e.estado, valor: e.promedio, n: e.n }))}
               colorHex="#0EA5E9"
-              formato={(i) => `${formatHoras(i.valor)} Â· ${i.n ?? 0} ${i.n === 1 ? 'caso' : 'casos'}`}
+              formato={(i) => `${formatHoras(i.valor)} · ${i.n ?? 0} ${i.n === 1 ? 'caso' : 'casos'}`}
               hint="Ver las recolecciones que estuvieron en esta etapa"
               onClick={(i) => {
                 const etapa = etapas.find((e) => e.estado === i.nombre)
                 if (!etapa) return
                 setLista({
-                  titulo: `recolecciones en Â«${etapa.estado}Â»`,
+                  titulo: `recolecciones en «${etapa.estado}»`,
                   items: etapa.pedidos.map((p) => ({ id: p.id, cliente: p.cliente, zona: p.zona, estado: etapa.estado, fechaHora: p.entro })),
                 })
               }}
@@ -435,7 +435,7 @@ export default function RecoleccionesDashboard({
             <BarrasH
               items={conductores.map((c) => ({ nombre: c.nombre, valor: c.total, entregados: c.entregados }))}
               colorHex="#A855F7"
-              formato={(i) => `${i.valor} Â· ${i.entregados} entregadas`}
+              formato={(i) => `${i.valor} · ${i.entregados} entregadas`}
             />
           </Seccion>
         </div>
@@ -444,9 +444,9 @@ export default function RecoleccionesDashboard({
           <Seccion icon={<MdBusiness />} titulo="Top clientes">
             <BarrasH items={clientes.map((c) => ({ nombre: c.nombre, valor: c.count }))} colorHex="#F97316" />
           </Seccion>
-          <Seccion icon={<MdWarning />} titulo="Requerir atenciÃ³n (activas > 2 dÃ­as)">
+          <Seccion icon={<MdWarning />} titulo="Requerir atención (activas > 2 días)">
             {lentos.length === 0 ? (
-              <p className="text-sm text-brand-ink/50">Sin recolecciones activas con mÃ¡s de 2 dÃ­as. Â¡Todo va al dÃ­a!</p>
+              <p className="text-sm text-brand-ink/50">Sin recolecciones activas con más de 2 días. ¡Todo va al día!</p>
             ) : (
               <div className="space-y-2">
                 {lentos.map((x) => (
@@ -458,7 +458,7 @@ export default function RecoleccionesDashboard({
                     title={`Ver detalle de ${x.id}`}
                   >
                     <span className="shrink-0 font-extrabold text-brand-deep">{x.id}</span>
-                    <span className="min-w-0 flex-1 truncate text-brand-ink/80">{x.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {x.zona || 'â€”'}</span></span>
+                    <span className="min-w-0 flex-1 truncate text-brand-ink/80">{x.cliente || '—'} <span className="text-brand-ink/40">· {x.zona || '—'}</span></span>
                     <span className={`hidden sm:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(x.estado)}`}>{x.estado}</span>
                     <span className="shrink-0 font-extrabold text-red-600 tabular-nums">{formatHoras(x.horas)}</span>
                   </button>
@@ -468,7 +468,7 @@ export default function RecoleccionesDashboard({
           </Seccion>
         </div>
 
-        <Seccion icon={<MdTimeline />} titulo="Tiempos de entrega (desde la creaciÃ³n hasta la entrega)">
+        <Seccion icon={<MdTimeline />} titulo="Tiempos de entrega (desde la creación hasta la entrega)">
           <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 mb-6">
             <div className="rounded-xl bg-brand-mist/60 ring-1 ring-brand-ink/5 p-3">
               <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-ink/50">
@@ -484,7 +484,7 @@ export default function RecoleccionesDashboard({
             </div>
             <div className="rounded-xl bg-brand-mist/60 ring-1 ring-brand-ink/5 p-3">
               <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-ink/50">
-                <MdLocalShipping /> MÃ¡ximo
+                <MdLocalShipping /> Máximo
               </span>
               <span className="block text-xl font-extrabold text-brand-ink mt-1">{formatHoras(r.tiempos.max)}</span>
             </div>
@@ -492,13 +492,13 @@ export default function RecoleccionesDashboard({
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="min-w-0">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">DistribuciÃ³n por rango</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Distribución por rango</h3>
               <Histograma items={tiempos.buckets} />
             </div>
             <div className="min-w-0">
               <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Promedio por responsable</h3>
               {tiempos.promedioPorNombre.length === 0 ? (
-                <p className="text-sm text-brand-ink/50">AÃºn no hay entregas con tiempo medible</p>
+                <p className="text-sm text-brand-ink/50">Aún no hay entregas con tiempo medible</p>
               ) : (
                 <div className="space-y-2.5">
                   {tiempos.promedioPorNombre.slice(0, 8).map((p) => {
@@ -522,7 +522,7 @@ export default function RecoleccionesDashboard({
 
           {tiempos.ultimasEntregas.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Ãšltimas entregas</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Últimas entregas</h3>
               <div className="rounded-xl border border-brand-ink/10 max-h-80 overflow-y-auto [scrollbar-width:thin]">
                 {tiempos.ultimasEntregas.map((e, i) => (
                   <button
@@ -533,7 +533,7 @@ export default function RecoleccionesDashboard({
                     title={`Ver detalle de ${e.id}`}
                   >
                     <span className="shrink-0 font-extrabold text-brand-deep">{e.id}</span>
-                    <span className="min-w-0 flex-1 truncate text-brand-ink/80">{e.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {e.zona || 'â€”'}</span></span>
+                    <span className="min-w-0 flex-1 truncate text-brand-ink/80">{e.cliente || '—'} <span className="text-brand-ink/40">· {e.zona || '—'}</span></span>
                     <span className={`hidden sm:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(e.estado)}`}>{e.estado}</span>
                     <span className="shrink-0 font-extrabold text-brand-ink tabular-nums">{formatHoras(e.horas)}</span>
                     <MdChevronRight className="shrink-0 text-brand-deep/40" />
@@ -556,7 +556,7 @@ export default function RecoleccionesDashboard({
               >
                 <span className="shrink-0 font-extrabold text-brand-deep">{rec.codigo}</span>
                 <span className="min-w-0 flex-1 truncate text-brand-ink/80">
-                  {rec.recoge_cliente || 'â€”'} <span className="text-brand-ink/40">Â· {rec.zona || 'â€”'}</span>
+                  {rec.recoge_cliente || '—'} <span className="text-brand-ink/40">· {rec.zona || '—'}</span>
                 </span>
                 <span className={`hidden md:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(rec.estado || 'Abierto')}`}>
                   {rec.estado || 'Abierto'}

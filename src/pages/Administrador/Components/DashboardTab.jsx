@@ -307,12 +307,12 @@ export function BarrasActividad({ serie }) {
               <span
                 className={`${stagger} db-bar-anim-v flex-1 rounded-t-md bg-gradient-to-t from-brand-deep to-brand-cyan`}
                 style={{ height: `${Math.max(3, (d.creadas / max) * 100)}%` }}
-                title={`${d.creadas} creadas Â· ${d.clave}`}
+                title={`${d.creadas} creadas · ${d.clave}`}
               />
               <span
                 className={`${stagger} db-bar-anim-v flex-1 rounded-t-md bg-green-500`}
                 style={{ height: `${Math.max(3, (d.entregadas / max) * 100)}%` }}
-                title={`${d.entregadas} entregadas Â· ${d.clave}`}
+                title={`${d.entregadas} entregadas · ${d.clave}`}
               />
             </div>
             <span className="text-[9px] font-bold text-brand-ink/50 whitespace-nowrap">{d.nombre}</span>
@@ -445,7 +445,7 @@ export default function DashboardTab({
   const nombreActual = account?.name || ''
   const esSuper = rol === 'superadmin'
 
-  // Subconjunto aplicando el filtro mes/aÃ±o seleccionado en el dashboard.
+  // Subconjunto aplicando el filtro mes/año seleccionado en el dashboard.
   const solicitudesFiltradas = useMemo(() => {
     if (!mesFiltro && !anoFiltro) return todas
     return todas.filter((s) => {
@@ -485,8 +485,8 @@ export default function DashboardTab({
     [solicitudesFiltradas, usuariosActividad]
   )
 
-  // AÃ±os disponibles para el filtro (siempre sobre todos los datos, no solo los
-  // del filtro activo, para no â€œencogerâ€ la lista de aÃ±os al seleccionar uno).
+  // Años disponibles para el filtro (siempre sobre todos los datos, no solo los
+  // del filtro activo, para no “encoger” la lista de años al seleccionar uno).
   const anosDisponibles = useMemo(() => {
     const anos = new Set()
     for (const s of todas) {
@@ -498,9 +498,9 @@ export default function DashboardTab({
 
   const filaEncuesta = (e) => ({
     id: e.id,
-    cliente: e.cliente || 'â€”',
-    zona: e.zona || 'â€”',
-    estado: e.estado || 'â€”',
+    cliente: e.cliente || '—',
+    zona: e.zona || '—',
+    estado: e.estado || '—',
     promedio: promedioDeEncuesta(e),
     votos: e.votos,
     fechaHora: e.fechaHora,
@@ -508,13 +508,13 @@ export default function DashboardTab({
 
   const abrirDetalle = (id) => setDetalle(solicitudesFiltradas.find((s) => s.id === id) || null)
 
-  // Fila genÃ©rica para el modal de listas (mismo formato que usa
+  // Fila genérica para el modal de listas (mismo formato que usa
   // PedidosListaModal). Permite que cualquier tarjeta del dashboard sea
-  // clicable y abra el conjunto de pedidos que representa su nÃºmero.
+  // clicable y abra el conjunto de pedidos que representa su número.
   const fila = (s) => ({
     id: s.id,
-    cliente: s.cliente || 'â€”',
-    zona: s.zona || 'â€”',
+    cliente: s.cliente || '—',
+    zona: s.zona || '—',
     estado: s.estado || 'Abierto',
     fechaHora: `${s.fechaSubida || ''} ${s.horaSubida || ''}`.trim(),
   })
@@ -596,7 +596,7 @@ export default function DashboardTab({
   }
 
   // Un pedido cancelado se considera resuelto (como si se hubiera entregado):
-  // no penaliza el cumplimiento, ya que el pedido dejÃ³ de estar activo.
+  // no penaliza el cumplimiento, ya que el pedido dejó de estar activo.
   const cumplimiento = r.total ? Math.round(((r.entregados + r.cancelados) / r.total) * 100) : 0
 
   const handleMesChange = (e) => {
@@ -613,7 +613,7 @@ export default function DashboardTab({
   return (
     <>
     <div ref={informeRef} className="space-y-4 sm:space-y-6">
-      {/* Header con exportar y filtros mes/aÃ±o */}
+      {/* Header con exportar y filtros mes/año */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="inline-flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide text-brand-deep">
           <MdInsights className="text-brand-cyan" /> Panel de control
@@ -636,14 +636,14 @@ export default function DashboardTab({
               <option key={m.v} value={m.v}>{m.n}</option>
             ))}
           </select>
-          {/* Filtro aÃ±o */}
+          {/* Filtro año */}
           <select
             value={anoFiltro}
             onChange={handleAnoChange}
             className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
-            title="Filtrar por aÃ±o"
+            title="Filtrar por año"
           >
-            <option value="">Todos los aÃ±os</option>
+            <option value="">Todos los años</option>
             {anosDisponibles.map((a) => (
               <option key={a} value={a}>{a}</option>
             ))}
@@ -690,7 +690,7 @@ export default function DashboardTab({
           accent="bg-gradient-to-br from-brand-deep to-brand-cyan"
           label="Activos"
           value={r.activos}
-          sub={`${r.enTransito} en trÃ¡nsito`}
+          sub={`${r.enTransito} en tránsito`}
           onClick={() =>
             abrirLista(
               'Pedidos activos',
@@ -755,24 +755,24 @@ export default function DashboardTab({
         <Kpi
           icon={<MdLocalShipping />}
           accent="bg-gradient-to-br from-purple-500 to-fuchsia-400"
-          label="En trÃ¡nsito"
+          label="En tránsito"
           value={r.enTransito}
-          sub={solicitudesFiltradas.filter((s) => (s.estado || '') === 'En TrÃ¡nsito Parcial').length + ' parciales'}
+          sub={solicitudesFiltradas.filter((s) => (s.estado || '') === 'En Tránsito Parcial').length + ' parciales'}
           onClick={() =>
             abrirLista(
-              'Pedidos en trÃ¡nsito',
+              'Pedidos en tránsito',
               solicitudesFiltradas.filter((s) => ESTADOS_TRANSITO.includes(s.estado || ''))
             )
           }
         />
       </div>
 
-      {/* Estado + quiÃ©n los tiene */}
+      {/* Estado + quién los tiene */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <Seccion icon={<MdDonutLarge />} titulo="Pedidos por estado">
           <Donut porEstado={r.porEstado} total={r.total} />
         </Seccion>
-        <Seccion icon={<MdAssignmentInd />} titulo="QuiÃ©n los tiene">
+        <Seccion icon={<MdAssignmentInd />} titulo="Quién los tiene">
           <div className="max-h-80 overflow-y-auto [scrollbar-width:thin] pr-1">
             <BarrasAsignado
               items={porA}
@@ -783,8 +783,8 @@ export default function DashboardTab({
                     .filter((s) => (String(s.asignadoA || '').trim() || 'Sin asignar') === i.nombre)
                     .map((s) => ({
                       id: s.id,
-                      cliente: s.cliente || 'â€”',
-                      zona: s.zona || 'â€”',
+                      cliente: s.cliente || '—',
+                      zona: s.zona || '—',
                       estado: s.estado || 'Abierto',
                       fechaHora: `${s.fechaSubida || ''} ${s.horaSubida || ''}`.trim(),
                     })),
@@ -795,30 +795,30 @@ export default function DashboardTab({
         </Seccion>
       </div>
 
-      {/* Encuestas de satisfacciÃ³n */}
-      <Seccion icon={<MdStar />} titulo="Encuestas de satisfacciÃ³n">
+      {/* Encuestas de satisfacción */}
+      <Seccion icon={<MdStar />} titulo="Encuestas de satisfacción">
         {encuestas.total === 0 ? (
-          <p className="text-sm text-brand-ink/50">AÃºn no hay encuestas de satisfacciÃ³n registradas.</p>
+          <p className="text-sm text-brand-ink/50">Aún no hay encuestas de satisfacción registradas.</p>
         ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Kpi icon={<MdStar />} accent="bg-gradient-to-br from-amber-500 to-yellow-400" label="Encuestas" value={encuestas.total} />
-              <Kpi icon={<MdStarHalf />} accent="bg-gradient-to-br from-brand-deep to-brand-cyan" label="Promedio general" value={encuestas.promedio ? encuestas.promedio.toFixed(1) : 'â€”'} />
-              <Kpi icon={<MdThumbUp />} accent="bg-gradient-to-br from-green-500 to-emerald-400" label="Respuestas 3â˜…" value={`${encuestas.pctTres}%`} />
+              <Kpi icon={<MdStarHalf />} accent="bg-gradient-to-br from-brand-deep to-brand-cyan" label="Promedio general" value={encuestas.promedio ? encuestas.promedio.toFixed(1) : '—'} />
+              <Kpi icon={<MdThumbUp />} accent="bg-gradient-to-br from-green-500 to-emerald-400" label="Respuestas 3★" value={`${encuestas.pctTres}%`} />
               <Kpi icon={<MdPoll />} accent="bg-gradient-to-br from-purple-500 to-fuchsia-400" label="Entregas encuestadas" value={`${encuestas.pctEncuestadas}%`} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="min-w-0">
                 <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">
-                  DistribuciÃ³n por estrellas ({encuestas.votos} respuestas)
+                  Distribución por estrellas ({encuestas.votos} respuestas)
                 </h3>
                 <DistribucionEstrellas
                   items={encuestas.porEstrella}
                   total={encuestas.votos}
                   onClick={(s) =>
                     setPedidosModal({
-                      titulo: `Respuesta ${s.nombre} Â· ${s.estrellas}â˜…`,
+                      titulo: `Respuesta ${s.nombre} · ${s.estrellas}★`,
                       items: encuestas.lista
                         .filter((e) => e.preguntas.some((p) => Number(p.puntuacion || 0) === s.estrellas))
                         .map(filaEncuesta),
@@ -844,7 +844,7 @@ export default function DashboardTab({
               </div>
               <div className="min-w-0">
                 <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">
-                  Top clientes por satisfacciÃ³n
+                  Top clientes por satisfacción
                 </h3>
                 <div className="max-h-80 overflow-y-auto [scrollbar-width:thin] pr-1">
                   <SatisfaccionLista
@@ -864,7 +864,7 @@ export default function DashboardTab({
       </Seccion>
 
       {/* Actividad reciente */}
-      <Seccion icon={<MdBarChart />} titulo="Actividad Ãºltimos 14 dÃ­as">
+      <Seccion icon={<MdBarChart />} titulo="Actividad últimos 14 días">
         <div className="mb-3">
           <EstadoMargen />
         </div>
@@ -875,12 +875,12 @@ export default function DashboardTab({
         </div>
       </Seccion>
 
-      {/* CuÃ¡ndo llegan los pedidos */}
+      {/* Cuándo llegan los pedidos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-        <Seccion icon={<MdToday />} titulo="Pedidos por dÃ­a de la semana">
+        <Seccion icon={<MdToday />} titulo="Pedidos por día de la semana">
           <Histograma items={semana.map((d) => ({ key: d.dia, label: d.nombre, count: d.count, color: '#003B73' }))} />
         </Seccion>
-        <Seccion icon={<MdAccessTime />} titulo="Franja horaria de creaciÃ³n">
+        <Seccion icon={<MdAccessTime />} titulo="Franja horaria de creación">
           <Histograma items={franjas.map((f) => ({ key: f.key, label: `${f.label} ${f.rango}`, count: f.count, color: f.color }))} />
         </Seccion>
       </div>
@@ -915,7 +915,7 @@ export default function DashboardTab({
               n: e.n,
               colorHex: HEX_ESTADO[e.estado],
             }))}
-            formato={(i) => `${formatHoras(i.valor)} Â· ${i.n ?? 0} ${i.n === 1 ? 'caso' : 'casos'}`}
+            formato={(i) => `${formatHoras(i.valor)} · ${i.n ?? 0} ${i.n === 1 ? 'caso' : 'casos'}`}
             onClick={(i) => setEtapaModal(etapas.find((e) => e.estado === i.nombre))}
             hint="Ver los pedidos que estuvieron en esta etapa"
           />
@@ -924,25 +924,25 @@ export default function DashboardTab({
           <BarrasH
             items={conductores.map((c) => ({ nombre: c.nombre, valor: c.total, entregados: c.entregados }))}
             colorHex="#A855F7"
-            formato={(i) => `${i.valor} Â· ${i.entregados} entregados`}
+            formato={(i) => `${i.valor} · ${i.entregados} entregados`}
           />
         </Seccion>
       </div>
 
-      {/* Clientes + atenciÃ³n */}
+      {/* Clientes + atención */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <Seccion icon={<MdBusiness />} titulo="Top clientes">
           <BarrasH items={clientes.map((c) => ({ nombre: c.nombre, valor: c.count }))} colorHex="#F97316" />
         </Seccion>
-        <Seccion icon={<MdWarning />} titulo="Requerir atenciÃ³n (activos > 2 dÃ­as)">
+        <Seccion icon={<MdWarning />} titulo="Requerir atención (activos > 2 días)">
           {lentos.length === 0 ? (
-            <p className="text-sm text-brand-ink/50">Sin pedidos activos con mÃ¡s de 2 dÃ­as. Â¡Todo va al dÃ­a!</p>
+            <p className="text-sm text-brand-ink/50">Sin pedidos activos con más de 2 días. ¡Todo va al día!</p>
           ) : (
             <div className="space-y-2">
               {lentos.map((x) => (
                 <div key={x.id} className="flex items-center gap-2.5 rounded-xl bg-brand-mist/50 ring-1 ring-brand-ink/5 px-3 py-2 text-sm">
                   <span className="shrink-0 font-extrabold text-brand-deep">{x.id}</span>
-                  <span className="min-w-0 flex-1 truncate text-brand-ink/80">{x.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {x.zona || 'â€”'}</span></span>
+                  <span className="min-w-0 flex-1 truncate text-brand-ink/80">{x.cliente || '—'} <span className="text-brand-ink/40">· {x.zona || '—'}</span></span>
                   <span className={`hidden sm:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(x.estado)}`}>{x.estado}</span>
                   <span className="shrink-0 font-extrabold text-red-600 tabular-nums">{formatHoras(x.horas)}</span>
                 </div>
@@ -969,7 +969,7 @@ export default function DashboardTab({
           </div>
           <div className="rounded-xl bg-brand-mist/60 ring-1 ring-brand-ink/5 p-3">
             <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-ink/50">
-              <MdLocalShipping /> MÃ¡ximo
+              <MdLocalShipping /> Máximo
             </span>
             <span className="block text-xl font-extrabold text-brand-ink mt-1">{formatHoras(r.tiempos.max)}</span>
           </div>
@@ -977,13 +977,13 @@ export default function DashboardTab({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">DistribuciÃ³n por rango</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Distribución por rango</h3>
             <Histograma items={tiempos.buckets} />
           </div>
           <div>
             <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Promedio por responsable</h3>
             {tiempos.promedioPorNombre.length === 0 ? (
-              <p className="text-sm text-brand-ink/50">AÃºn no hay entregas con tiempo medible</p>
+              <p className="text-sm text-brand-ink/50">Aún no hay entregas con tiempo medible</p>
             ) : (
               <div className="space-y-2.5">
                 {tiempos.promedioPorNombre.slice(0, 8).map((p) => {
@@ -1010,7 +1010,7 @@ export default function DashboardTab({
 
         {tiempos.ultimasEntregas.length > 0 && (
           <div className="mt-6">
-            <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Ãšltimas entregas</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Últimas entregas</h3>
             <div className="rounded-xl border border-brand-ink/10 max-h-[26rem] overflow-y-auto [scrollbar-width:thin]">
               {tiempos.ultimasEntregas.map((e, i) => (
                 <button
@@ -1022,7 +1022,7 @@ export default function DashboardTab({
                 >
                   <span className="shrink-0 font-extrabold text-brand-deep">{e.id}</span>
                   <span className="min-w-0 flex-1 truncate text-brand-ink/80">
-                    {e.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {e.zona || 'â€”'}</span>
+                    {e.cliente || '—'} <span className="text-brand-ink/40">· {e.zona || '—'}</span>
                   </span>
                   <span className={`hidden sm:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(e.estado)}`}>
                     {e.estado}
@@ -1049,7 +1049,7 @@ export default function DashboardTab({
             >
               <span className="shrink-0 font-extrabold text-brand-deep">{s.id}</span>
               <span className="min-w-0 flex-1 truncate text-brand-ink/80">
-                {s.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {s.zona || 'â€”'}</span>
+                {s.cliente || '—'} <span className="text-brand-ink/40">· {s.zona || '—'}</span>
               </span>
               <span className={`hidden md:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(s.estado || 'Abierto')}`}>
                 {s.estado || 'Abierto'}

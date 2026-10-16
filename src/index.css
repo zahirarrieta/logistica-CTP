@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Reset global y configuraciÃ³n base */
+/* Reset global y configuración base */
 * {
   margin: 0;
   padding: 0;
@@ -53,7 +53,7 @@ ul, ol {
   list-style: none;
 }
 
-/* Estilos para imÃ¡genes */
+/* Estilos para imágenes */
 img {
   max-width: 100%;
   height: auto;
