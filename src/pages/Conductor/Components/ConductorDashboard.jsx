@@ -111,16 +111,54 @@ export default function ConductorDashboard({ solicitudes: todas }) {
   })
   const abrirLista = (titulo, lista) => setPedidosModal({ titulo, items: lista.map(fila) })
 
+  const hayFiltroCond = Boolean(mesFiltro || anoFiltro)
   if (solicitudesFiltradas.length === 0) {
     return (
-      <div className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-6 py-16 text-center">
-        <div className="mx-auto grid place-items-center size-16 rounded-2xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 mb-4">
-          <MdInsights className="text-3xl" />
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={mesFiltro}
+            onChange={(e) => setMesFiltro(e.target.value)}
+            className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
+            title="Filtrar por mes"
+          >
+            <option value="">Todos los meses</option>
+            {MESES.map((m) => (
+              <option key={m.v} value={m.v}>{m.n}</option>
+            ))}
+          </select>
+          <select
+            value={anoFiltro}
+            onChange={(e) => setAnoFiltro(e.target.value)}
+            className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
+            title="Filtrar por año"
+          >
+            <option value="">Todos los años</option>
+            {anosDisponibles.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+          {hayFiltroCond && (
+            <button
+              type="button"
+              onClick={() => { setMesFiltro(''); setAnoFiltro('') }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-ink/20 transition-colors px-3.5 py-2 text-sm font-bold"
+            >
+              Limpiar filtro
+            </button>
+          )}
         </div>
-        <p className="text-lg font-extrabold text-brand-ink">AÃºn no hay datos para mostrar</p>
-        <p className="text-sm text-brand-ink/50 mt-1">
-          El dashboard se llenarÃ¡ con las entregas asignadas a ti en trÃ¡nsito o entregadas.
-        </p>
+        <div className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-6 py-16 text-center">
+          <div className="mx-auto grid place-items-center size-16 rounded-2xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 mb-4">
+            <MdInsights className="text-3xl" />
+          </div>
+          <p className="text-lg font-extrabold text-brand-ink">
+            {hayFiltroCond ? 'No hay datos para el filtro seleccionado' : 'Aún no hay datos para mostrar'}
+          </p>
+          <p className="text-sm text-brand-ink/50 mt-1">
+            {hayFiltroCond ? 'Cambia el mes o el año, o pulsa «Limpiar filtro».' : 'El dashboard se llenará con las entregas asignadas a ti en tránsito o entregadas.'}
+          </p>
+        </div>
       </div>
     )
   }

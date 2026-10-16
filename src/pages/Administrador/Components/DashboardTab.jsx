@@ -537,14 +537,60 @@ export default function DashboardTab({
     }
   }
 
+  const MESES_DASH = [
+    { v: 1, n: 'Enero' }, { v: 2, n: 'Febrero' }, { v: 3, n: 'Marzo' },
+    { v: 4, n: 'Abril' }, { v: 5, n: 'Mayo' }, { v: 6, n: 'Junio' },
+    { v: 7, n: 'Julio' }, { v: 8, n: 'Agosto' }, { v: 9, n: 'Septiembre' },
+    { v: 10, n: 'Octubre' }, { v: 11, n: 'Noviembre' }, { v: 12, n: 'Diciembre' },
+  ]
+  const hayFiltroDashboard = Boolean(mesFiltro || anoFiltro)
   if (solicitudesFiltradas.length === 0) {
     return (
-      <div className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-6 py-16 text-center">
-        <div className="mx-auto grid place-items-center size-16 rounded-2xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 mb-4">
-          <MdInsights className="text-3xl" />
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={mesFiltro}
+            onChange={(e) => { const val = e.target.value; setMesFiltro(val); onFilterMes?.(val ? Number(val) : null) }}
+            className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
+            title="Filtrar por mes"
+          >
+            <option value="">Todos los meses</option>
+            {MESES_DASH.map((m) => (
+              <option key={m.v} value={m.v}>{m.n}</option>
+            ))}
+          </select>
+          <select
+            value={anoFiltro}
+            onChange={(e) => { const val = e.target.value; setAnoFiltro(val); onFilterAno?.(val ? Number(val) : null) }}
+            className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
+            title="Filtrar por año"
+          >
+            <option value="">Todos los años</option>
+            {anosDisponibles.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+          {hayFiltroDashboard && (
+            <button
+              type="button"
+              onClick={() => { setMesFiltro(''); setAnoFiltro(''); onFilterMes?.(null); onFilterAno?.(null) }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-ink/20 transition-colors px-3.5 py-2 text-sm font-bold"
+            >
+              Limpiar filtro
+            </button>
+          )}
         </div>
-        <p className="text-lg font-extrabold text-brand-ink">AÃºn no hay datos para mostrar</p>
-        <p className="text-sm text-brand-ink/50 mt-1">El dashboard se llenarÃ¡ cuando haya solicitudesFiltradas registradas.</p>
+        <div className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-6 py-16 text-center">
+          <div className="mx-auto grid place-items-center size-16 rounded-2xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 mb-4">
+            <MdInsights className="text-3xl" />
+          </div>
+          <p className="text-lg font-extrabold text-brand-ink">
+            {hayFiltroDashboard ? 'No hay datos para el filtro seleccionado' : 'Aún no hay datos para mostrar'}
+          </p>
+          <p className="text-sm text-brand-ink/50 mt-1">
+            {hayFiltroDashboard ? 'Cambia el mes o el año, o pulsa «Limpiar filtro».' : 'El dashboard se llenará cuando haya solicitudes registradas.'}
+          </p>
+        </div>
       </div>
     )
   }
