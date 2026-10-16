@@ -15,6 +15,9 @@ const ESTADO_DEVOLUCION = 'Devolución a Solicitante'
 // Cierre de la solicitud sin entrega: exige observaciones y deja la solicitud
 // sin más opciones de cambio (la lista desaparece de la tabla).
 const ESTADO_CANCELADO = 'Cancelado'
+// «Fallido» es propio de las recolecciones: la recogida no se pudo hacer y, como
+// en la cancelación, el motivo es obligatorio para dejar registro de qué pasó.
+const ESTADO_FALLIDO = 'Fallido'
 // Entrega parcial: queda cerrada para el administrador, pero el superadmin puede
 // reabrirla (`permitirReabrir`) y volver a cambiar su estado a «Abierto» en adelante.
 const ESTADO_ENTREGADO_PARCIAL = 'Entregado Parcial'
@@ -209,11 +212,15 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
   const numeroRefValido = numeroRef.trim().length > 0 && adjuntoTramite.length > 0
   const esDevolucion = estado === ESTADO_DEVOLUCION
   const esCancelado = estado === ESTADO_CANCELADO
+  const esFallido = estado === ESTADO_FALLIDO
   const notaObligatoria = esDevolucion && nota.trim().length > 0
   const camposObligatorios = esDevolucion && camposCorregir.length > 0
   // Cancelar siempre lleva observaciones: es el registro de por qué se cerró
   // el pedido sin entregar.
   const motivoCancelacion = esCancelado && nota.trim().length > 0
+  // Una recogida «Fallida» también exige el motivo: el solicitante debe saber por
+  // qué no se pudo recoger.
+  const motivoFallido = esFallido && nota.trim().length > 0
   // «En Trámite»/«En Trámite Parcial» se pueden aplicar varias veces: si la
   // solicitud ya está en uno de esos estados, basta abrir el modal y guardar
   // (solo observaciones) sin factura.
@@ -231,9 +238,11 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
         ? esSeleccionado && notaObligatoria && camposObligatorios
         : esCancelado
           ? esSeleccionado && motivoCancelacion
-          : esSeleccionado
-            ? !esTransitoSeleccionado || transporteListo
-            : esTransitoActual && transporteListo)
+          : esFallido
+            ? esSeleccionado && motivoFallido
+            : esSeleccionado
+              ? !esTransitoSeleccionado || transporteListo
+              : esTransitoActual && transporteListo)
 
   const handleSelect = (e) => {
     // «En Trámite»/«En Trámite Parcial» se puede volver a aplicar aunque ya sea el estado actual.
@@ -430,8 +439,12 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                           ? 'Motivo de la devolución — qué debe corregir'
                           : e === ESTADO_CANCELADO
                             ? 'Motivo de cancelación — por qué se cierra el pedido'
-                            : 'Observaciones del cambio'}
-                        {(e === ESTADO_DEVOLUCION || e === ESTADO_CANCELADO) && <span className="text-red-500">*</span>}
+                            : e === ESTADO_FALLIDO
+                              ? 'Motivo del fallo — por qué no se pudo recoger'
+                              : 'Observaciones del cambio'}
+                        {(e === ESTADO_DEVOLUCION || e === ESTADO_CANCELADO || e === ESTADO_FALLIDO) && (
+                          <span className="text-red-500">*</span>
+                        )}
                       </label>
                       {e === ESTADO_DEVOLUCION && (
                         <div className="mb-2.5">
@@ -478,10 +491,12 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                             ? 'ESCRIBE QUÉ ESTÁ MAL Y QUÉ DEBE CORREGIR EL SOLICITANTE…'
                             : e === ESTADO_CANCELADO
                               ? 'ESCRIBE EL MOTIVO POR EL QUE SE CANCELA EL PEDIDO…'
-                              : 'ESCRIBE LAS OBSERVACIONES DEL CAMBIO DE ESTADO…'
+                              : e === ESTADO_FALLIDO
+                                ? 'ESCRIBE POR QUÉ NO SE PUDO RECOGER…'
+                                : 'ESCRIBE LAS OBSERVACIONES DEL CAMBIO DE ESTADO…'
                         }
                         className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm uppercase text-brand-ink placeholder:text-brand-ink/40 shadow-sm focus:ring-4 focus:outline-none transition-all resize-none ${
-                          (e === ESTADO_DEVOLUCION || e === ESTADO_CANCELADO) && !nota.trim()
+                          (e === ESTADO_DEVOLUCION || e === ESTADO_CANCELADO || e === ESTADO_FALLIDO) && !nota.trim()
                             ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
                             : 'border-brand-deep/20 focus:border-brand-deep/60 focus:ring-brand-deep/10'
                         }`}
@@ -496,6 +511,12 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                         <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
                           <MdInfoOutline className="text-sm shrink-0" />
                           Escribe el motivo de la cancelación para poder cerrar la solicitud.
+                        </p>
+                      )}
+                      {e === ESTADO_FALLIDO && !nota.trim() && (
+                        <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-red-600">
+                          <MdInfoOutline className="text-sm shrink-0" />
+                          Escribe el motivo por el que no se pudo recoger el pedido.
                         </p>
                       )}
                       {esTramite(e) && (
@@ -745,7 +766,8 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
           <div className="flex items-center justify-between gap-2 sm:gap-3">
           {((esTramite(estado) && asignarFactura && !numeroRefValido) ||
             (esDevolucion && (!notaObligatoria || !camposObligatorios)) ||
-            (esCancelado && !motivoCancelacion)) && (
+            (esCancelado && !motivoCancelacion) ||
+            (esFallido && !motivoFallido)) && (
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600">
               <MdInfoOutline className="text-base shrink-0" />
               {esDevolucion
@@ -754,7 +776,9 @@ export default function EstadosModal({ solicitud, open, onClose, onUpdate, onAsi
                   : 'Marca al menos un campo que debe corregir el solicitante'
                 : esCancelado
                   ? 'Escribe el motivo de la cancelación para poder guardar'
-                  : 'Completa número de factura o remisión y adjúntala para poder guardar'}
+                  : esFallido
+                    ? 'Escribe el motivo por el que no se pudo recoger'
+                    : 'Completa número de factura o remisión y adjúntala para poder guardar'}
             </span>
           )}
             <button

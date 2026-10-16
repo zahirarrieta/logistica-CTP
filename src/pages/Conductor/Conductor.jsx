@@ -338,6 +338,7 @@ export default function Conductor() {
               onRowClick={(r) => setDetalleRecoleccion(r)}
               onCambiarEstadoClick={(r) => setEditRecoleccion(adaptarRecoleccion(r))}
               onHistorialClick={handleRecoleccionHistorial}
+              colorRowsPorEstado
             />
           ) : (
             <>
@@ -490,13 +491,14 @@ export default function Conductor() {
         onClose={() => setDetalleEntrega(null)}
       />
 
-      {/* Recogidas: el conductor solo puede reportar la recogida como «Fallido». */}
+      {/* Recogidas: el conductor reporta el resultado de la recogida: «Entregado»
+          si se completó o «Fallido» si no se pudo recoger (con motivo). */}
       <EstadosModal
         solicitud={editRecoleccion}
         open={editRecoleccion !== null}
         onClose={() => setEditRecoleccion(null)}
         onUpdate={handleRecoleccionEstado}
-        permitidos={['Fallido']}
+        permitidos={['Entregado', 'Fallido']}
       />
 
       <HistorialModal

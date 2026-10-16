@@ -11,7 +11,7 @@ import { getRecoleccionBadge, getRecoleccionDot, getRecoleccionBg } from '../../
 import AdjuntosModal from '../../../components/AdjuntosModal.jsx'
 import NotificationsPanel from '../../../components/NotificationsPanel.jsx'
 import TablaQueRecogemos from '../../../components/TablaQueRecogemos.jsx'
-import { AsignadoBadge } from '../../../components/SolicitudesTable.jsx'
+import { AsignadoBadge, ConductorBadge } from '../../../components/SolicitudesTable.jsx'
 import { EstadoBadge } from './modals/RecoleccionDetalleModal.jsx'
 import RecoleccionSeguimientoModal from './modals/RecoleccionSeguimientoModal.jsx'
 
@@ -50,7 +50,7 @@ function Campana({ r }) {
 
 // Estados que cierran la recolección: ya no admiten asignación ni cambio de
 // estado (solo queda el historial), igual que «Cancelado» en solicitudes.
-const ESTADOS_TERMINALES = ['Cancelado', 'Fallido']
+const ESTADOS_TERMINALES = ['Cancelado', 'Fallido', 'Entregado']
 const esTerminal = (r) => ESTADOS_TERMINALES.includes(r?.estado)
 
 // Dato de una tarjeta del panel «Recoge / Entrega».
@@ -113,15 +113,12 @@ function PanelRecogeEntrega({ r }) {
   )
 }
 
-function Row({ icon, label, value, hint }) {
+function Row({ icon, label, value }) {
   return (
     <div className="flex items-start gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
       <span className="text-brand-cyan mt-0.5 shrink-0">{icon}</span>
       <span className="text-brand-ink/50 w-28 shrink-0">{label}</span>
-      <span className="min-w-0">
-        <span className="block text-brand-ink font-medium capitalize break-words">{value || '—'}</span>
-        {hint && <span className="block text-xs text-brand-ink/60 break-words">{hint}</span>}
-      </span>
+      <span className="text-brand-ink font-medium capitalize break-words min-w-0">{value || '—'}</span>
     </div>
   )
 }
@@ -169,12 +166,14 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimient
           <Row icon={<MdEmail />} label="Correo" value={r.correo} />
           <Row icon={<MdCategory />} label="Tipo de servicio" value={r.tipo_servicio} />
           <Row icon={<MdPlace />} label="Zona" value={r.zona} />
-          <Row
-            icon={<MdAssignmentInd />}
-            label="Asignado a"
-            value={r.asignado_a}
-            hint={r.conductor ? `Conductor: ${r.conductor}` : ''}
-          />
+          <div className="flex items-start gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
+            <span className="text-brand-cyan mt-0.5 shrink-0"><MdAssignmentInd /></span>
+            <span className="text-brand-ink/50 w-28 shrink-0">Asignado a</span>
+            <span className="flex flex-wrap items-center gap-1.5">
+              <AsignadoBadge asignado={r.asignado_a} />
+              <ConductorBadge conductor={r.conductor} estado={r.estado} />
+            </span>
+          </div>
 
           {mostrarNotificaciones && (
             <div className="flex items-center gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
@@ -476,12 +475,10 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
                         ) : '—'}
                       </td>
                       <td className="px-2 py-3 border-b border-l border-brand-ink/10">
-                        <AsignadoBadge asignado={r.asignado_a} />
-                        {r.conductor && (
-                          <span className="mt-1 block text-[11px] font-semibold text-brand-ink/60" title={`Conductor: ${r.conductor}`}>
-                            Conductor: <span className="capitalize text-brand-ink/80">{r.conductor}</span>
-                          </span>
-                        )}
+                        <span className="flex flex-col items-center gap-1">
+                          <AsignadoBadge asignado={r.asignado_a} />
+                          <ConductorBadge conductor={r.conductor} estado={r.estado} />
+                        </span>
                       </td>
                       <td className="px-3 py-3 border-b border-l border-brand-ink/10 text-center">
                         <EstadoBadge estado={r.estado} />

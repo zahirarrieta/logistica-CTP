@@ -62,7 +62,7 @@ export const MODULOS_CONFIGURABLES = [
 // «Fallido», que es propio de recolección.
 export const ESTADOS_RECOLECCION = [
   'Abierto', 'Devolución a Solicitante', 'En Trámite',
-  'En Tránsito', 'Cancelado', 'Fallido',
+  'En Tránsito', 'Entregado', 'Cancelado', 'Fallido',
 ]
 
 // Crean recolecciones el solicitante, el administrador y el superadmin. Espejo

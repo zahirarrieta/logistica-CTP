@@ -75,7 +75,7 @@ function esSuperAdmin(rol) {
 // modal de cambio de estado y los colores de solicitudes se reutilizan tal cual.
 const ESTADOS_RECOLECCION = [
   'Abierto', 'Devolución a Solicitante', 'En Trámite',
-  'En Tránsito', 'Cancelado', 'Fallido',
+  'En Tránsito', 'Entregado', 'Cancelado', 'Fallido',
 ]
 
 // El conductor asignado a una recolección (columna conductor_correo) también la

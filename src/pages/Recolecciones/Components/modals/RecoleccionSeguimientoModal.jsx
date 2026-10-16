@@ -1,6 +1,6 @@
 import {
   MdClose, MdTag, MdMap, MdFileOpen, MdReceipt, MdCancel, MdDirectionsCar,
-  MdAssignmentReturn, MdReportProblem, MdCheck,
+  MdAssignmentReturn, MdReportProblem, MdCheck, MdTwoWheeler,
 } from 'react-icons/md'
 import Modal from '../../../../components/Modal.jsx'
 import { getRecoleccionBadge } from '../../../../utils/estadoRecoleccion.js'
@@ -8,6 +8,10 @@ import imgAbierto from '../../../../assets/estado/Abierto.png'
 import imgRemision from '../../../../assets/estado/Remision.png'
 import imgDevoSol from '../../../../assets/estado/DevoSol.png'
 import imgCancelado from '../../../../assets/estado/Cancelado.png'
+import imgTransitoCarro from '../../../../assets/estado/TransitoCarro.png'
+import imgTransitoMoto from '../../../../assets/estado/TransitoMoto.png'
+import imgTransitoElite from '../../../../assets/estado/TransitoElite.png'
+import imgTransitoCarBog from '../../../../assets/estado/TransitoCarBog.png'
 
 // Imágenes por estado (las mismas del seguimiento de solicitudes). Los estados
 // sin imagen propia caen al ícono que viaja por la pista.
@@ -33,8 +37,27 @@ export default function RecoleccionSeguimientoModal({ open, recoleccion, onClose
   if (!open || !recoleccion) return null
 
   const estado = recoleccion.estado || 'Abierto'
-  const imagen = IMAGENES_POR_ESTADO[estado]
-  const IconoEstado = ICONOS_POR_ESTADO[estado] || MdDirectionsCar
+  // En «En Tránsito» la imagen depende del vehículo asignado (igual que en el
+  // seguimiento de solicitudes): Elite, Diego Peña con la placa KWL-381, moto o
+  // carro genérico. El resto de estados usan su imagen fija.
+  const enTransito = estado === 'En Tránsito'
+  const conductor = String(recoleccion.conductor || '').trim()
+  const esElite = conductor.toLowerCase() === 'elite'
+  const conductorNorm = conductor.toLowerCase().replace(/\s+/g, ' ').trim()
+  const esDiegoPena = conductorNorm.includes('diego peña') || conductorNorm.includes('diego pena')
+  const esCarroBogota = recoleccion.vehiculo === 'KWL-381' || recoleccion.placa === 'KWL-381'
+  const imagen =
+    enTransito && esElite
+      ? imgTransitoElite
+      : enTransito && esDiegoPena && esCarroBogota
+        ? imgTransitoCarBog
+        : enTransito && recoleccion.vehiculo === 'Moto'
+          ? imgTransitoMoto
+          : enTransito
+            ? imgTransitoCarro
+            : IMAGENES_POR_ESTADO[estado]
+  const IconoEstado =
+    (enTransito && !esElite && recoleccion.vehiculo === 'Moto' ? MdTwoWheeler : ICONOS_POR_ESTADO[estado]) || MdDirectionsCar
   const badge = getRecoleccionBadge(estado)
 
   // Devolución: se muestra el MISMO panel que en el seguimiento de solicitudes
