@@ -5,7 +5,7 @@ import VisorImagen from './VisorImagen.jsx'
 import AdjuntoFileCard from './AdjuntoFileCard.jsx'
 import { esImagenUrl } from '../utils/tipoArchivo.js'
 
-export default function AdjuntosModal({ open, onClose, adjuntos }) {
+export default function AdjuntosModal({ open, onClose, adjuntos, titulo = 'ADJUNTOS' }) {
   const [pdfUrl, setPdfUrl] = useState(null)
   const [imagenUrl, setImagenUrl] = useState(null)
   if (!open || !adjuntos || adjuntos.length === 0) return null
@@ -30,7 +30,7 @@ export default function AdjuntosModal({ open, onClose, adjuntos }) {
           <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-brand-navy to-brand-deep flex items-center justify-between gap-3 shrink-0">
             <h3 className="text-white font-extrabold text-base sm:text-lg inline-flex items-center gap-2">
               <MdImage className="text-brand-cyan" />
-              ADJUNTOS ({adjuntos.length})
+              {titulo} ({adjuntos.length})
             </h3>
             <button
               aria-label="Cerrar"

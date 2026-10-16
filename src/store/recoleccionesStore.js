@@ -161,7 +161,7 @@ function avisarCambiosRemotos(siguiente) {
     }
 
     // Conductor: le avisan cuando otro cambia el estado de una recogida suya. El
-    // eco silencia su propio cambio (p. ej. cuando la marca «Fallido»).
+    // eco silencia su propio cambio (p. ej. cuando la marca «Entregado»).
     if (esConductor && !eco && esMiRecogida(r) && cambioEstado) {
       const clave = `estadoConductor:${r.codigo}:${r.estado}`
       if (!idsAvisados.has(clave)) {

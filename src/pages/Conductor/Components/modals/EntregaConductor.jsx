@@ -5,7 +5,7 @@ import { FiStar } from 'react-icons/fi'
 import StarRating from '../../../../components/StarRating.jsx'
 import { subirEvidenciaEntrega } from '../../../../services/archivosApi.js'
 import { esPdfUrl } from '../../../../utils/pdfUtils.js'
-import { evidenciaSubida, subidaPendiente } from '../../../../services/notificaciones.jsx'
+import { evidenciaSubida, subidaPendiente, errorSubida } from '../../../../services/notificaciones.jsx'
 import {
   guardarBorradorEntrega,
   cargarBorradorEntrega,
@@ -59,7 +59,21 @@ function tamanoDataUrl(dataUrl) {
   return Math.floor(((dataUrl.length - coma - 1) * 3) / 4)
 }
 
-export default function EntregaConductor({ solicitud, open, onClose, onUpdate, destino }) {
+// `sinEncuesta` deja fuera la encuesta de satisfacción (recogidas): solo quedan
+// observaciones y evidencia. `notaInicial` precarga la observación que el
+// conductor ya escribió en el modal de estados. `evidenciaRemotaObligatoria`
+// aborta la entrega si una foto/PDF no llegó al servidor: las solicitudes sí
+// pueden reintentar después en la sincronización, las recolecciones no.
+export default function EntregaConductor({
+  solicitud,
+  open,
+  onClose,
+  onUpdate,
+  destino,
+  sinEncuesta = false,
+  notaInicial = '',
+  evidenciaRemotaObligatoria = false,
+}) {
   const [observaciones, setObservaciones] = useState('')
   const [evidencias, setEvidencias] = useState([])
   const [nombreEncuestado, setNombreEncuestado] = useState('')
@@ -84,10 +98,10 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     abiertoRef.current = true
     setGuardando(false)
     const borrador = solicitud ? cargarBorradorEntrega(solicitud.id) : null
-    const recientes = cargarContactosEncuesta()
+    const recientes = sinEncuesta ? [] : cargarContactosEncuesta()
     const ultimo = recientes[0]
     setContactos(recientes)
-    setObservaciones(borrador?.observaciones || '')
+    setObservaciones(borrador?.observaciones || notaInicial || '')
     setEvidencias(
       Array.isArray(borrador?.evidencias)
         ? borrador.evidencias
@@ -100,7 +114,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     setCargo(borrador?.cargo || ultimo?.cargo || '')
     setCorreo(borrador?.correo || ultimo?.correo || '')
     setPuntuaciones(borrador?.puntuaciones || {})
-  }, [open, solicitud])
+  }, [open, solicitud, sinEncuesta, notaInicial])
 
   useEffect(() => {
     if (!open || !solicitud) return
@@ -121,21 +135,24 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
 
   const correoValido = /^\S+@\S+\.\S+$/.test(correo.trim())
   const todasPuntuadas = PREGUNTAS.every((p) => (puntuaciones[p] || 0) >= 1)
-  const puedeGuardar =
-    observaciones.trim().length > 0 &&
-    evidencias.length > 0 &&
-    nombreEncuestado.trim().length > 0 &&
-    cargo.trim().length > 0 &&
-    correoValido &&
-    todasPuntuadas
+  const puedeGuardar = sinEncuesta
+    ? observaciones.trim().length > 0 && evidencias.length > 0
+    : observaciones.trim().length > 0 &&
+      evidencias.length > 0 &&
+      nombreEncuestado.trim().length > 0 &&
+      cargo.trim().length > 0 &&
+      correoValido &&
+      todasPuntuadas
 
   const faltantes = []
   if (!observaciones.trim()) faltantes.push('observaciones')
   if (evidencias.length === 0) faltantes.push('evidencia (foto o PDF)')
-  if (!nombreEncuestado.trim()) faltantes.push('nombre del encuestado')
-  if (!cargo.trim()) faltantes.push('cargo')
-  if (!correoValido) faltantes.push(correo.trim() ? 'correo con formato válido' : 'correo')
-  if (!todasPuntuadas) faltantes.push('preguntas de la encuesta por puntuar')
+  if (!sinEncuesta) {
+    if (!nombreEncuestado.trim()) faltantes.push('nombre del encuestado')
+    if (!cargo.trim()) faltantes.push('cargo')
+    if (!correoValido) faltantes.push(correo.trim() ? 'correo con formato válido' : 'correo')
+    if (!todasPuntuadas) faltantes.push('preguntas de la encuesta por puntuar')
+  }
 
   const archivoFoto = (e) => {
     const file = e.target.files?.[0]
@@ -229,35 +246,49 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
     if (subioAlguna) {
       evidenciaSubida({ id: solicitud.id, archivo: solicitud.numeroReferencia || solicitud.id })
     }
+    if (falloAlguna && evidenciaRemotaObligatoria) {
+      // Una recolección no tiene reintento en la sincronización, y su nota viaja
+      // por textoLargoRec (máx. 4000 caracteres): guardar el dataUrl ahí lo
+      // truncaría y la evidencia quedaría ilegible. Se conserva el borrador.
+      errorSubida(
+        'No se pudo subir la evidencia de la recogida. Revisa la conexión e inténtalo de nuevo.',
+        solicitud.id
+      )
+      setGuardando(false)
+      return
+    }
     if (falloAlguna) subidaPendiente(undefined, solicitud.id)
     const evidenciaFinal = partes.join(SEP_EVIDENCIA)
     eliminarBorradorEntrega(solicitud.id)
-    const preguntas = PREGUNTAS.map((p) => ({ pregunta: p, puntuacion: puntuaciones[p] || 0 }))
-    const promedio = preguntas.reduce((a, b) => a + b.puntuacion, 0) / preguntas.length
-    const encuesta = {
-      nombreEncuestado: nombreEncuestado.trim().toUpperCase(),
-      cargo: cargo.trim().toUpperCase(),
-      correo: correo.trim().toUpperCase(),
-      preguntas,
-      promedio,
-    }
-    // El aviso de control de calidad por mala calificación NO se manda desde aquí.
-    // El servidor lo decide al guardar (server/src/correo.js): el umbral y los
-    // destinatarios viven en un solo sitio, y mandar correo desde el navegador
-    // haría que cualquiera con una sesión abierta pudiera escribir en nombre de
-    // la empresa. Esta pantalla solo guarda la encuesta.
-    setContactos(
-      guardarContactoEncuesta({
-        nombre: nombreEncuestado.trim().toUpperCase(),
+    let encuesta = null
+    if (!sinEncuesta) {
+      const preguntas = PREGUNTAS.map((p) => ({ pregunta: p, puntuacion: puntuaciones[p] || 0 }))
+      const promedio = preguntas.reduce((a, b) => a + b.puntuacion, 0) / preguntas.length
+      encuesta = {
+        nombreEncuestado: nombreEncuestado.trim().toUpperCase(),
         cargo: cargo.trim().toUpperCase(),
         correo: correo.trim().toUpperCase(),
-      })
-    )
+        preguntas,
+        promedio,
+      }
+      // El aviso de control de calidad por mala calificación NO se manda desde aquí.
+      // El servidor lo decide al guardar (server/src/correo.js): el umbral y los
+      // destinatarios viven en un solo sitio, y mandar correo desde el navegador
+      // haría que cualquiera con una sesión abierta pudiera escribir en nombre de
+      // la empresa. Esta pantalla solo guarda la encuesta.
+      setContactos(
+        guardarContactoEncuesta({
+          nombre: nombreEncuestado.trim().toUpperCase(),
+          cargo: cargo.trim().toUpperCase(),
+          correo: correo.trim().toUpperCase(),
+        })
+      )
+    }
     onUpdate(solicitud.id, {
       estado: estadoEntrega,
       notaEstado: observaciones.trim().toUpperCase(),
       evidencia: evidenciaFinal,
-      encuesta,
+      ...(encuesta ? { encuesta } : {}),
     })
     onClose()
   }
@@ -274,7 +305,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={`Entrega de la solicitud ${solicitud.id}`}
+        aria-label={`Entrega de ${solicitud.id}`}
       >
         {/* Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-brand-navy to-brand-deep flex items-center justify-between gap-3 shrink-0">
@@ -282,7 +313,12 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
             <span className="grid place-items-center size-8 rounded-xl bg-brand-cyan/20 ring-1 ring-brand-cyan/40 shadow-cyanGlow">
               <RiSteering2Line className="text-brand-cyan text-lg" />
             </span>
-            ENTREGA DE MERCANCÍA
+            <span>
+              ENTREGA DE MERCANCÍA
+              <span className="block text-[11px] font-bold text-white/60 tracking-wide">
+                {solicitud.id}
+              </span>
+            </span>
           </h3>
           <div className="flex items-center gap-2">
             <button
@@ -307,7 +343,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
           {/* Observaciones */}
           <div>
             <label className="flex items-center gap-1.5 text-[11px] font-extrabold text-brand-deep uppercase tracking-wide mb-2">
-              <MdNotes className="text-sm" /> Observaciones de la entrega
+              <MdNotes className="text-sm" /> Observaciones de la entrega{sinEncuesta && ' *'}
             </label>
             <textarea
               value={observaciones}
@@ -322,7 +358,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
           <div>
             <label className="flex items-center justify-between gap-1.5 text-[11px] font-extrabold text-brand-deep uppercase tracking-wide mb-2">
               <span className="inline-flex items-center gap-1.5">
-                <MdPhotoCamera className="text-sm" /> Evidencia de la entrega
+                <MdPhotoCamera className="text-sm" /> Evidencia de la entrega{sinEncuesta && ' *'}
               </span>
               <span className="text-brand-ink/50 tabular-nums">{evidencias.length}/{MAX_IMAGENES}</span>
             </label>
@@ -414,7 +450,8 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
             </p>
           </div>
 
-          {/* Encuesta */}
+          {/* Encuesta: solo solicitudes; una recogida se entrega sin encuestar */}
+          {!sinEncuesta && (
           <div className="rounded-2xl border border-brand-cyan/30 bg-brand-mist/30 p-3 sm:p-4 space-y-4">
             <div>
               <h4 className="text-sm font-extrabold text-brand-deep inline-flex items-center gap-2">
@@ -526,6 +563,7 @@ export default function EntregaConductor({ solicitud, open, onClose, onUpdate, d
               })}
             </div>
           </div>
+          )}
         </div>
 
         {/* Footer */}

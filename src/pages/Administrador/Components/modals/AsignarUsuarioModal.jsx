@@ -8,6 +8,30 @@ import Modal from '../../../../components/Modal.jsx'
 
 const ESTADOS_TRANSITO = ['En Tránsito', 'En Tránsito Parcial']
 
+const correoDe = (u) => String(u?.correo || '').trim().toLowerCase()
+
+// Orden en que operaciones quiere ver la lista: estas seis cuentas van primero y
+// en este orden; las demás quedan debajo, en el orden en que lleguen del
+// servidor. Se identifica por correo porque los nombres llevan tildes y no todos
+// traen el apellido.
+const ORDEN_PRIORITARIO = [
+  'pedidos2@ctpmedica.com', // Daniel Chamorro
+  'pedidos@ctpmedica.com', // Hernán García
+  'operacionescali@ctpmedica.com', // Sebastián Rojas
+  'operacionesmedellin@ctpmedica.com', // Duber Sepúlveda
+  'despachos@ctpmedica.com', // Yonathan Ortiz
+  'almacen@ctpmedica.com', // Camilo Melo
+]
+
+const puestoDe = (u) => {
+  const i = ORDEN_PRIORITARIO.indexOf(correoDe(u))
+  return i === -1 ? ORDEN_PRIORITARIO.length : i
+}
+
+// `sort` es estable, así que los que no están en la lista prioritaria conservan
+// entre ellos el orden original.
+const porPrioridad = (lista) => [...lista].sort((a, b) => puestoDe(a) - puestoDe(b))
+
 function initials(name) {
   return name
     .split(' ')
@@ -36,9 +60,10 @@ export default function AsignarUsuarioModal({ solicitud, open, onClose, onUpdate
   const enTransito = !esRecoleccion && ESTADOS_TRANSITO.includes(solicitud.estado)
   const asignados = usuarios.filter((u) => u.rol === 'administrador' || u.rol === 'superadmin')
   const conductores = usuarios.filter(esConductorUsuario)
-  const lista = esRecoleccion ? RESPONSABLES_RECOLECCION : enTransito ? conductores : asignados
+  const lista = porPrioridad(
+    esRecoleccion ? RESPONSABLES_RECOLECCION : enTransito ? conductores : asignados
+  )
 
-  const correoDe = (u) => String(u.correo || '').trim().toLowerCase()
   // Un usuario es el asignado actual si coincide su correo, o (registros antiguos
   // sin correo) si coincide su nombre.
   const esActual = (u) =>

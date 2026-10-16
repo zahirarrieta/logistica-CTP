@@ -3,12 +3,15 @@ import EntregasLista from '../../../../components/EntregasLista.jsx'
 import { buscarEntregas } from '../../../../store/solicitudesStore.js'
 import Modal from '../../../../components/Modal.jsx'
 
-export default function EntregaDetallesModal({ solicitud, open, onClose }) {
+// `mostrarEncuesta=false` se usa en las recogidas (recolecciones): la entrega se
+// registra igual que en una solicitud, pero sin encuesta de satisfacción.
+export default function EntregaDetallesModal({ solicitud, open, onClose, mostrarEncuesta = true }) {
   if (!open || !solicitud) return null
 
   // Todas las entregas registradas (parcial y final), en orden cronológico.
   const entregas = buscarEntregas(solicitud)
   const varias = entregas.length > 1
+  const esRecogida = Boolean(solicitud._esRecoleccion)
 
   return (
     <Modal
@@ -31,7 +34,7 @@ export default function EntregaDetallesModal({ solicitud, open, onClose }) {
               {varias ? 'Detalles de las entregas' : 'Detalles de la entrega'}
             </h3>
             <p className="text-[11px] sm:text-xs text-white/60 truncate">
-              Solicitud{' '}
+              {esRecogida ? 'Recogida' : 'Solicitud'}{' '}
               <span className="font-bold text-brand-cyan">{solicitud.id}</span>
               {varias && (
                 <>
@@ -54,10 +57,14 @@ export default function EntregaDetallesModal({ solicitud, open, onClose }) {
         <div className="p-4 sm:p-6 overflow-y-auto">
           {entregas.length === 0 ? (
             <div className="rounded-xl border border-brand-ink/10 bg-brand-mist/40 px-4 py-6 text-center text-sm text-brand-ink/60">
-              Aún no hay una entrega registrada en esta solicitud.
+              Aún no hay una entrega registrada en {esRecogida ? 'esta recogida' : 'esta solicitud'}.
             </div>
           ) : (
-            <EntregasLista solicitud={solicitud} entregas={entregas} />
+            <EntregasLista
+              solicitud={solicitud}
+              entregas={entregas}
+              mostrarEncuesta={mostrarEncuesta}
+            />
           )}
         </div>
 

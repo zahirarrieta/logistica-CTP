@@ -20,6 +20,15 @@ const rutasDeAdjunto = (adjunto) =>
     .map((e) => e.trim())
     .filter(Boolean)
 
+// La evidencia de la entrega viaja como las de las solicitudes: varias rutas
+// unidas por '|' (SEP_EVIDENCIA), no por comas.
+const SEP_EVIDENCIA = '|'
+const rutasDeEvidencia = (evidencia) =>
+  String(evidencia || '')
+    .split(SEP_EVIDENCIA)
+    .map((e) => e.trim())
+    .filter(Boolean)
+
 // Descarga todas las recolecciones visibles para el usuario y firma sus
 // adjuntos y los PDF del trámite (rutas → URLs de 24 h) para poder verlos sin
 // cabecera Authorization. El historial trae las guías de transporte igual que
@@ -34,6 +43,7 @@ export async function descargarRecolecciones() {
       [
         ...filas.flatMap((f) => (Array.isArray(f.adjuntos) ? f.adjuntos : [])),
         ...filas.flatMap((f) => historialDe(f).flatMap((h) => rutasDeAdjunto(h.adjunto))),
+        ...filas.flatMap((f) => historialDe(f).flatMap((h) => rutasDeEvidencia(h.evidencia_url))),
       ]
         .map((r) => String(r || '').trim())
         .filter((r) => r && !/^https?:\/\//i.test(r))
@@ -49,11 +59,18 @@ export async function descargarRecolecciones() {
   return filas.map((f) => ({
     ...f,
     adjuntos: (Array.isArray(f.adjuntos) ? f.adjuntos : []).map(firmar),
-    historial: historialDe(f).map((h) =>
-      h && h.adjunto
-        ? { ...h, adjunto: rutasDeAdjunto(h.adjunto).map(firmar).join(', ') }
-        : h
-    ),
+    historial: historialDe(f).map((h) => {
+      if (!h) return h
+      const entrada = { ...h }
+      if (h.adjunto) entrada.adjunto = rutasDeAdjunto(h.adjunto).map(firmar).join(', ')
+      // El backend entrega la columna cruda `evidencia_url`; los componentes de
+      // entrega leen `evidencia` firmada (igual que hace solicitudesApi con las
+      // solicitudes). Sin este paso las fotos de la recogida saldrían rotas.
+      if (h.evidencia_url) {
+        entrada.evidencia = rutasDeEvidencia(h.evidencia_url).map(firmar).join(SEP_EVIDENCIA)
+      }
+      return entrada
+    }),
   }))
 }
 

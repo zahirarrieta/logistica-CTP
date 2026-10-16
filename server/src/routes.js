@@ -1372,6 +1372,13 @@ router.put(
     const guiaUrls = aArrayJson(cuerpo.guiaUrls).filter((u) => typeof u === 'string' && u)
     const adjuntoGuia = guiaUrls.join(', ')
     const notaCambio = textoLargoRec(cuerpo.nota)
+    // Evidencia de la entrega del conductor: rutas de disco separadas por '|'
+    // (SEP_EVIDENCIA en el frontend), igual que en las solicitudes. Vive en la
+    // entrada de historial del estado, no en una columna de la recolección, así
+    // que cada entrega conserva la suya. Las rutas ya vienen subidas por
+    // POST /archivos/evidencia, que acepta códigos Rec- y guarda bajo
+    // storage/recolecciones/{solicitante}/{codigo}/DocEntregas.
+    const evidenciaEntrega = textoLargoRec(cuerpo.evidencia)
     if (tiene('estado')) {
       const nuevoEstado = cuerpo.estado
       if (!P.ESTADOS_RECOLECCION.includes(nuevoEstado)) {
@@ -1380,7 +1387,10 @@ router.put(
       // Entrada propia cuando cambia el estado, cuando se adjunta una guía nueva
       // o cuando se reaplica «En Trámite» con una observación (como en solicitudes).
       const reaplicaTramite = P.ESTADOS_TRAMITE.includes(nuevoEstado) && Boolean(notaCambio)
-      if (nuevoEstado !== actual.estado || referenciaGuia || adjuntoGuia || reaplicaTramite) {
+      // Reaplicar «Entregado» con evidencia nueva también genera su entrada: si no,
+      // las fotos de una segunda entrega se perderían sin dejar rastro.
+      const registraEntrega = nuevoEstado === 'Entregado' && Boolean(evidenciaEntrega)
+      if (nuevoEstado !== actual.estado || referenciaGuia || adjuntoGuia || reaplicaTramite || registraEntrega) {
         historialEntradas.push({
           id: crypto.randomUUID(),
           recoleccion: codigo,
@@ -1390,10 +1400,12 @@ router.put(
           nota: notaCambio,
           referencia: referenciaGuia,
           adjunto: adjuntoGuia,
-          conductor: '',
-          vehiculo: '',
-          placa: '',
-          evidencia_url: '',
+          // En la entrega queda registrado quién la hizo: el conductor asignado a
+          // la recogida con su vehículo y placa, como en las solicitudes.
+          conductor: registraEntrega ? actual.conductor || '' : '',
+          vehiculo: registraEntrega ? actual.vehiculo || '' : '',
+          placa: registraEntrega ? actual.placa || '' : '',
+          evidencia_url: evidenciaEntrega,
           encuesta: null,
           persona,
           fecha: fechaHoy,

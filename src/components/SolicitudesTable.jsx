@@ -145,8 +145,9 @@ function HistorialButton({ onClick }) {
 }
 
 // Documento que el conductor debe entregar (adjunto de trámite/factura):
-// ícono que abre el visor del documento, junto al nombre del cliente.
-function DocEntregaIcono({ count, onClick }) {
+// ícono que abre el visor del documento, junto al nombre del cliente. Se exporta
+// porque la tabla de recolecciones lo reutiliza para su guía de transporte.
+export function DocEntregaIcono({ count, onClick, titulo = 'Ver documento a entregar (factura o remisión)', etiqueta = 'Ver documento a entregar' }) {
   return (
     <button
       type="button"
@@ -154,8 +155,8 @@ function DocEntregaIcono({ count, onClick }) {
         e.stopPropagation()
         onClick()
       }}
-      title="Ver documento a entregar (factura o remisión)"
-      aria-label="Ver documento a entregar"
+      title={titulo}
+      aria-label={etiqueta}
       className="relative shrink-0 grid place-items-center size-8 rounded-full bg-brand-ink/10 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
     >
       <MdDescription className="text-lg" />

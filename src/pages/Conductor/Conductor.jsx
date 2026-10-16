@@ -108,6 +108,11 @@ export default function Conductor() {
   const [detalleRecoleccion, setDetalleRecoleccion] = useState(null)
   const [historialRecoleccion, setHistorialRecoleccion] = useState(null)
   const [editRecoleccion, setEditRecoleccion] = useState(null)
+  // Recogida en proceso de entrega (modal ENTREGA DE MERCANCÍA) y la nota que el
+  // conductor ya había escrito en el modal de estados, para no hacerla repetir.
+  const [entregaRecoleccion, setEntregaRecoleccion] = useState(null)
+  const [notaEntregaRecoleccion, setNotaEntregaRecoleccion] = useState('')
+  const [detalleEntregaRecoleccion, setDetalleEntregaRecoleccion] = useState(null)
   const [tab, setTab] = useState('pendientes')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
@@ -176,23 +181,41 @@ export default function Conductor() {
     placa: r.placa || '',
     nombreCompleto: r.nombre_completo,
     cliente: r.recoge_cliente,
+    nit: r.recoge_nit || '',
     zona: r.zona,
     historial: Array.isArray(r.historial) ? r.historial : [],
     numeroReferencia: '',
     _esRecoleccion: true,
   })
 
-  // El conductor solo reporta el resultado operativo de la recogida: «Fallido»
-  // cuando no pudo recoger. La escritura va por el store, que re-descarga y
-  // marca la fila como eco local para no duplicar el aviso en vivo.
-  const handleRecoleccionEstado = async (codigo, { estado, notaEstado }) => {
+  // El conductor solo entrega: «Entregado» es el único estado que puede marcar
+  // en una recogida, y no se guarda de una vez. Primero pasa por el modal
+  // ENTREGA DE MERCANCÍA (el mismo de las solicitudes, pero sin encuesta) para
+  // dejar las observaciones y la evidencia. «Fallido» —la recogida no se pudo
+  // hacer— lo marcan el administrador o el superadmin desde el módulo
+  // Recolecciones, y no cierra la recolección: se le pueden seguir asignando
+  // estados después.
+  const handleRecoleccionEstado = (codigo, { notaEstado }) => {
+    const r = recolecciones.find((x) => x.codigo === codigo)
+    setEditRecoleccion(null)
+    setNotaEntregaRecoleccion(notaEstado || '')
+    setEntregaRecoleccion(adaptarRecoleccion(r || { codigo }))
+  }
+
+  // Guarda la entrega (con su evidencia ya subida al servidor), marca la fila
+  // como eco local para no duplicar el aviso en vivo y, con la fila fresca que
+  // devuelve la sincronización, abre los detalles de la entrega.
+  const handleEntregaRecoleccion = async (codigo, { notaEstado, evidencia }) => {
     try {
-      await cambiarEstadoRecoleccion(codigo, estado, notaEstado || '')
-      recoleccionEstadoActualizado(codigo, estado)
-      setEditRecoleccion(null)
+      const frescas = await cambiarEstadoRecoleccion(codigo, 'Entregado', notaEstado || '', {
+        evidencia: evidencia || '',
+      })
+      recoleccionEstadoActualizado(codigo, 'Entregado')
+      const r = (frescas || []).find((x) => x.codigo === codigo)
+      setDetalleEntregaRecoleccion(r ? adaptarRecoleccion(r) : null)
     } catch (e) {
-      console.error('[Conductor] error cambiando estado de recolección:', e)
-      errorRecoleccion(e?.message || 'No se pudo guardar el estado de la recogida')
+      console.error('[Conductor] error entregando la recolección:', e)
+      errorRecoleccion(e?.message || 'No se pudo guardar la entrega de la recogida')
     }
   }
 
@@ -491,20 +514,40 @@ export default function Conductor() {
         onClose={() => setDetalleEntrega(null)}
       />
 
-      {/* Recogidas: el conductor reporta el resultado de la recogida: «Entregado»
-          si se completó o «Fallido» si no se pudo recoger (con motivo). */}
+      {/* Recogidas: el conductor solo puede marcar «Entregado», y eso abre el
+          modal ENTREGA DE MERCANCÍA (observaciones + evidencia, sin encuesta). */}
       <EstadosModal
         solicitud={editRecoleccion}
         open={editRecoleccion !== null}
         onClose={() => setEditRecoleccion(null)}
         onUpdate={handleRecoleccionEstado}
-        permitidos={['Entregado', 'Fallido']}
+        permitidos={['Entregado']}
       />
 
       <HistorialModal
         solicitud={historialRecoleccion}
         open={historialRecoleccion !== null}
         onClose={() => setHistorialRecoleccion(null)}
+      />
+
+      {/* Entrega de la recogida: observaciones + evidencia (fotos o PDF), sin
+          encuesta. La evidencia tiene que llegar al servidor antes de guardar. */}
+      <EntregaConductor
+        solicitud={entregaRecoleccion}
+        open={entregaRecoleccion !== null}
+        onClose={() => setEntregaRecoleccion(null)}
+        onUpdate={handleEntregaRecoleccion}
+        destino="Entregado"
+        sinEncuesta
+        notaInicial={notaEntregaRecoleccion}
+        evidenciaRemotaObligatoria
+      />
+
+      <EntregaDetallesModal
+        solicitud={detalleEntregaRecoleccion}
+        open={detalleEntregaRecoleccion !== null}
+        onClose={() => setDetalleEntregaRecoleccion(null)}
+        mostrarEncuesta={false}
       />
 
       {detalleRecoleccion && (

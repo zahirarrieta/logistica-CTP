@@ -7,17 +7,23 @@ import {
   MdAssignmentInd, MdNotificationsNone,
 } from 'react-icons/md'
 import { paginasVisibles } from '../../../utils/paginacion.js'
+import { pdfsTramite } from '../../../utils/pdfUtils.js'
 import { getRecoleccionBadge, getRecoleccionDot, getRecoleccionBg } from '../../../utils/estadoRecoleccion.js'
 import AdjuntosModal from '../../../components/AdjuntosModal.jsx'
 import NotificationsPanel from '../../../components/NotificationsPanel.jsx'
 import TablaQueRecogemos from '../../../components/TablaQueRecogemos.jsx'
-import { AsignadoBadge, ConductorBadge } from '../../../components/SolicitudesTable.jsx'
+import { AsignadoBadge, ConductorBadge, DocEntregaIcono } from '../../../components/SolicitudesTable.jsx'
 import { EstadoBadge } from './modals/RecoleccionDetalleModal.jsx'
 import RecoleccionSeguimientoModal from './modals/RecoleccionSeguimientoModal.jsx'
 
 const ITEMS_PER_PAGE = 10
 
 const adjuntosDe = (r) => (Array.isArray(r?.adjuntos) ? r.adjuntos : [])
+
+// Guías de transporte que el administrador adjuntó al pasar la recolección por
+// «En Trámite». Viven en el historial (campo 'estado'), igual que las
+// facturas/remisiones de una solicitud, así que se leen con el mismo helper.
+const guiasDe = (r) => pdfsTramite(Array.isArray(r?.historial) ? r.historial : [])
 
 const tieneAsignado = (r) =>
   Boolean(String(r?.asignado_a || r?.asignado_correo || '').trim())
@@ -50,7 +56,9 @@ function Campana({ r }) {
 
 // Estados que cierran la recolección: ya no admiten asignación ni cambio de
 // estado (solo queda el historial), igual que «Cancelado» en solicitudes.
-const ESTADOS_TERMINALES = ['Cancelado', 'Fallido', 'Entregado']
+// «Fallido» NO cierra nada: la recogida no se pudo hacer en ese intento, pero el
+// administrador puede volver a tramitarla, asignarla o cancelarla después.
+const ESTADOS_TERMINALES = ['Cancelado', 'Entregado']
 const esTerminal = (r) => ESTADOS_TERMINALES.includes(r?.estado)
 
 // Dato de una tarjeta del panel «Recoge / Entrega».
@@ -123,7 +131,7 @@ function Row({ icon, label, value }) {
   )
 }
 
-function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimiento, onVerDetalle, onVerAdjuntos, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones, colorRowsPorEstado }) {
+function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimiento, onVerDetalle, onVerAdjuntos, onVerGuias, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones, colorRowsPorEstado }) {
   const isEven = index % 2 === 0
   const cardBg = colorRowsPorEstado
     ? getRecoleccionBg(r.estado)
@@ -131,6 +139,7 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimient
       ? 'bg-white'
       : 'bg-brand-cyan/10'
   const adjuntos = adjuntosDe(r)
+  const guias = guiasDe(r)
   const mostrarAcciones = Boolean(onAsignarClick || onCambiarEstadoClick || onHistorialClick)
 
   return (
@@ -194,20 +203,30 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimient
               <span className="text-brand-cyan mt-0.5 shrink-0"><MdAttachFile /></span>
               <span className="text-brand-ink/50 shrink-0">Adjuntos</span>
             </div>
-            {adjuntos.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => onVerAdjuntos(r)}
-                aria-label="Ver adjuntos"
-                title="Ver adjuntos"
-                className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
-              >
-                <MdAttachFile className="text-sm" />
-                {adjuntos.length} archivo(s)
-              </button>
-            ) : (
-              <span className="text-brand-ink/40 text-sm">—</span>
-            )}
+            <div className="flex items-center gap-2">
+              {adjuntos.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => onVerAdjuntos(r)}
+                  aria-label="Ver adjuntos"
+                  title="Ver adjuntos"
+                  className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
+                >
+                  <MdAttachFile className="text-sm" />
+                  {adjuntos.length} archivo(s)
+                </button>
+              ) : (
+                guias.length === 0 && <span className="text-brand-ink/40 text-sm">—</span>
+              )}
+              {guias.length > 0 && (
+                <DocEntregaIcono
+                  count={guias.length}
+                  titulo="Ver guía de transporte"
+                  etiqueta="Ver guía de transporte"
+                  onClick={() => onVerGuias(r)}
+                />
+              )}
+            </div>
           </div>
 
           <div className={`mt-2 grid gap-2 ${onVerSeguimiento ? 'grid-cols-2' : 'grid-cols-1'}`}>
@@ -285,6 +304,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [adjuntosRecoleccion, setAdjuntosRecoleccion] = useState(null)
+  const [guiasRecoleccion, setGuiasRecoleccion] = useState(null)
   const [seguimiento, setSeguimiento] = useState(null)
 
   const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE) || 1
@@ -340,6 +360,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
             onVerSeguimiento={seguimientoEnFila ? setSeguimiento : undefined}
             onVerDetalle={onRowClick}
             onVerAdjuntos={setAdjuntosRecoleccion}
+            onVerGuias={setGuiasRecoleccion}
             onAsignarClick={onAsignarClick}
             onCambiarEstadoClick={onCambiarEstadoClick}
             onHistorialClick={onHistorialClick}
@@ -401,6 +422,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
             <tbody>
               {currentItems.map((r, i) => {
                 const adjuntos = adjuntosDe(r)
+                const guias = guiasDe(r)
                 const abierto = expandedId === r.codigo
                 const estiloFila = colorRowsPorEstado
                   ? getRecoleccionBg(r.estado)
@@ -461,18 +483,30 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
                         <span className="block truncate whitespace-nowrap" title={r.observaciones || ''}>{r.observaciones || '—'}</span>
                       </td>
                       <td className="px-2 py-3 text-brand-ink/80 whitespace-nowrap border-b border-l border-brand-ink/10">
-                        {adjuntos.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setAdjuntosRecoleccion(r) }}
-                            aria-label="Ver adjuntos"
-                            title="Ver adjuntos"
-                            className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
-                          >
-                            <MdAttachFile className="text-sm" />
-                            {adjuntos.length} archivo(s)
-                          </button>
-                        ) : '—'}
+                        <span className="inline-flex items-center gap-2">
+                          {adjuntos.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setAdjuntosRecoleccion(r) }}
+                              aria-label="Ver adjuntos"
+                              title="Ver adjuntos"
+                              className="inline-flex items-center gap-1 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors px-3 py-1.5 text-xs font-bold"
+                            >
+                              <MdAttachFile className="text-sm" />
+                              {adjuntos.length} archivo(s)
+                            </button>
+                          ) : (
+                            guias.length === 0 && '—'
+                          )}
+                          {guias.length > 0 && (
+                            <DocEntregaIcono
+                              count={guias.length}
+                              titulo="Ver guía de transporte"
+                              etiqueta="Ver guía de transporte"
+                              onClick={() => setGuiasRecoleccion(r)}
+                            />
+                          )}
+                        </span>
                       </td>
                       <td className="px-2 py-3 border-b border-l border-brand-ink/10">
                         <span className="flex flex-col items-center gap-1">
@@ -603,6 +637,13 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
         open={adjuntosRecoleccion !== null}
         onClose={() => setAdjuntosRecoleccion(null)}
         adjuntos={adjuntosRecoleccion ? adjuntosDe(adjuntosRecoleccion) : []}
+      />
+
+      <AdjuntosModal
+        open={guiasRecoleccion !== null}
+        onClose={() => setGuiasRecoleccion(null)}
+        adjuntos={guiasRecoleccion ? guiasDe(guiasRecoleccion) : []}
+        titulo="GUÍA DE TRANSPORTE"
       />
 
       <RecoleccionSeguimientoModal

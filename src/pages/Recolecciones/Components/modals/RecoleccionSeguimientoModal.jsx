@@ -12,6 +12,7 @@ import imgTransitoCarro from '../../../../assets/estado/TransitoCarro.png'
 import imgTransitoMoto from '../../../../assets/estado/TransitoMoto.png'
 import imgTransitoElite from '../../../../assets/estado/TransitoElite.png'
 import imgTransitoCarBog from '../../../../assets/estado/TransitoCarBog.png'
+import imgFallido from '../../../../assets/estado/Fallido.png'
 
 // Imágenes por estado (las mismas del seguimiento de solicitudes). Los estados
 // sin imagen propia caen al ícono que viaja por la pista.
@@ -20,6 +21,7 @@ const IMAGENES_POR_ESTADO = {
   'En Trámite': imgRemision,
   'Devolución a Solicitante': imgDevoSol,
   'Cancelado': imgCancelado,
+  'Fallido': imgFallido,
 }
 
 const ICONOS_POR_ESTADO = {
