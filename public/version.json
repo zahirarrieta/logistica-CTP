@@ -1,10 +1,8 @@
 {
-  "version": "2026.10.16-79",
+  "version": "2026.10.16-80",
   "fecha": "2026-10-16",
   "cambios": [
-    "Menos pestañas: Pedidos y Recolecciones ahora se agrupan como sub-pestañas dentro de una misma pestaña (selector Pedidos / Recolecciones).",
-    "Administrador y Superadministrador: se elimina la pestaña «Recolecciones». Cada una de «Solicitudes» y «Mis solicitudes» tiene sub-pestañas Pedidos / Recolecciones, con el mismo alcance por rol que antes.",
-    "Conductor: se elimina la pestaña «Recogidas». «Entregas pendientes» y «Entregados» tienen sub-pestañas Pedidos / Recolecciones.",
-    "Las recolecciones pendientes (todo menos Entregado, Fallido o Cancelado) aparecen en «Entregas pendientes» y las entregadas en «Entregados»; en el Dashboard se mantienen «Mis entregas» y «Mis recogidas»."
+    "Mis solicitudes: las sub-pestañas ahora se llaman «Mis pedidos» y «Mis recolecciones», conservando sus iconos.",
+    "Solicitudes mantiene las sub-pestañas «Pedidos» y «Recolecciones»."
   ]
 }
