@@ -9,7 +9,6 @@ import ConductorDashboard from './Components/ConductorDashboard.jsx'
 import EntregaDetallesModal from '../Administrador/Components/modals/EntregaDetallesModal.jsx'
 import RecoleccionesTable from '../Recolecciones/Components/RecoleccionesTable.jsx'
 import RecoleccionDetalleModal from '../Recolecciones/Components/modals/RecoleccionDetalleModal.jsx'
-import EstadosModal from '../Administrador/Components/modals/EstadosModal.jsx'
 import HistorialModal from '../Administrador/Components/modals/HistorialModal.jsx'
 import {
   loadSolicitudes,
@@ -107,11 +106,10 @@ export default function Conductor() {
   const [recolecciones, setRecolecciones] = useState(loadRecolecciones())
   const [detalleRecoleccion, setDetalleRecoleccion] = useState(null)
   const [historialRecoleccion, setHistorialRecoleccion] = useState(null)
-  const [editRecoleccion, setEditRecoleccion] = useState(null)
-  // Recogida en proceso de entrega (modal ENTREGA DE MERCANCÍA) y la nota que el
-  // conductor ya había escrito en el modal de estados, para no hacerla repetir.
+  // Recogida en proceso: al hacer clic en la fila, una recogida pendiente abre el
+  // modal ENTREGA DE MERCANCÍA (observaciones + evidencia, sin encuesta) y una ya
+  // cerrada abre los detalles de su entrega.
   const [entregaRecoleccion, setEntregaRecoleccion] = useState(null)
-  const [notaEntregaRecoleccion, setNotaEntregaRecoleccion] = useState('')
   const [detalleEntregaRecoleccion, setDetalleEntregaRecoleccion] = useState(null)
   const [tab, setTab] = useState('pendientes')
   const [desde, setDesde] = useState('')
@@ -169,8 +167,8 @@ export default function Conductor() {
     [recolecciones, identidad]
   )
 
-  // Adaptador mínimo a forma de solicitud para reutilizar EstadosModal e
-  // HistorialModal (los mismos del módulo Administrador).
+  // Adaptador mínimo a forma de solicitud para reutilizar la entrega
+  // (EntregaConductor / EntregaDetallesModal) y el HistorialModal.
   const adaptarRecoleccion = (r) => ({
     id: r.codigo,
     codigo: r.codigo,
@@ -188,18 +186,17 @@ export default function Conductor() {
     _esRecoleccion: true,
   })
 
-  // El conductor solo entrega: «Entregado» es el único estado que puede marcar
-  // en una recogida, y no se guarda de una vez. Primero pasa por el modal
-  // ENTREGA DE MERCANCÍA (el mismo de las solicitudes, pero sin encuesta) para
-  // dejar las observaciones y la evidencia. «Fallido» —la recogida no se pudo
-  // hacer— lo marcan el administrador o el superadmin desde el módulo
-  // Recolecciones, y no cierra la recolección: se le pueden seguir asignando
-  // estados después.
-  const handleRecoleccionEstado = (codigo, { notaEstado }) => {
-    const r = recolecciones.find((x) => x.codigo === codigo)
-    setEditRecoleccion(null)
-    setNotaEntregaRecoleccion(notaEstado || '')
-    setEntregaRecoleccion(adaptarRecoleccion(r || { codigo }))
+  // El conductor solo entrega, y lo hace con un clic en la fila (no cambia el
+  // estado a mano). Una recogida pendiente abre el modal ENTREGA DE MERCANCÍA (el
+  // mismo de las solicitudes, pero sin encuesta) para dejar observaciones y
+  // evidencia; una ya cerrada («Entregado»/«Fallido»/«Cancelado») abre los
+  // detalles de su entrega. «Fallido» lo pone el administrador desde Recolecciones.
+  const handleRecoleccionFila = (r) => {
+    if (['Entregado', 'Fallido', 'Cancelado'].includes(r.estado)) {
+      setDetalleEntregaRecoleccion(adaptarRecoleccion(r))
+    } else {
+      setEntregaRecoleccion(adaptarRecoleccion(r))
+    }
   }
 
   // Guarda la entrega (con su evidencia ya subida al servidor), marca la fila
@@ -359,7 +356,7 @@ export default function Conductor() {
             <RecoleccionesTable
               items={misRecogidas}
               onRowClick={(r) => setDetalleRecoleccion(r)}
-              onCambiarEstadoClick={(r) => setEditRecoleccion(adaptarRecoleccion(r))}
+              onFilaClick={handleRecoleccionFila}
               onHistorialClick={handleRecoleccionHistorial}
               colorRowsPorEstado
             />
@@ -514,16 +511,9 @@ export default function Conductor() {
         onClose={() => setDetalleEntrega(null)}
       />
 
-      {/* Recogidas: el conductor solo puede marcar «Entregado», y eso abre el
-          modal ENTREGA DE MERCANCÍA (observaciones + evidencia, sin encuesta). */}
-      <EstadosModal
-        solicitud={editRecoleccion}
-        open={editRecoleccion !== null}
-        onClose={() => setEditRecoleccion(null)}
-        onUpdate={handleRecoleccionEstado}
-        permitidos={['Entregado']}
-      />
-
+      {/* Recogidas: el conductor ya no cambia estado a mano. Al hacer clic en la
+          fila, una recogida pendiente abre directamente el modal ENTREGA DE
+          MERCANCÍA (observaciones + evidencia, sin encuesta). */}
       <HistorialModal
         solicitud={historialRecoleccion}
         open={historialRecoleccion !== null}
@@ -539,7 +529,6 @@ export default function Conductor() {
         onUpdate={handleEntregaRecoleccion}
         destino="Entregado"
         sinEncuesta
-        notaInicial={notaEntregaRecoleccion}
         evidenciaRemotaObligatoria
       />
 

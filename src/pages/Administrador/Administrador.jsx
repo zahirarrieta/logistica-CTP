@@ -271,6 +271,12 @@ const esSuper = esSuperAdmin(rol)
 
   const ESTADOS_ADMIN = ESTADOS.filter((e) => e !== 'Entregado' && e !== 'Entregado Parcial')
 
+  // Estados que el administrador puede fijar en una recolección desde el modal.
+  // «Entregado» NO se ofrece aquí: la recogida se entrega cargando la evidencia
+  // desde el flujo de entrega (Conductor › Recogidas o Recolecciones), no
+  // cambiando el estado a mano. El estado sí sigue existiendo para el filtro.
+  const ESTADOS_RECOLECCION_MODAL = ESTADOS_RECOLECCION.filter((e) => e !== 'Entregado')
+
   const handleEliminar = (solicitud) => {
     setEliminarSolicitud(solicitud)
   }
@@ -608,7 +614,7 @@ const esSuper = esSuperAdmin(rol)
         onClose={() => setEditSolicitud(null)}
         onUpdate={editSolicitud?._esRecoleccion ? handleRecoleccionCambiarEstado : handleUpdateEstado}
         onAsignarConductorClick={(s) => setAsignarConductorSolicitud(s)}
-        permitidos={editSolicitud?._esRecoleccion ? ESTADOS_RECOLECCION : ESTADOS_ADMIN}
+        permitidos={editSolicitud?._esRecoleccion ? ESTADOS_RECOLECCION_MODAL : ESTADOS_ADMIN}
         permitirReabrir={esSuper}
       />
 

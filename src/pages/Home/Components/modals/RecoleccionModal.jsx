@@ -126,7 +126,7 @@ function serializarArticulosQueRecogemos(articulos) {
 }
 
 // Mini tabla de artículos seleccionados en «Qué recogemos».
-function TablaArticulosQueRecogemos({ articulos, onEliminar }) {
+function TablaArticulosQueRecogemos({ articulos, onEliminar, readOnly = false }) {
   if (!articulos.length) return null
   return (
     <div className="mt-2 rounded-xl border border-brand-cyan/30 bg-brand-cyan/5 overflow-hidden">
@@ -143,27 +143,29 @@ function TablaArticulosQueRecogemos({ articulos, onEliminar }) {
               <th className="px-2 py-1.5 text-left font-extrabold border-r border-white/15">Artículo</th>
               <th className="px-2 py-1.5 text-left font-extrabold border-r border-white/15">Descripción</th>
               <th className="px-2 py-1.5 text-center font-extrabold border-r border-white/15 whitespace-nowrap">Lote</th>
-              <th className="px-2 py-1.5 text-right font-extrabold border-r border-white/15 whitespace-nowrap">Cant.</th>
-              <th className="px-2 py-1.5 text-center font-extrabold whitespace-nowrap">Acciones</th>
+              <th className={`px-2 py-1.5 text-right font-extrabold whitespace-nowrap${readOnly ? '' : ' border-r border-white/15'}`}>Cantidad</th>
+              {!readOnly && <th className="px-2 py-1.5 text-center font-extrabold whitespace-nowrap">Acciones</th>}
             </tr>
           </thead>
           <tbody>
             {articulos.map((a, i) => (
-              <tr key={i} className={`border-b border-brand-ink/5 hover:bg-brand-cyan/10 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-brand-cyan/5'}`}>
-                <td className="px-2 py-1.5 font-bold text-brand-ink whitespace-nowrap">{a.articulo}</td>
-                <td className="px-2 py-1.5 text-brand-ink/80 truncate max-w-[200px]">{a.descripcion || '—'}</td>
-                <td className="px-2 py-1.5 text-center text-brand-ink/70 whitespace-nowrap">{a.lote || '—'}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums font-bold text-brand-ink">{a.cantidad}</td>
-                <td className="px-2 py-1.5 text-center whitespace-nowrap">
-                  <button
-                    type="button"
-                    onClick={() => onEliminar(i)}
-                    title="Eliminar"
-                    className="grid place-items-center size-6 rounded bg-red-50 text-red-600 hover:bg-red-100 transition"
-                  >
-                    <MdDelete className="text-xs" />
-                  </button>
-                </td>
+              <tr key={i} className="odd:bg-white even:bg-brand-cyan/10">
+                <td className="px-2 py-1.5 text-left font-bold text-brand-ink border-r border-brand-ink/10">{a.articulo}</td>
+                <td className="px-2 py-1.5 text-left text-brand-ink/70 border-r border-brand-ink/10">{a.descripcion || '—'}</td>
+                <td className="px-2 py-1.5 text-center text-brand-ink/70 border-r border-brand-ink/10">{a.lote || '—'}</td>
+                <td className={`px-2 py-1.5 text-right font-extrabold tabular-nums ${readOnly ? '' : 'border-r border-brand-ink/10'}`}>{a.cantidad}</td>
+                {!readOnly && (
+                  <td className="px-2 py-1.5 text-center">
+                    <button
+                      type="button"
+                      onClick={() => onEliminar(i)}
+                      title="Quitar artículo"
+                      className="grid place-items-center size-6 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors mx-auto"
+                    >
+                      <MdDelete className="text-sm" />
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -233,7 +235,7 @@ function Bloque({ titulo, icono, opcional = false, requerido = false, invalid = 
 
 // Área de texto con la misma etiqueta flotante de FormField (que solo cubre
 // inputs), para «Qué recogemos» y «Observaciones».
-function AreaTexto({ label, name, value, onChange, filas = 3, required = false, invalid = false, pista }) {
+function AreaTexto({ label, name, value, onChange, filas = 3, required = false, invalid = false, pista, readOnly = false }) {
   return (
     <div className="relative">
       <textarea
@@ -242,7 +244,10 @@ function AreaTexto({ label, name, value, onChange, filas = 3, required = false, 
         onChange={onChange}
         rows={filas}
         placeholder=" "
+        readOnly={readOnly}
         className={`peer w-full px-3 py-2.5 rounded-xl bg-white border shadow-sm focus:outline-none focus:ring-4 focus:shadow-none transition-all text-brand-ink placeholder-transparent resize-y ${
+          readOnly ? 'read-only:border-brand-deep/40' : ''
+        } ${
           invalid
             ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
             : 'border-brand-deep/20 focus:border-brand-deep/60 focus:ring-brand-deep/10'
@@ -266,6 +271,21 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
   // En modo edición el modal corrige una recolección devuelta y la reenvía; el
   // formulario se precarga con la fila y al guardar se llama a corregirRecoleccion.
   const editando = Boolean(recoleccion)
+
+  // Devolución: el administrador deja en la nota del historial qué campos debe
+  // corregir el solicitante («[CORREGIR: …]»). Al corregir, SOLO esos campos
+  // quedan editables; el resto se muestra en solo lectura para no cambiar lo que
+  // el administrador no pidió. Si no hay marca (recolección vieja) se permite todo.
+  const camposCorregir = useMemo(() => {
+    const hist = Array.isArray(recoleccion?.historial) ? recoleccion.historial : []
+    const dev = [...hist]
+      .reverse()
+      .find((h) => h?.campo === 'estado' && h.nuevo === 'Devolución a Solicitante')
+    const m = /^\[CORREGIR:\s*([^\]]*)\]/.exec(String(dev?.nota || ''))
+    if (!m) return null
+    return new Set(m[1].split(',').map((s) => s.trim()).filter(Boolean))
+  }, [recoleccion])
+  const bloqueado = (id) => Boolean(camposCorregir) && !camposCorregir.has(id)
   const [formData, setFormData] = useState(FORM_VACIO)
   const [archivos, setArchivos] = useState([])
   const [picker, setPicker] = useState(null) // 'recoge' | 'entrega'
@@ -660,6 +680,16 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                 </div>
               )}
 
+              {editando && camposCorregir && (
+                <div className="rounded-lg border border-brand-cyan/40 bg-brand-cyan/10 px-3 py-2.5 text-sm text-brand-deep flex items-start gap-2">
+                  <MdErrorOutline className="text-base shrink-0 mt-0.5" />
+                  <span>
+                    Corrige únicamente los campos que el administrador indicó; el resto se
+                    muestra en solo lectura.
+                  </span>
+                </div>
+              )}
+
               {/* Bloque: solicitante (datos de la sesión, no se editan) */}
               <Bloque
                 titulo="Solicitante"
@@ -708,19 +738,21 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                       name="recoge_cliente"
                       value={formData.recoge_cliente}
                       onChange={handleChange}
-                      onFocus={() => setListaAbierta(true)}
+                      onFocus={() => { if (!bloqueado('recoge')) setListaAbierta(true) }}
                       placeholder="Escribe el nombre, NIT o bodega"
                       autoComplete="off"
                       required
+                      readOnly={bloqueado('recoge')}
                       icon={<MdBusiness className="text-sm" />}
                       invalid={falta('¿Dónde vamos a recoger?')}
                     />
                     <button
                       type="button"
                       onClick={() => setPicker('recoge')}
+                      disabled={bloqueado('recoge')}
                       title="Buscar y seleccionar cliente"
                       aria-label="Buscar cliente a recoger"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-cyan/15 disabled:hover:text-brand-deep"
                     >
                       <MdSearch className="text-lg" />
                     </button>
@@ -786,6 +818,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                     options={OPCIONES_ZONA}
                     placeholder="Seleccionar zona…"
                     required
+                    disabled={Boolean(camposCorregir)}
                     icon={<MdPlace className="text-sm" />}
                     invalid={falta('Zona')}
                   />
@@ -798,7 +831,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                     options={opcionesTipoServicio}
                     placeholder={formData.zona ? 'Seleccionar tipo…' : 'Primero selecciona la zona'}
                     required
-                    disabled={!formData.zona}
+                    disabled={Boolean(camposCorregir) || !formData.zona}
                     icon={<MdCategory className="text-sm" />}
                     invalid={falta('Tipo de Servicio')}
                   />
@@ -809,6 +842,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                     value={formData.fecha_recoleccion}
                     onChange={handleChange}
                     required
+                    readOnly={bloqueado('fechaHora')}
                     icon={<MdEvent className="text-sm" />}
                     invalid={falta('Fecha de recolección')}
                   />
@@ -819,6 +853,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                     value={formData.hora_recoleccion}
                     onChange={handleChange}
                     required
+                    readOnly={bloqueado('fechaHora')}
                     icon={<MdAccessTime className="text-sm" />}
                     invalid={falta('Hora de recolección')}
                   />
@@ -830,6 +865,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                     onChange={handleChange}
                     placeholder="Quién nos atiende"
                     required
+                    readOnly={bloqueado('contacto')}
                     icon={<MdSupportAgent className="text-sm" />}
                     invalid={falta('Persona de contacto')}
                   />
@@ -841,6 +877,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                     onChange={handleChange}
                     placeholder="Número de contacto"
                     required
+                    readOnly={bloqueado('contacto')}
                     icon={<MdPhone className="text-sm" />}
                     invalid={falta('Teléfono de contacto')}
                   />
@@ -859,7 +896,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                     <button
                       type="button"
                       onClick={() => setArticulosOpen(true)}
-                      disabled={!formData.recoge_bodega.trim()}
+                      disabled={!formData.recoge_bodega.trim() || bloqueado('queRecogemos')}
                       title={
                         formData.recoge_bodega.trim()
                           ? `Seleccionar artículos de la bodega ${formData.recoge_bodega.trim()}`
@@ -874,6 +911,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                   <TablaArticulosQueRecogemos
                     articulos={articulosSeleccionados}
                     onEliminar={eliminarArticulo}
+                    readOnly={bloqueado('queRecogemos')}
                   />
                   <AreaTexto
                     label="Qué recogemos"
@@ -881,6 +919,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                     value={formData.que_recogemos}
                     onChange={(e) => handleChange({ target: { name: 'que_recogemos', value: e.target.value } })}
                     required
+                    readOnly={bloqueado('queRecogemos')}
                     invalid={falta('Qué recogemos')}
                     pista="Puedes escribirlo a mano o tomarlo del inventario con «Seleccionar artículos»."
                   />
@@ -901,19 +940,21 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                       name="entrega_cliente"
                       value={formData.entrega_cliente}
                       onChange={handleChange}
-                      onFocus={() => setListaAbiertaEntrega(true)}
+                      onFocus={() => { if (!bloqueado('entrega')) setListaAbiertaEntrega(true) }}
                       placeholder="Escribe el nombre, NIT o bodega"
                       autoComplete="off"
                       required
+                      readOnly={bloqueado('entrega')}
                       icon={<MdBusiness className="text-sm" />}
                       invalid={falta('¿Dónde entregamos?')}
                     />
                     <button
                       type="button"
                       onClick={() => setPicker('entrega')}
+                      disabled={bloqueado('entrega')}
                       title="Buscar y seleccionar cliente"
                       aria-label="Buscar cliente de entrega"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-8 rounded-full bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-cyan/15 disabled:hover:text-brand-deep"
                     >
                       <MdSearch className="text-lg" />
                     </button>
@@ -1027,6 +1068,7 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                     })
                   }
                   required
+                  readOnly={bloqueado('observaciones')}
                   invalid={falta('Observaciones')}
                   pista="Si no hay ninguna instrucción especial, escribe N/A."
                 />
@@ -1035,7 +1077,12 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
               {/* Bloque: adjuntos (opcionales) */}
               <Bloque titulo="Adjuntos" icono={<MdCloudUpload className="text-base" />} opcional>
                 <div>
-                  {puedeAdjuntar && (
+                  {bloqueado('adjuntos') && (
+                    <p className="mb-2 text-[11px] text-brand-ink/60">
+                      Los adjuntos no se pueden cambiar en esta corrección.
+                    </p>
+                  )}
+                  {puedeAdjuntar && !bloqueado('adjuntos') && (
                     <label className="flex flex-col items-center justify-center gap-2 w-full px-4 py-5 border-2 border-dashed border-brand-ink/25 rounded-xl bg-white/70 text-brand-ink/70 cursor-pointer hover:border-brand-cyan hover:bg-brand-mist/50 transition-colors">
                       <MdCloudUpload className="text-3xl text-brand-cyan" />
                       <span className="text-sm font-medium">Haz clic para adjuntar archivos</span>

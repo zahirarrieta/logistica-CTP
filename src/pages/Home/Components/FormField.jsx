@@ -122,8 +122,10 @@ export default function FormField({
           onChange={onChange}
           placeholder=" "
           name={name}
-          className={`${baseClasses} ${invalid ? invalidClasses : ''}`}
+          className={`${baseClasses} ${readOnlyClasses} ${invalid ? invalidClasses : ''} ${disabled ? 'opacity-60 bg-brand-mist/40 cursor-not-allowed' : ''}`}
           required={required}
+          readOnly={readOnly}
+          disabled={disabled}
         />
         <label className={`${iconLabel} ${alwaysFloatClass}`}>
           {fieldIcon}

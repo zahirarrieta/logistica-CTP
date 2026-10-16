@@ -1,15 +1,11 @@
 {
-  "version": "2026.10.16-76",
+  "version": "2026.10.16-77",
   "fecha": "2026-10-16",
   "cambios": [
-    "Administrador / Asignar usuario: la lista ahora muestra primero a Daniel Chamorro, Hernán García, Sebastián Rojas, Duber Sepúlveda, Yonathan Ortiz y Camilo Melo, en ese orden; los demás usuarios quedan debajo.",
-    "Conductor / Recogidas: al marcar el estado «Entregado» ahora se abre el modal ENTREGA DE MERCANCÍA, igual que en las solicitudes pero SIN encuesta de satisfacción: solo observaciones de la entrega y evidencia (hasta 3 elementos, fotos tomadas con la cámara o PDF).",
-    "Conductor / Recogidas: al finalizar la entrega se abren automáticamente los «Detalles de la entrega» con la evidencia recién guardada (fotos y PDF en vista previa, conductor, vehículo, placa, fecha, hora y observaciones).",
-    "Conductor / Recogidas: la observación que el conductor ya escribió en el modal de estados se lleva al modal de entrega, no hay que repetirla. Si una foto o PDF no logra subirse al servidor, la entrega no se guarda y se avisa (la evidencia de una recogida no puede quedar solo en el dispositivo).",
-    "Recolecciones: la tabla de recogidas ya muestra el ícono del documento (el mismo de las solicitudes) cuando el administrador adjuntó la guía de transporte al pasarla por «En Trámite». Está en la columna Adjuntos y en la tarjeta de móvil, y abre la guía en el visor de PDF.",
-    "Recolecciones / Seguimiento: el estado «Fallido» ya muestra su imagen en la pista del modal de seguimiento.",
-    "Recolecciones: «Fallido» ya no cierra la recogida. Se le pueden seguir asignando estados (volver a tramitar, asignar conductor, cancelar) y ahora lo marcan el administrador o el superadmin; el conductor solo puede marcar «Entregado».",
-    "Backend: PUT /api/recolecciones/:codigo ahora guarda la evidencia de la entrega y quién la hizo (conductor, vehículo y placa) en el historial de la recogida. Requiere volver a desplegar el servidor.",
-    "Corrección: el aviso «NUEVA VERSIÓN DISPONIBLE» quedaba pegado y aparecía en cada carga aunque se actualizara. Ocurría cuando el paquete subido se había construido antes del último cambio de versión."
+    "Conductor / Recogidas: se eliminó el modal «Cambiar estado». Ahora el conductor hace clic en la fila y entrega la recogida directamente (se abre ENTREGA DE MERCANCÍA sin encuesta, con observaciones y evidencia obligatoria).",
+    "Conductor / Recogidas: si la recogida ya está Entregada, Fallida o Cancelada, al hacer clic en la fila se abren los detalles de la entrega en vez del formulario.",
+    "Recolecciones (tabla de recogidas): toda la fila es clicable para entregar o ver los detalles, y en móvil la tarjeta muestra un botón «Entregar mercancía» / «Ver entrega».",
+    "Administrador / Modal de estados: el estado «Entregado» ya no aparece en la lista para recolecciones (lo marca el conductor al entregar). El filtro del listado sí lo conserva.",
+    "Corrección tras «Devolución a Solicitante»: al corregir una recogida, solo se pueden editar los campos que el administrador marcó en la nota de devolución; el resto se muestra en solo lectura para no cambiar lo que no se pidió."
   ]
 }

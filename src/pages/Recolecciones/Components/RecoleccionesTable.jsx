@@ -4,7 +4,7 @@ import {
   MdPlace, MdAttachFile, MdNotes, MdStorefront, MdWarehouse, MdSupportAgent, MdMap,
   MdPhone, MdEvent, MdNavigateBefore, MdNavigateNext, MdExpandMore, MdInbox,
   MdListAlt, MdOpenInFull, MdArrowForward, MdPersonAdd, MdSwapHoriz, MdHistory,
-  MdAssignmentInd, MdNotificationsNone,
+  MdAssignmentInd, MdNotificationsNone, MdLocalShipping,
 } from 'react-icons/md'
 import { paginasVisibles } from '../../../utils/paginacion.js'
 import { pdfsTramite } from '../../../utils/pdfUtils.js'
@@ -131,7 +131,7 @@ function Row({ icon, label, value }) {
   )
 }
 
-function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimiento, onVerDetalle, onVerAdjuntos, onVerGuias, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones, colorRowsPorEstado }) {
+function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimiento, onVerDetalle, onVerAdjuntos, onVerGuias, onAsignarClick, onCambiarEstadoClick, onHistorialClick, onEntregarClick, mostrarNotificaciones, colorRowsPorEstado }) {
   const isEven = index % 2 === 0
   const cardBg = colorRowsPorEstado
     ? getRecoleccionBg(r.estado)
@@ -229,6 +229,21 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimient
             </div>
           </div>
 
+          {onEntregarClick && (
+            <button
+              type="button"
+              onClick={() => onEntregarClick(r)}
+              className={`mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold shadow-sm transition ${
+                esTerminal(r)
+                  ? 'bg-brand-cyan/15 text-brand-deep hover:bg-brand-cyan hover:text-brand-ink'
+                  : 'bg-brand-cyan text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)]'
+              }`}
+            >
+              <MdLocalShipping className="text-lg" />
+              {esTerminal(r) ? 'Ver entrega' : 'Entregar mercancía'}
+            </button>
+          )}
+
           <div className={`mt-2 grid gap-2 ${onVerSeguimiento ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {onVerSeguimiento && (
               <button
@@ -300,7 +315,7 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimient
   )
 }
 
-export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones = false, colorRowsPorEstado = false, seguimientoEnFila = false, onCorregirClick }) {
+export default function RecoleccionesTable({ items, onRowClick, onFilaClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones = false, colorRowsPorEstado = false, seguimientoEnFila = false, onCorregirClick }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [adjuntosRecoleccion, setAdjuntosRecoleccion] = useState(null)
@@ -330,10 +345,12 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
   const toggle = (codigo) => setExpandedId((prev) => (prev === codigo ? null : codigo))
 
   // Clic en la fila: en «Mis recolecciones» abre el seguimiento (como en «Mis
-  // solicitudes»); en el resto de módulos la fila no abre nada y el detalle
-  // completo solo se abre desde el ID (o el botón «Detalle» en móvil).
+  // solicitudes»). En Conductor › Recogidas (`onFilaClick`) la fila abre la
+  // entrega / los detalles de la entrega. En el resto, la fila no hace nada y el
+  // detalle completo solo se abre desde el ID (o el botón «Detalle» en móvil).
   const abrirFila = (r) => {
-    if (seguimientoEnFila) setSeguimiento(r)
+    if (onFilaClick) onFilaClick(r)
+    else if (seguimientoEnFila) setSeguimiento(r)
   }
 
   if (items.length === 0) {
@@ -364,6 +381,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
             onAsignarClick={onAsignarClick}
             onCambiarEstadoClick={onCambiarEstadoClick}
             onHistorialClick={onHistorialClick}
+            onEntregarClick={onFilaClick}
             mostrarNotificaciones={mostrarNotificaciones}
             colorRowsPorEstado={colorRowsPorEstado}
           />
@@ -433,7 +451,7 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
                   <Fragment key={r.codigo}>
                     <tr
                       onClick={() => abrirFila(r)}
-                      className={`group ${seguimientoEnFila ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${estiloFila}`}
+                      className={`group ${seguimientoEnFila || onFilaClick ? 'cursor-pointer active:animate-rowPop active:bg-brand-deep/30' : ''} transition-colors hover:bg-brand-deep/20 ${estiloFila}`}
                     >
                       <td className="px-3 py-3 text-center border-b border-l border-brand-ink/10">
                         <span className={`inline-flex items-center justify-center size-7 rounded-full text-xs font-extrabold ${i % 2 === 0 ? 'bg-brand-navy text-white' : 'bg-brand-deep text-white'}`}>
