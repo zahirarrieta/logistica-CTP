@@ -177,7 +177,7 @@ export function Donut({ porEstado, total }) {
   )
 }
 
-function BarrasAsignado({ items, onClick, hint }) {
+export function BarrasAsignado({ items, onClick, hint }) {
   const max = Math.max(1, ...items.map((i) => i.total))
   return (
     <div className="space-y-2.5 db-chart-enter">

@@ -19,6 +19,7 @@ export const HEX_ESTADO = {
   'Entregado Parcial': '#EAB308',
   'Entregado': '#22C55E',
   'Cancelado': '#94A3B8',
+  'Fallido': '#7B1E2B',
 }
 
 // Formatea milisegundos como «4:32» (min:seg). Lo usan las cuentas regresivas

@@ -21,6 +21,8 @@ import HistorialModal from './Components/modals/HistorialModal.jsx'
 import EntregaDetallesModal from './Components/modals/EntregaDetallesModal.jsx'
 import ConfirmarEliminarModal from '../../components/ConfirmarEliminarModal.jsx'
 import DashboardTab from './Components/DashboardTab.jsx'
+import RecoleccionesDashboard from './Components/RecoleccionesDashboard.jsx'
+import DashboardVistaToggle from './Components/DashboardVistaToggle.jsx'
 import PlanillasTab from './Components/PlanillasTab.jsx'
 import ClientesModal from './Components/modals/ClientesModal.jsx'
 import { loadSolicitudes, updateSolicitud, removeSolicitud, suscribir, peekNextId, refrescarProximoCodigo } from '../../store/solicitudesStore.js'
@@ -65,6 +67,7 @@ const esSuper = esSuperAdmin(rol)
   const [recolecciones, setRecolecciones] = useState(loadRecolecciones)
   const [recoleccionDetalle, setRecoleccionDetalle] = useState(null)
   const [tab, setTab] = useState('dashboard')
+  const [dashboardVista, setDashboardVista] = useState('pedidos')
   const [editSolicitud, setEditSolicitud] = useState(null)
   const [asignarSolicitud, setAsignarSolicitud] = useState(null)
   const [asignarConductorSolicitud, setAsignarConductorSolicitud] = useState(null)
@@ -185,6 +188,17 @@ const esSuper = esSuperAdmin(rol)
   const misAsignaciones = useMemo(
     () => solicitudes.filter((s) => esAsignadoA(s, misDatos)),
     [solicitudes, misDatos]
+  )
+
+  // Mismas reglas que las solicitudes pero sobre las recolecciones: el super
+  // admin ve todas; el administrador solo las que tiene asignadas a su nombre o
+  // correo (la fila viene en snake_case, de ahí la traducción).
+  const misRecoleccionesAsignadas = useMemo(
+    () =>
+      recolecciones.filter((r) =>
+        esAsignadoA({ asignadoA: r?.asignado_a, asignadoCorreo: r?.asignado_correo }, misDatos)
+      ),
+    [recolecciones, misDatos]
   )
 
   // El super admin ya ve todas las solicitudes en la pestaña "Solicitudes",
@@ -470,11 +484,29 @@ const esSuper = esSuperAdmin(rol)
           </div>
 
           {tab === 'dashboard' ? (
-            <DashboardTab
-              solicitudes={esSuper ? solicitudes : misAsignaciones}
-              onFilterMes={setFiltroMes}
-              onFilterAno={setFiltroAno}
-            />
+            <>
+              <DashboardVistaToggle
+                vista={dashboardVista}
+                onChange={setDashboardVista}
+                opciones={[
+                  { id: 'pedidos', label: 'Pedidos', Icon: MdInsights, cuenta: (esSuper ? solicitudes : misAsignaciones).length },
+                  { id: 'recolecciones', label: 'Recolecciones', Icon: MdStorefront, cuenta: (esSuper ? recolecciones : misRecoleccionesAsignadas).length },
+                ]}
+              />
+              {dashboardVista === 'recolecciones' ? (
+                <RecoleccionesDashboard
+                  recolecciones={esSuper ? recolecciones : misRecoleccionesAsignadas}
+                  onFilterMes={setFiltroMes}
+                  onFilterAno={setFiltroAno}
+                />
+              ) : (
+                <DashboardTab
+                  solicitudes={esSuper ? solicitudes : misAsignaciones}
+                  onFilterMes={setFiltroMes}
+                  onFilterAno={setFiltroAno}
+                />
+              )}
+            </>
           ) : tab === 'planillas' ? (
             <PlanillasTab solicitudes={solicitudes} />
           ) : tab === 'clientes' ? (

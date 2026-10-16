@@ -6,6 +6,8 @@ import SolicitudesTable from '../../components/SolicitudesTable.jsx'
 import IndicadorSinConexion from '../../components/IndicadorSinConexion.jsx'
 import EntregaConductor from './Components/modals/EntregaConductor.jsx'
 import ConductorDashboard from './Components/ConductorDashboard.jsx'
+import RecoleccionesDashboard from '../Administrador/Components/RecoleccionesDashboard.jsx'
+import DashboardVistaToggle from '../Administrador/Components/DashboardVistaToggle.jsx'
 import EntregaDetallesModal from '../Administrador/Components/modals/EntregaDetallesModal.jsx'
 import RecoleccionesTable from '../Recolecciones/Components/RecoleccionesTable.jsx'
 import RecoleccionDetalleModal from '../Recolecciones/Components/modals/RecoleccionDetalleModal.jsx'
@@ -112,6 +114,7 @@ export default function Conductor() {
   const [entregaRecoleccion, setEntregaRecoleccion] = useState(null)
   const [detalleEntregaRecoleccion, setDetalleEntregaRecoleccion] = useState(null)
   const [tab, setTab] = useState('pendientes')
+  const [dashboardVista, setDashboardVista] = useState('pedidos')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [fechaEntregaSel, setFechaEntregaSel] = useState('')
@@ -351,7 +354,26 @@ export default function Conductor() {
           </div>
 
           {tab === 'dashboard' ? (
-            <ConductorDashboard solicitudes={solicitudesDash} />
+            <>
+              <DashboardVistaToggle
+                vista={dashboardVista}
+                onChange={setDashboardVista}
+                opciones={[
+                  { id: 'pedidos', label: 'Mis entregas', Icon: MdInsights, cuenta: solicitudesDash.length },
+                  { id: 'recogidas', label: 'Mis recogidas', Icon: MdInventory2, cuenta: misRecogidas.length },
+                ]}
+              />
+              {dashboardVista === 'recogidas' ? (
+                <RecoleccionesDashboard
+                  recolecciones={misRecogidas}
+                  titulo="Panel de mis recogidas"
+                  subtitulo="Métricas de las recolecciones que tienes asignadas para recoger."
+                  puedeExportar={false}
+                />
+              ) : (
+                <ConductorDashboard solicitudes={solicitudesDash} />
+              )}
+            </>
           ) : tab === 'recogidas' ? (
             <RecoleccionesTable
               items={misRecogidas}

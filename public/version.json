@@ -1,11 +1,11 @@
 {
-  "version": "2026.10.16-77",
+  "version": "2026.10.16-78",
   "fecha": "2026-10-16",
   "cambios": [
-    "Conductor / Recogidas: se eliminó el modal «Cambiar estado». Ahora el conductor hace clic en la fila y entrega la recogida directamente (se abre ENTREGA DE MERCANCÍA sin encuesta, con observaciones y evidencia obligatoria).",
-    "Conductor / Recogidas: si la recogida ya está Entregada, Fallida o Cancelada, al hacer clic en la fila se abren los detalles de la entrega en vez del formulario.",
-    "Recolecciones (tabla de recogidas): toda la fila es clicable para entregar o ver los detalles, y en móvil la tarjeta muestra un botón «Entregar mercancía» / «Ver entrega».",
-    "Administrador / Modal de estados: el estado «Entregado» ya no aparece en la lista para recolecciones (lo marca el conductor al entregar). El filtro del listado sí lo conserva.",
-    "Corrección tras «Devolución a Solicitante»: al corregir una recogida, solo se pueden editar los campos que el administrador marcó en la nota de devolución; el resto se muestra en solo lectura para no cambiar lo que no se pidió."
+    "Dashboard de Recolecciones: nuevo panel con KPIs (total, activas, en trámite, en tránsito, entregadas, canceladas, fallidas, cumplimiento, tiempo promedio y con guía de transporte) y secciones de estado, responsable, zona, tipo de servicio, día, franja horaria, actividad de 14 días, tiempo por etapa, carga por conductor, top clientes y recogidas que requieren atención (> 2 días).",
+    "Dashboard: el tab «Dashboard» ahora tiene un selector Pedidos / Recolecciones, tanto en Administrador como en Conductor.",
+    "Permisos por rol iguales que en Solicitudes: el superadministrador ve todas las recolecciones, el administrador solo las asignadas a él y el conductor solo las suyas.",
+    "Exportación e informe: el dashboard de recolecciones permite exportar a PDF y a Excel, con el mismo filtro mes/año de Solicitudes (el conductor no exporta).",
+    "Cada tarjeta y gráfico del dashboard de recolecciones es clicable: abre la lista de recogidas que representa o el detalle de la recogida, e incluye el listado completo al final."
   ]
 }

@@ -12,6 +12,20 @@ import {
   formatHoras,
 } from '../utils/dashboardUtils.js'
 import { ESTADOS } from '../utils/estadoColors.js'
+import {
+  resumenRecolecciones,
+  porZonaRec,
+  porTipoServicio,
+  porDiaSemanaRec,
+  porFranjaRec,
+  porAsignadoRec,
+  porConductorRec,
+  topClientesRec,
+  tiempoPorEstadoRec,
+  tiempoEntregaRecoleccion,
+  guiasRecoleccion,
+  ESTADOS_REC,
+} from '../utils/recoleccionesDashboard.js'
 
 let libs = null
 
@@ -214,6 +228,164 @@ export function exportarExcel(solicitudes) {
   const link = document.createElement('a')
   link.href = url
   link.download = `Informe_pedidos_${fechaArchivo()}.xls`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+export function exportarExcelRecolecciones(recolecciones) {
+  const r = resumenRecolecciones(recolecciones)
+  const cumplimiento = r.total ? Math.round(((r.entregadas + r.canceladas) / r.total) * 100) : 0
+  const cortar = (list, n = 30) => list.slice(0, n)
+
+  const secciones = []
+
+  secciones.push({
+    titulo: 'Resumen general',
+    encabezados: ['Concepto', 'Valor'],
+    filas: [
+      ['Total de recolecciones', r.total],
+      ['Activas', r.activas],
+      ['En trámite', r.enTramite],
+      ['En tránsito', r.enTransito],
+      ['Entregadas', r.entregadas],
+      ['Canceladas', r.canceladas],
+      ['Fallidas', r.fallidas],
+      ['Con guía de transporte', r.conGuia],
+      ['Cumplimiento', `${cumplimiento}%`],
+      ['Tiempo promedio de entrega', r.tiempos.promedio !== null ? formatHoras(r.tiempos.promedio) : 'Sin entregas'],
+      ['Tiempo mediana', r.tiempos.mediana !== null ? formatHoras(r.tiempos.mediana) : 'Sin entregas'],
+      ['Tiempo máximo', r.tiempos.max !== null ? formatHoras(r.tiempos.max) : 'Sin entregas'],
+      ['Recolecciones con tiempo medible', r.tiempos.cantidad],
+    ],
+  })
+
+  secciones.push({
+    titulo: 'Recolecciones por estado',
+    encabezados: ['Estado', 'Cantidad', 'Porcentaje'],
+    filas: (r.porEstado.length
+      ? r.porEstado
+      : ESTADOS_REC.map((estado) => ({ estado, count: 0 }))
+    ).map((e) => [e.estado, e.count, pct(e.count, r.total)]),
+  })
+
+  secciones.push({
+    titulo: 'Recolecciones por zona',
+    encabezados: ['Zona', 'Cantidad'],
+    filas: cortar(porZonaRec(recolecciones)).map((z) => [z.nombre, z.count]),
+  })
+
+  secciones.push({
+    titulo: 'Recolecciones por tipo de servicio',
+    encabezados: ['Tipo de servicio', 'Cantidad'],
+    filas: cortar(porTipoServicio(recolecciones)).map((t) => [t.nombre, t.count]),
+  })
+
+  secciones.push({
+    titulo: 'Recolecciones por día de la semana',
+    encabezados: ['Día', 'Cantidad'],
+    filas: porDiaSemanaRec(recolecciones).map((d) => [d.nombre, d.count]),
+  })
+
+  secciones.push({
+    titulo: 'Franja horaria de creación',
+    encabezados: ['Franja', 'Rango', 'Cantidad'],
+    filas: porFranjaRec(recolecciones).map((f) => [f.label, f.rango, f.count]),
+  })
+
+  secciones.push({
+    titulo: 'Recolecciones por responsable',
+    encabezados: ['Responsable', 'Total', 'Activos', 'Entregados'],
+    filas: cortar(porAsignadoRec(recolecciones)).map((a) => [a.nombre, a.total, a.activos, a.entregados]),
+  })
+
+  secciones.push({
+    titulo: 'Carga por conductor',
+    encabezados: ['Conductor', 'Total', 'Entregados'],
+    filas: cortar(porConductorRec(recolecciones)).map((c) => [c.nombre, c.total, c.entregados]),
+  })
+
+  secciones.push({
+    titulo: 'Top clientes',
+    encabezados: ['Cliente', 'Recolecciones'],
+    filas: cortar(topClientesRec(recolecciones, 15)).map((c) => [c.nombre, c.count]),
+  })
+
+  secciones.push({
+    titulo: 'Tiempo promedio por etapa',
+    encabezados: ['Etapa', 'Promedio', 'Casos'],
+    filas: tiempoPorEstadoRec(recolecciones).map((e) => [e.estado, formatHoras(e.promedio), e.n]),
+  })
+
+  const detalle = recolecciones
+    .map((rec) => {
+      const t = tiempoEntregaRecoleccion(rec)
+      return [
+        rec.codigo,
+        rec.fecha_subida,
+        rec.hora_subida,
+        rec.recoge_cliente,
+        r.recoge_bodega,
+        rec.recoge_nit,
+        rec.zona,
+        rec.tipo_servicio,
+        rec.estado,
+        rec.asignado_a,
+        rec.conductor,
+        rec.vehiculo,
+        rec.placa,
+        guiasRecoleccion(rec).length,
+        t ? `${formatHoras(t.horas)} (${t.fechaHora})` : '',
+        rec.correo,
+      ]
+    })
+    .sort((a, b) => (a[0] > b[0] ? -1 : a[0] < b[0] ? 1 : 0))
+
+  secciones.push({
+    titulo: 'Detalle de todas las recolecciones',
+    encabezados: [
+      'Código',
+      'Fecha creada',
+      'Hora',
+      'Cliente',
+      'Bodega',
+      'NIT',
+      'Zona',
+      'Tipo de servicio',
+      'Estado',
+      'Asignado a',
+      'Conductor',
+      'Vehículo',
+      'Placa',
+      'Guías',
+      'Tiempo de entrega (inicio → entrega)',
+      'Correo',
+    ],
+    filas: detalle,
+  })
+
+  const html = `<!DOCTYPE html>
+  <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+  <head>
+    <meta charset="utf-8" />
+    <title>Informe de recolecciones</title>
+    <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+      <x:Name>Informe</x:Name>
+      <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+    </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+  </head>
+  <body>
+    <h2 style="color:#003B73;">Informe de recolecciones — ${new Date().toLocaleDateString('es-CO')}</h2>
+    ${tablasHtml(secciones)}
+  </body>
+  </html>`
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `Informe_recolecciones_${fechaArchivo()}.xls`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
