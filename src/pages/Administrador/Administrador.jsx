@@ -539,8 +539,8 @@ const esSuper = esSuperAdmin(rol)
                 vista={subVistaActual}
                 onChange={setSubVistaActual}
                 opciones={[
-                  { id: 'pedidos', label: tab === 'asignaciones' ? 'Mis pedidos' : 'Pedidos', Icon: MdInbox, cuenta: baseDelTab.length },
-                  { id: 'recolecciones', label: tab === 'asignaciones' ? 'Mis recolecciones' : 'Recolecciones', Icon: MdStorefront, cuenta: baseRecoDelTab.length },
+                  { id: 'pedidos', label: 'Pedidos', Icon: MdInbox, cuenta: baseDelTab.length },
+                  { id: 'recolecciones', label: 'Recolecciones', Icon: MdStorefront, cuenta: baseRecoDelTab.length },
                 ]}
               />
               {subVistaActual === 'recolecciones' ? (

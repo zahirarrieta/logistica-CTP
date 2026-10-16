@@ -1,8 +1,8 @@
 {
-  "version": "2026.10.16-80",
+  "version": "2026.10.16-81",
   "fecha": "2026-10-16",
   "cambios": [
-    "Mis solicitudes: las sub-pestañas ahora se llaman «Mis pedidos» y «Mis recolecciones», conservando sus iconos.",
-    "Solicitudes mantiene las sub-pestañas «Pedidos» y «Recolecciones»."
+    "Solicitante (modulo Solicitudes): las pestañas ahora dicen «Mis pedidos» y «Mis recolecciones», con iconos.",
+    "Administrador / Mis solicitudes: las sub-pestañas vuelven a «Pedidos» y «Recolecciones»."
   ]
 }

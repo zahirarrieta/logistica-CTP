@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { MdAdd, MdInbox, MdFilterList } from 'react-icons/md'
+import { MdAdd, MdInbox, MdFilterList, MdStorefront } from 'react-icons/md'
 import Header from '../../components/Header.jsx'
 import Footer from '../../components/Footer.jsx'
 import SolicitudModal from './Components/modals/SolicitudModal.jsx'
@@ -186,19 +186,21 @@ export default function Solicitudes() {
               <button
                 type="button"
                 onClick={() => setTab('solicitudes')}
-                className={`flex-1 sm:flex-none rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+                className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-bold transition-colors ${
                   tab === 'solicitudes' ? 'bg-brand-navy text-white shadow' : 'text-brand-deep hover:bg-white/60'
                 }`}
               >
-                Mis solicitudes
+                <MdInbox className="text-base" />
+                Mis pedidos
               </button>
               <button
                 type="button"
                 onClick={() => setTab('recolecciones')}
-                className={`flex-1 sm:flex-none rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+                className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-bold transition-colors ${
                   tab === 'recolecciones' ? 'bg-brand-navy text-white shadow' : 'text-brand-deep hover:bg-white/60'
                 }`}
               >
+                <MdStorefront className="text-base" />
                 Mis recolecciones
               </button>
             </div>
