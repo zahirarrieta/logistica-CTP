@@ -1,7 +1,8 @@
 {
-  "version": "2026.10.15-71",
+  "version": "2026.10.15-72",
   "fecha": "2026-10-15",
   "cambios": [
+    "Recolecciones: la columna «Asignado a» ahora muestra también el nombre del conductor asignado (en una segunda línea «Conductor: …»), tanto en la tabla como en la tarjeta del móvil. Antes solo se veía la persona responsable.",
     "Recolecciones: en el seguimiento, el estado «Devolución a Solicitante» vuelve a mostrar la imagen de la pista (la misma que en las solicitudes) en lugar del ícono genérico.",
     "Almacenamiento: las recolecciones se guardan en su propia carpeta `server/storage/recolecciones/…` (fuera de `evidencias`), separadas de los adjuntos y las evidencias de las solicitudes. Los archivos ya guardados de las solicitudes siguen en `server/storage/evidencias/…` sin cambios.",
     "Recolecciones: al devolverse al solicitante («Devolución a Solicitante») el seguimiento muestra el mismo aviso que en las solicitudes y el solicitante puede pulsar «Corregir y reenviar» para editar los datos de la recolección y volver a enviarla, que queda de nuevo en «Abierto» con su registro en el historial. El responsable no se cambia al corregir (lo reasigna el administrador).",

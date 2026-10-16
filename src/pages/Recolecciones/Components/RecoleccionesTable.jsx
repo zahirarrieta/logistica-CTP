@@ -113,12 +113,15 @@ function PanelRecogeEntrega({ r }) {
   )
 }
 
-function Row({ icon, label, value }) {
+function Row({ icon, label, value, hint }) {
   return (
     <div className="flex items-start gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
       <span className="text-brand-cyan mt-0.5 shrink-0">{icon}</span>
       <span className="text-brand-ink/50 w-28 shrink-0">{label}</span>
-      <span className="text-brand-ink font-medium capitalize break-words min-w-0">{value || '—'}</span>
+      <span className="min-w-0">
+        <span className="block text-brand-ink font-medium capitalize break-words">{value || '—'}</span>
+        {hint && <span className="block text-xs text-brand-ink/60 break-words">{hint}</span>}
+      </span>
     </div>
   )
 }
@@ -166,7 +169,12 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimient
           <Row icon={<MdEmail />} label="Correo" value={r.correo} />
           <Row icon={<MdCategory />} label="Tipo de servicio" value={r.tipo_servicio} />
           <Row icon={<MdPlace />} label="Zona" value={r.zona} />
-          <Row icon={<MdAssignmentInd />} label="Asignado a" value={r.asignado_a} />
+          <Row
+            icon={<MdAssignmentInd />}
+            label="Asignado a"
+            value={r.asignado_a}
+            hint={r.conductor ? `Conductor: ${r.conductor}` : ''}
+          />
 
           {mostrarNotificaciones && (
             <div className="flex items-center gap-2 py-1.5 border-b border-brand-ink/5 last:border-0">
@@ -469,6 +477,11 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
                       </td>
                       <td className="px-2 py-3 border-b border-l border-brand-ink/10">
                         <AsignadoBadge asignado={r.asignado_a} />
+                        {r.conductor && (
+                          <span className="mt-1 block text-[11px] font-semibold text-brand-ink/60" title={`Conductor: ${r.conductor}`}>
+                            Conductor: <span className="capitalize text-brand-ink/80">{r.conductor}</span>
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-3 border-b border-l border-brand-ink/10 text-center">
                         <EstadoBadge estado={r.estado} />
