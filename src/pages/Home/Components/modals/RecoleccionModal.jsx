@@ -14,8 +14,9 @@ import AsignarUsuarioModal from '../../../Administrador/Components/modals/Asigna
 import { useAuth } from '../../../../auth/AuthContext.jsx'
 import { crearRecoleccion, peekCodigoRecoleccion, peekCodigoRecoleccionSync } from '../../../../services/recoleccionesApi.js'
 import { cargarClientes } from '../../../../services/solicitudesApi.js'
+import { subirAdjuntos } from '../../../../services/archivosApi.js'
 import { recoleccionCreada, errorRecoleccion } from '../../../../services/notificaciones.jsx'
-import { registrarRecoleccionCreada } from '../../../../store/recoleccionesStore.js'
+import { registrarRecoleccionCreada, corregirRecoleccion } from '../../../../store/recoleccionesStore.js'
 
 function formatearBytes(bytes) {
   if (!bytes && bytes !== 0) return ''
@@ -29,6 +30,21 @@ function ahora() {
   return {
     fecha: now.toLocaleDateString('es-CO'),
     hora: now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }),
+  }
+}
+
+// Ruta cruda de un adjunto guardado: al re-descargar las recolecciones los
+// adjuntos llegan como URL firmada (/api/archivos/ver?ruta=…), así que hay que
+// extraer la ruta para volver a guardarla al corregir (una URL caduca en 24 h).
+function rutaCruda(valor) {
+  const v = String(valor || '').trim()
+  if (!v) return ''
+  if (!/^https?:\/\//i.test(v)) return v
+  try {
+    const u = new URL(v)
+    return u.searchParams.get('ruta') || u.searchParams.get('id') || ''
+  } catch {
+    return ''
   }
 }
 
@@ -245,8 +261,11 @@ function AreaTexto({ label, name, value, onChange, filas = 3, required = false, 
   )
 }
 
-export default function RecoleccionModal({ open, onClose, onCreated }) {
+export default function RecoleccionModal({ open, onClose, onCreated, recoleccion = null, onEdited }) {
   const { account } = useAuth()
+  // En modo edición el modal corrige una recolección devuelta y la reenvía; el
+  // formulario se precarga con la fila y al guardar se llama a corregirRecoleccion.
+  const editando = Boolean(recoleccion)
   const [formData, setFormData] = useState(FORM_VACIO)
   const [archivos, setArchivos] = useState([])
   const [picker, setPicker] = useState(null) // 'recoge' | 'entrega'
@@ -279,21 +298,51 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
   useEffect(() => {
     if (!open) return
     const { fecha, hora } = ahora()
-    setFormData({
-      ...FORM_VACIO,
-      fecha_subida: fecha,
-      hora_subida: hora,
-      nombre_completo: account?.name || '',
-      correo: account?.username || '',
-    })
+    if (recoleccion) {
+      // Corrección: precarga todos los campos de la recolección devuelta (incluidos
+      // «Qué recogemos» y el responsable ya asignado) para poder reenviarla.
+      setFormData({
+        ...FORM_VACIO,
+        fecha_subida: recoleccion.fecha_subida || fecha,
+        hora_subida: recoleccion.hora_subida || hora,
+        nombre_completo: recoleccion.nombre_completo || account?.name || '',
+        correo: recoleccion.correo || account?.username || '',
+        zona: recoleccion.zona || '',
+        tipo_servicio: recoleccion.tipo_servicio || '',
+        recoge_cliente: recoleccion.recoge_cliente || '',
+        recoge_nit: recoleccion.recoge_nit || '',
+        recoge_bodega: recoleccion.recoge_bodega || '',
+        fecha_recoleccion: recoleccion.fecha_recoleccion || '',
+        hora_recoleccion: recoleccion.hora_recoleccion || '',
+        que_recogemos: recoleccion.que_recogemos || '',
+        observaciones: recoleccion.observaciones || '',
+        persona_contacto: recoleccion.persona_contacto || '',
+        telefono_contacto: recoleccion.telefono_contacto || '',
+        entrega_cliente: recoleccion.entrega_cliente || '',
+        entrega_nit: recoleccion.entrega_nit || '',
+        entrega_bodega: recoleccion.entrega_bodega || '',
+        asignado_a: recoleccion.asignado_a || '',
+        asignado_correo: recoleccion.asignado_correo || '',
+      })
+      setArticulosSeleccionados(parsearArticulosQueRecogemos(recoleccion.que_recogemos || ''))
+    } else {
+      setFormData({
+        ...FORM_VACIO,
+        fecha_subida: fecha,
+        hora_subida: hora,
+        nombre_completo: account?.name || '',
+        correo: account?.username || '',
+      })
+      setArticulosSeleccionados([])
+    }
     setArchivos([])
     setErrores([])
     setErrorServidor('')
     setLoading(false)
-    setAceptaReglamento(false)
+    // Al corregir, la declaración ya se aceptó al crear la recolección: no se
+    // vuelve a pedir. En un alta nueva sí es obligatoria.
+    setAceptaReglamento(editando)
     setAsignarOpen(false)
-    // Parsear artículos existentes en «Qué recogemos» al abrir.
-    setArticulosSeleccionados(parsearArticulosQueRecogemos(formData.que_recogemos || ''))
     // Muestra al instante el último código conocido y lo refresca del servidor.
     setSiguiente(peekCodigoRecoleccionSync() || '')
     void peekCodigoRecoleccion().then((c) => setSiguiente(c || ''))
@@ -432,7 +481,8 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
 
   const handleFileChange = (e) => {
     const nuevos = Array.from(e.target.files || [])
-    if (archivos.length + nuevos.length > 3) {
+    const previos = editando && Array.isArray(recoleccion?.adjuntos) ? recoleccion.adjuntos.length : 0
+    if (previos + archivos.length + nuevos.length > 3) {
       setErrores(['Máximo 3 archivos permitidos'])
       e.target.value = ''
       return
@@ -473,7 +523,8 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
       'Observaciones': formData.observaciones,
     }
     const faltan = CAMPOS_OBLIGATORIOS.filter((campo) => !String(valores[campo] ?? '').trim())
-    if (!String(formData.asignado_correo || '').trim()) faltan.push(FALTA_RESPONSABLE)
+    // El responsable ya viene asignado al corregir: no se vuelve a exigir.
+    if (!editando && !String(formData.asignado_correo || '').trim()) faltan.push(FALTA_RESPONSABLE)
     if (!aceptaReglamento) faltan.push(FALTA_DECLARACION)
     return faltan
   }
@@ -489,6 +540,28 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
     setErrorServidor('')
     const { fecha, hora } = ahora()
     try {
+      if (editando) {
+        // Corrección tras una devolución: se envían los campos editables (se omite
+        // el responsable, que el solicitante no puede reasignar) y el store deja la
+        // recolección de nuevo en «Abierto».
+        const campos = { ...formData, fecha_subida: fecha, hora_subida: hora }
+        delete campos.asignado_a
+        delete campos.asignado_correo
+        // Si se adjuntaron archivos nuevos se suben y se juntan con los que ya
+        // tenía la recolección (que llegan firmados; se guarda su ruta).
+        if (archivos.length > 0) {
+          const subidos = await subirAdjuntos(archivos, recoleccion.codigo)
+          const existentes = (Array.isArray(recoleccion.adjuntos) ? recoleccion.adjuntos : [])
+            .map(rutaCruda)
+            .filter(Boolean)
+          campos.adjuntos = [...existentes, ...subidos.map((a) => a.ruta)]
+        }
+        await corregirRecoleccion(recoleccion.codigo, campos)
+        setLoading(false)
+        onEdited?.()
+        onClose?.()
+        return
+      }
       const data = await crearRecoleccion(
         { ...formData, fecha_subida: fecha, hora_subida: hora },
         archivos
@@ -511,8 +584,13 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
     }
   }
 
-  const puedeAdjuntar = archivos.length < 3
-  const tituloCodigo = siguiente.toUpperCase()
+  // Al corregir se cuentan también los adjuntos que ya traía la recolección.
+  const adjuntosPrevios =
+    editando && Array.isArray(recoleccion?.adjuntos) ? recoleccion.adjuntos.length : 0
+  const puedeAdjuntar = adjuntosPrevios + archivos.length < 3
+  // En edición el badge muestra el código de la recolección que se corrige; en un
+  // alta nueva, el próximo código reservado.
+  const tituloCodigo = String((editando ? recoleccion?.codigo : siguiente) || '').toUpperCase()
   const opcionesTipoServicio = useMemo(
     () => (TIPOS_POR_ZONA[formData.zona] || []).map((t) => ({ value: t, label: t })),
     [formData.zona]
@@ -531,7 +609,7 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
           onClick={(e) => e.stopPropagation()}
           role="dialog"
           aria-modal="true"
-          aria-label="Nueva recolección"
+          aria-label={editando ? 'Corregir recolección' : 'Nueva recolección'}
         >
           {/* Header */}
           <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-brand-navy to-brand-deep flex items-center justify-between gap-3 shrink-0">
@@ -539,7 +617,7 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
               <span className="grid place-items-center size-9 rounded-full bg-white/10 shrink-0">
                 <MdStorefront className="text-lg" />
               </span>
-              <span className="truncate">NUEVA RECOLECCIÓN</span>
+              <span className="truncate">{editando ? 'CORREGIR RECOLECCIÓN' : 'NUEVA RECOLECCIÓN'}</span>
             </h3>
             <div className="flex items-center gap-2 shrink-0">
               <span
@@ -899,8 +977,8 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
               <Bloque
                 titulo="Responsable"
                 icono={<MdAssignmentInd className="text-base" />}
-                requerido
-                invalid={falta(FALTA_RESPONSABLE)}
+                requerido={!editando}
+                invalid={!editando && falta(FALTA_RESPONSABLE)}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -915,15 +993,22 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                       </p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setAsignarOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/15 px-3 py-1.5 text-xs font-bold text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition shrink-0"
-                  >
-                    <MdPersonAdd className="text-base" />
-                    Asignar a
-                  </button>
+                  {!editando && (
+                    <button
+                      type="button"
+                      onClick={() => setAsignarOpen(true)}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/15 px-3 py-1.5 text-xs font-bold text-brand-deep hover:bg-brand-cyan hover:text-brand-ink transition shrink-0"
+                    >
+                      <MdPersonAdd className="text-base" />
+                      Asignar a
+                    </button>
+                  )}
                 </div>
+                {editando && (
+                  <p className="text-[11px] text-brand-ink/50">
+                    El responsable no se cambia al corregir: lo reasigna el administrador.
+                  </p>
+                )}
               </Bloque>
 
               {/* Bloque: observaciones */}
@@ -955,7 +1040,7 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                       <MdCloudUpload className="text-3xl text-brand-cyan" />
                       <span className="text-sm font-medium">Haz clic para adjuntar archivos</span>
                       <span className="text-xs text-brand-ink/50">
-                        Máximo 3 archivos{archivos.length > 0 && ` · ${archivos.length}/3 usados`}
+                        Máximo 3 archivos{adjuntosPrevios + archivos.length > 0 && ` · ${adjuntosPrevios + archivos.length}/3 usados`}
                       </span>
                       <input
                         type="file"
@@ -1041,7 +1126,7 @@ export default function RecoleccionModal({ open, onClose, onCreated }) {
                 className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
               >
                 <MdStorefront className="text-lg" />
-                GUARDAR
+                {editando ? 'GUARDAR Y REENVIAR' : 'GUARDAR'}
               </button>
             </div>
           </form>

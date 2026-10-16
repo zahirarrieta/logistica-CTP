@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MdInbox, MdFilterList } from 'react-icons/md'
 import RecoleccionDetalleModal from './Components/modals/RecoleccionDetalleModal.jsx'
 import RecoleccionesTable from './Components/RecoleccionesTable.jsx'
+import RecoleccionModal from '../Home/Components/modals/RecoleccionModal.jsx'
 import EstadoFilter from '../../components/EstadoFilter.jsx'
 import SearchFilters from '../../components/SearchFilters.jsx'
 import {
@@ -25,6 +26,8 @@ export default function RecoleccionesListado() {
   const [cargando, setCargando] = useState(() => !recoleccionesCargadas())
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState(null)
+  // Recolección que se está corrigiendo tras una devolución del administrador.
+  const [editarRecoleccion, setEditarRecoleccion] = useState(null)
   const [filtroEstado, setFiltroEstado] = useState(null)
   const [filtroCliente, setFiltroCliente] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
@@ -140,13 +143,28 @@ export default function RecoleccionesListado() {
           </p>
         </div>
       ) : (
-        <RecoleccionesTable items={filtradas} onRowClick={setDetalle} mostrarNotificaciones seguimientoEnFila />
+        <RecoleccionesTable
+          items={filtradas}
+          onRowClick={setDetalle}
+          mostrarNotificaciones
+          seguimientoEnFila
+          onCorregirClick={setEditarRecoleccion}
+        />
       )}
 
       <RecoleccionDetalleModal
         open={detalle !== null}
         recoleccion={detalle}
         onClose={() => setDetalle(null)}
+      />
+
+      {/* Corrección tras una devolución: el formulario de recolección en modo
+          edición deja la recolección de nuevo en «Abierto» al reenviarla. */}
+      <RecoleccionModal
+        open={editarRecoleccion !== null}
+        recoleccion={editarRecoleccion}
+        onClose={() => setEditarRecoleccion(null)}
+        onEdited={() => setEditarRecoleccion(null)}
       />
     </div>
   )

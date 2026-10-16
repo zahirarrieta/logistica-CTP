@@ -1,7 +1,9 @@
 {
-  "version": "2026.10.15-68",
+  "version": "2026.10.15-69",
   "fecha": "2026-10-15",
   "cambios": [
+    "Recolecciones: al devolverse al solicitante («Devolución a Solicitante») el seguimiento muestra el mismo aviso que en las solicitudes y el solicitante puede pulsar «Corregir y reenviar» para editar los datos de la recolección y volver a enviarla, que queda de nuevo en «Abierto» con su registro en el historial. El responsable no se cambia al corregir (lo reasigna el administrador).",
+    "Backend: las recolecciones ahora se guardan bajo su propia raíz `recolecciones/<solicitante>/<codigo>` (adjuntos, guía de transporte y documento de entrega), en vez de en la carpeta del usuario que sube el archivo. Así la guía que carga el administrador ya no crea una ruta paralela con su nombre ni se mezcla con los documentos de las solicitudes. El dueño de la recolección puede reenviarla (volver a «Abierto» desde «Devolución a Solicitante») y solo él, el conductor asignado o un privilegiado puede escribir en ella.",
     "Recolecciones (tablas): el clic en la fila abre el SEGUIMIENTO únicamente en «Mis recolecciones» (módulo Solicitudes), como en «Mis solicitudes». En los demás módulos (Administrador › Recolecciones y Conductor › Recogidas) la fila ya no abre ningún modal. El detalle completo se abre siempre al pulsar el ID de la recolección (en el móvil, con el botón «Detalle»).",
     "Recolecciones (tablas): al hacer clic en una fila se abre siempre el modal de SEGUIMIENTO, como en «Mis solicitudes», sin importar el estado. El detalle completo se abre únicamente al pulsar el ID de la recolección (en el móvil, con el botón «Detalle»). Antes, en el administrador, el clic en la fila abría el modal de detalles y el seguimiento solo aparecía si la recolección estaba «Abierto».",
     "Recolecciones (administrador): las filas de la tabla ahora se pintan con el color del estado, igual que en «Mis solicitudes», y la barra de filtros estrena el filtro «Asignado a» para ver las recolecciones de un responsable concreto.",

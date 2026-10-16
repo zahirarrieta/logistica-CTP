@@ -274,7 +274,7 @@ function RecoleccionCard({ r, index, number, expanded, onToggle, onVerSeguimient
   )
 }
 
-export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones = false, colorRowsPorEstado = false, seguimientoEnFila = false }) {
+export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, onCambiarEstadoClick, onHistorialClick, mostrarNotificaciones = false, colorRowsPorEstado = false, seguimientoEnFila = false, onCorregirClick }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState(null)
   const [adjuntosRecoleccion, setAdjuntosRecoleccion] = useState(null)
@@ -599,6 +599,15 @@ export default function RecoleccionesTable({ items, onRowClick, onAsignarClick, 
         open={seguimiento !== null}
         recoleccion={seguimiento}
         onClose={() => setSeguimiento(null)}
+        onCorregir={
+          onCorregirClick
+            ? (r) => {
+                // Cierra el seguimiento antes de abrir el formulario de corrección.
+                setSeguimiento(null)
+                onCorregirClick(r)
+              }
+            : undefined
+        }
       />
     </>
   )

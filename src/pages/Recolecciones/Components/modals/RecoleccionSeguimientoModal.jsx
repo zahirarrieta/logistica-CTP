@@ -1,6 +1,6 @@
 import {
   MdClose, MdTag, MdMap, MdFileOpen, MdReceipt, MdCancel, MdDirectionsCar,
-  MdAssignmentReturn, MdReportProblem,
+  MdAssignmentReturn, MdReportProblem, MdCheck,
 } from 'react-icons/md'
 import Modal from '../../../../components/Modal.jsx'
 import { getRecoleccionBadge } from '../../../../utils/estadoRecoleccion.js'
@@ -27,13 +27,30 @@ const ICONOS_POR_ESTADO = {
 
 // Seguimiento de una recolección: la misma pista animada del seguimiento de las
 // solicitudes (la imagen del estado viaja por la vía con líneas en movimiento).
-export default function RecoleccionSeguimientoModal({ open, recoleccion, onClose }) {
+export default function RecoleccionSeguimientoModal({ open, recoleccion, onClose, onCorregir }) {
   if (!open || !recoleccion) return null
 
   const estado = recoleccion.estado || 'Abierto'
   const imagen = IMAGENES_POR_ESTADO[estado]
   const IconoEstado = ICONOS_POR_ESTADO[estado] || MdDirectionsCar
   const badge = getRecoleccionBadge(estado)
+
+  // Devolución: se muestra el MISMO panel que en el seguimiento de solicitudes
+  // (incluido el icono de «Devolución a Solicitante») y, cuando quien mira es el
+  // dueño, el botón para corregir y reenviar. El motivo viaja codificado en la
+  // nota del historial con el formato «[CORREGIR: A, B] texto».
+  const devolucion =
+    estado === 'Devolución a Solicitante'
+      ? [...(Array.isArray(recoleccion.historial) ? recoleccion.historial : [])]
+          .reverse()
+          .find((h) => h?.campo === 'estado' && h.nuevo === 'Devolución a Solicitante') || null
+      : null
+  const crudoMotivo = String(devolucion?.nota || '')
+  const coincide = /^\[CORREGIR:\s*([^\]]*)\]\s*/.exec(crudoMotivo)
+  const etiquetasCorregir = coincide
+    ? coincide[1].split(',').map((s) => s.trim()).filter(Boolean)
+    : []
+  const textoMotivo = coincide ? crudoMotivo.slice(coincide[0].length).trim() : crudoMotivo.trim()
 
   return (
     <Modal onClose={onClose}>
@@ -101,6 +118,50 @@ export default function RecoleccionSeguimientoModal({ open, recoleccion, onClose
               </span>
             </div>
           </div>
+
+          {devolucion && (
+            <div className="m-4 sm:m-6 rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-4 py-3">
+              <p className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-fuchsia-700">
+                <MdAssignmentReturn className="text-base" />
+                Recolección devuelta para corrección
+              </p>
+              {etiquetasCorregir.length > 0 && (
+                <div className="mt-1.5">
+                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-fuchsia-700/80">
+                    Debes corregir:
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {etiquetasCorregir.map((et) => (
+                      <span
+                        key={et}
+                        className="inline-flex items-center gap-1 rounded-full bg-fuchsia-600/15 ring-1 ring-fuchsia-400/50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-fuchsia-800"
+                      >
+                        <MdCheck className="text-sm" />
+                        {et}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {textoMotivo ? (
+                <p className="mt-1.5 text-sm font-semibold text-fuchsia-900">Motivo: {textoMotivo}</p>
+              ) : (
+                <p className="mt-1.5 text-sm font-medium text-fuchsia-800/80">
+                  El administrador devolvió esta recolección. Revisa los datos y vuelve a enviarla.
+                </p>
+              )}
+              {onCorregir && (
+                <button
+                  type="button"
+                  onClick={() => onCorregir(recoleccion)}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full bg-fuchsia-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-fuchsia-700 hover:-translate-y-0.5 transition-all"
+                >
+                  <MdAssignmentReturn className="text-lg" />
+                  Corregir y reenviar
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Modal>

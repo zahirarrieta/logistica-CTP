@@ -224,6 +224,18 @@ export async function cambiarEstadoRecoleccion(codigo, estado, nota = '', extra 
   return sincronizarRecolecciones(codigo)
 }
 
+// Corrección tras una devolución (espejo de corregirSolicitud): actualiza los
+// campos editables, deja la recolección otra vez en «Abierto» y lo anota en el
+// historial. Solo el dueño llega aquí; el servidor es quien valida ese permiso.
+export async function corregirRecoleccion(codigo, campos = {}) {
+  await actualizarRecoleccion(codigo, {
+    ...campos,
+    estado: 'Abierto',
+    nota: 'RECOLECCIÓN CORREGIDA Y REENVIADA POR EL SOLICITANTE',
+  })
+  return sincronizarRecolecciones(codigo)
+}
+
 export async function asignarRecoleccion(codigo, asignadoA, asignadoCorreo) {
   await actualizarRecoleccion(codigo, {
     asignado_a: asignadoA,

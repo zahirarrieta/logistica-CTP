@@ -901,7 +901,8 @@ router.post(
 // El alta lleva los adjuntos en la MISMA petición (multipart) porque el código
 // lo genera el servidor: así no hace falta reservar antes ni tocar el servicio
 // de archivos de las solicitudes, y el archivo queda bajo
-// {usuario}/Rec-00001/. La tabla se crea sola en el primer uso, igual que
+// recolecciones/{solicitante}/Rec-00001/. La tabla se crea sola en el primer
+// uso, igual que
 // inventario, push_suscripciones y correos_enviados: un hosting ya desplegado no
 // necesita pegar SQL.
 let recoleccionesCreado = false
@@ -1242,11 +1243,16 @@ router.post(
       )
 
       // La carpeta de la recolección se crea aunque no se suba ningún adjunto: es
-      // donde después se guardan la guía de transporte y la evidencia de entrega,
+      // donde después se guardan la guía de transporte y el documento de entrega,
       // y así queda lista desde el alta para que el operador guarde información.
-      archivos.crearCarpeta(`${usuario}/${codigo}`)
+      // Vive bajo `recolecciones/<solicitante>/<codigo>` (mismo criterio que
+      // carpetaUsuario) para que todo lo de la recolección quede junto y separado
+      // de las solicitudes.
+      const duenio = String(datos.nombre_completo || usuario).trim()
+      const carpetaRec = `recolecciones/${duenio}/${codigo}`
+      archivos.crearCarpeta(carpetaRec)
       for (const f of enviados) {
-        rutas.push(archivos.guardar(`${usuario}/${codigo}`, nombreAdjuntoRec(f.originalname), f.buffer))
+        rutas.push(archivos.guardar(carpetaRec, nombreAdjuntoRec(f.originalname), f.buffer))
       }
 
       const fila = {
@@ -1314,9 +1320,16 @@ router.put(
       return res.status(403).json({ error: 'No autorizado' })
     }
     // Cambiar el estado: un privilegiado, o el conductor asignado sobre su propia
-    // recogida (desde el tab «Recogidas»). El dueño de la recolección no cambia el
-    // estado, igual que antes.
-    if (tiene('estado') && !esPrivilegiado && !conductorAsignado) {
+    // recogida (desde el tab «Recogidas»). El dueño no cambia el estado salvo para
+    // REENVIAR su recolección devuelta: cuando está en «Devolución a Solicitante»
+    // puede corregir los datos y volver a dejarla en «Abierto», igual que en las
+    // solicitudes. Cualquier otro destino sigue vetado para él.
+    const esDueno =
+      Boolean(String(ctx.correo || '').trim()) &&
+      String(actual.correo || '').trim().toLowerCase() === String(ctx.correo || '').trim().toLowerCase()
+    const reenviaDevuelta =
+      esDueno && actual.estado === 'Devolución a Solicitante' && cuerpo.estado === 'Abierto'
+    if (tiene('estado') && !esPrivilegiado && !conductorAsignado && !reenviaDevuelta) {
       return res.status(403).json({ error: 'No autorizado' })
     }
     // Un conductor solo mueve el estado (y su nota) de su recogida: se ignora
@@ -2291,6 +2304,33 @@ function codigoDeRuta(ruta) {
 // del cliente, así que no se puede falsear. En la reserva inicial la fila aún no
 // existe y quien crea ES el solicitante, así que se usa su nombre de sesión.
 async function carpetaUsuario(codigoSolicitud, ctx) {
+  // Las recolecciones viven bajo su propia raíz (`recolecciones/<solicitante>/…`)
+  // para que sus guías y documentos de entrega no se revuelvan con los adjuntos
+  // de las solicitudes NI caigan en la carpeta de quien sube el archivo (p. ej.
+  // el admin que gestiona el trámite). El dueño se resuelve del servidor, nunca
+  // del cliente. Antes esto caía al nombre de la sesión y generaba dos rutas
+  // distintas para la misma recolección.
+  if (/^Rec-/i.test(String(codigoSolicitud || ''))) {
+    const [[rec]] = await pool.execute(
+      'SELECT nombre_completo, correo FROM recolecciones WHERE codigo = ? LIMIT 1',
+      [codigoSolicitud]
+    )
+    if (rec) {
+      const nombre = String(rec.nombre_completo || '').trim()
+      if (nombre) return `recolecciones/${nombre}`
+      const correo = String(rec.correo || '').trim()
+      if (correo) {
+        const [[usuario]] = await pool.execute(
+          'SELECT nombre FROM usuarios WHERE correo = ? LIMIT 1',
+          [correo]
+        )
+        if (usuario && usuario.nombre) return `recolecciones/${usuario.nombre}`
+      }
+    }
+    const propio = String(ctx.nombre || '').trim()
+    return propio ? `recolecciones/${propio}` : 'recolecciones'
+  }
+
   const [[fila]] = await pool.execute(
     'SELECT solicitante_nombre, solicitante_correo FROM solicitudes WHERE codigo = ? LIMIT 1',
     [codigoSolicitud]
