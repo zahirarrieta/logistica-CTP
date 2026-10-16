@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+﻿import { useMemo, useRef, useState } from 'react'
 import {
   MdInsights,
   MdInbox,
@@ -68,10 +68,10 @@ const MESES = [
 ]
 
 export default function RecoleccionesDashboard({
-  recolecciones = [],
+  recolecciones: todasRecolecciones = [],
   onFilterMes,
   onFilterAno,
-  titulo = 'Panel de control de recolecciones',
+  titulo = 'Panel de control de recoleccionesFiltradas',
   subtitulo,
   puedeExportar = true,
 }) {
@@ -81,22 +81,38 @@ export default function RecoleccionesDashboard({
   const [mesFiltro, setMesFiltro] = useState('')
   const [anoFiltro, setAnoFiltro] = useState('')
 
-  const r = useMemo(() => resumenRecolecciones(recolecciones), [recolecciones])
-  const asignados = useMemo(() => porAsignadoRec(recolecciones), [recolecciones])
-  const conductores = useMemo(() => porConductorRec(recolecciones), [recolecciones])
-  const zonas = useMemo(() => porZonaRec(recolecciones), [recolecciones])
-  const tipos = useMemo(() => porTipoServicio(recolecciones), [recolecciones])
-  const clientes = useMemo(() => topClientesRec(recolecciones, 8), [recolecciones])
-  const semana = useMemo(() => porDiaSemanaRec(recolecciones), [recolecciones])
-  const franjas = useMemo(() => porFranjaRec(recolecciones), [recolecciones])
-  const actividad = useMemo(() => seriesPorDiaRec(recolecciones, 14), [recolecciones])
-  const etapas = useMemo(() => tiempoPorEstadoRec(recolecciones), [recolecciones])
-  const tiempos = useMemo(() => histogramaTiemposRec(recolecciones), [recolecciones])
-  const lentos = useMemo(() => lentosActivosRec(recolecciones, 48), [recolecciones])
+  const recoleccionesFiltradas = useMemo(() => {
+    if (!mesFiltro && !anoFiltro) return todasRecolecciones
+    return todasRecolecciones.filter((rec) => {
+      const partes = String(rec.fecha_subida || '').split(/[/\-.]/)
+      if (partes.length !== 3) return false
+      const d = Number(partes[0])
+      const m = Number(partes[1])
+      let y = Number(partes[2])
+      if (!d || !m || !y) return false
+      if (y < 100) y = y >= 50 ? 1900 + y : 2000 + y
+      if (mesFiltro && m !== Number(mesFiltro)) return false
+      if (anoFiltro && y !== Number(anoFiltro)) return false
+      return true
+    })
+  }, [todasRecolecciones, mesFiltro, anoFiltro])
+
+  const r = useMemo(() => resumenRecolecciones(recoleccionesFiltradas), [recoleccionesFiltradas])
+  const asignados = useMemo(() => porAsignadoRec(recoleccionesFiltradas), [recoleccionesFiltradas])
+  const conductores = useMemo(() => porConductorRec(recoleccionesFiltradas), [recoleccionesFiltradas])
+  const zonas = useMemo(() => porZonaRec(recoleccionesFiltradas), [recoleccionesFiltradas])
+  const tipos = useMemo(() => porTipoServicio(recoleccionesFiltradas), [recoleccionesFiltradas])
+  const clientes = useMemo(() => topClientesRec(recoleccionesFiltradas, 8), [recoleccionesFiltradas])
+  const semana = useMemo(() => porDiaSemanaRec(recoleccionesFiltradas), [recoleccionesFiltradas])
+  const franjas = useMemo(() => porFranjaRec(recoleccionesFiltradas), [recoleccionesFiltradas])
+  const actividad = useMemo(() => seriesPorDiaRec(recoleccionesFiltradas, 14), [recoleccionesFiltradas])
+  const etapas = useMemo(() => tiempoPorEstadoRec(recoleccionesFiltradas), [recoleccionesFiltradas])
+  const tiempos = useMemo(() => histogramaTiemposRec(recoleccionesFiltradas), [recoleccionesFiltradas])
+  const lentos = useMemo(() => lentosActivosRec(recoleccionesFiltradas, 48), [recoleccionesFiltradas])
 
   const anosDisponibles = useMemo(() => {
     const anos = new Set()
-    for (const rec of recolecciones) {
+    for (const rec of todasRecolecciones) {
       const partes = String(rec.fecha_subida || '').split(/[/\-.]/)
       if (partes.length !== 3) continue
       let y = Number(partes[2])
@@ -105,43 +121,43 @@ export default function RecoleccionesDashboard({
       anos.add(y)
     }
     return [...anos].sort((a, b) => b - a)
-  }, [recolecciones])
+  }, [todasRecolecciones])
 
   const fila = (rec) => ({
     id: rec.codigo,
-    cliente: rec.recoge_cliente || '—',
-    zona: rec.zona || '—',
+    cliente: rec.recoge_cliente || 'â€”',
+    zona: rec.zona || 'â€”',
     estado: rec.estado || 'Abierto',
     fechaHora: `${rec.fecha_subida || ''} ${rec.hora_subida || ''}`.trim(),
   })
 
   const abrirLista = (titulo, listaRec) => setLista({ titulo, items: listaRec.map(fila) })
-  const abrirDetalle = (id) => setDetalle(recolecciones.find((rec) => rec.codigo === id) || null)
+  const abrirDetalle = (id) => setDetalle(recoleccionesFiltradas.find((rec) => rec.codigo === id) || null)
 
   const descargarPdf = async () => {
     try {
       await exportarPdf(informeRef.current, 'Informe_recolecciones')
     } catch (error) {
-      console.warn('[Dashboard recolecciones] no se pudo exportar el PDF:', error)
+      console.warn('[Dashboard recoleccionesFiltradas] no se pudo exportar el PDF:', error)
     }
   }
 
   const descargarExcel = () => {
     try {
-      exportarExcelRecolecciones(recolecciones)
+      exportarExcelRecolecciones(recoleccionesFiltradas)
     } catch (error) {
-      console.warn('[Dashboard recolecciones] no se pudo exportar el Excel:', error)
+      console.warn('[Dashboard recoleccionesFiltradas] no se pudo exportar el Excel:', error)
     }
   }
 
-  if (recolecciones.length === 0) {
+  if (recoleccionesFiltradas.length === 0) {
     return (
       <div className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-6 py-16 text-center">
         <div className="mx-auto grid place-items-center size-16 rounded-2xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 mb-4">
           <MdInsights className="text-3xl" />
         </div>
-        <p className="text-lg font-extrabold text-brand-ink">Aún no hay datos para mostrar</p>
-        <p className="text-sm text-brand-ink/50 mt-1">El dashboard se llenará cuando haya recolecciones registradas.</p>
+        <p className="text-lg font-extrabold text-brand-ink">AÃºn no hay datos para mostrar</p>
+        <p className="text-sm text-brand-ink/50 mt-1">El dashboard se llenarÃ¡ cuando haya recoleccionesFiltradas registradas.</p>
       </div>
     )
   }
@@ -188,9 +204,9 @@ export default function RecoleccionesDashboard({
                 value={anoFiltro}
                 onChange={handleAnoChange}
                 className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
-                title="Filtrar por año"
+                title="Filtrar por aÃ±o"
               >
-                <option value="">Todos los años</option>
+                <option value="">Todos los aÃ±os</option>
                 {anosDisponibles.map((a) => (
                   <option key={a} value={a}>{a}</option>
                 ))}
@@ -223,52 +239,52 @@ export default function RecoleccionesDashboard({
           <Kpi
             icon={<MdInbox />}
             accent="bg-gradient-to-br from-brand-navy to-brand-deep"
-            label="Total recolecciones"
+            label="Total recoleccionesFiltradas"
             value={r.total}
-            onClick={() => abrirLista('Todas las recolecciones', recolecciones)}
+            onClick={() => abrirLista('Todas las recoleccionesFiltradas', recoleccionesFiltradas)}
           />
           <Kpi
             icon={<MdPendingActions />}
             accent="bg-gradient-to-br from-brand-deep to-brand-cyan"
             label="Activas"
             value={r.activas}
-            sub={`${r.enTransito} en tránsito`}
-            onClick={() => abrirLista('Recolecciones activas', recolecciones.filter(esActivaRec))}
+            sub={`${r.enTransito} en trÃ¡nsito`}
+            onClick={() => abrirLista('recoleccionesFiltradas activas', recoleccionesFiltradas.filter(esActivaRec))}
           />
           <Kpi
             icon={<MdAssignmentInd />}
             accent="bg-gradient-to-br from-blue-500 to-sky-400"
-            label="En trámite"
+            label="En trÃ¡mite"
             value={r.enTramite}
-            onClick={() => abrirLista('Recolecciones en trámite', recolecciones.filter((rec) => (rec.estado || '') === 'En Trámite'))}
+            onClick={() => abrirLista('recoleccionesFiltradas en trÃ¡mite', recoleccionesFiltradas.filter((rec) => (rec.estado || '') === 'En TrÃ¡mite'))}
           />
           <Kpi
             icon={<MdLocalShipping />}
             accent="bg-gradient-to-br from-purple-500 to-fuchsia-400"
-            label="En tránsito"
+            label="En trÃ¡nsito"
             value={r.enTransito}
-            onClick={() => abrirLista('Recolecciones en tránsito', recolecciones.filter((rec) => ESTADOS_TRANSITO_REC.includes(rec.estado || '')))}
+            onClick={() => abrirLista('recoleccionesFiltradas en trÃ¡nsito', recoleccionesFiltradas.filter((rec) => ESTADOS_TRANSITO_REC.includes(rec.estado || '')))}
           />
           <Kpi
             icon={<MdCheckCircle />}
             accent="bg-gradient-to-br from-green-500 to-emerald-400"
             label="Entregadas"
             value={r.entregadas}
-            onClick={() => abrirLista('Recolecciones entregadas', recolecciones.filter((rec) => (rec.estado || '') === 'Entregado'))}
+            onClick={() => abrirLista('recoleccionesFiltradas entregadas', recoleccionesFiltradas.filter((rec) => (rec.estado || '') === 'Entregado'))}
           />
           <Kpi
             icon={<MdBlock />}
             accent="bg-gradient-to-br from-slate-500 to-slate-400"
             label="Canceladas"
             value={r.canceladas}
-            onClick={() => abrirLista('Recolecciones canceladas', recolecciones.filter((rec) => (rec.estado || '') === 'Cancelado'))}
+            onClick={() => abrirLista('recoleccionesFiltradas canceladas', recoleccionesFiltradas.filter((rec) => (rec.estado || '') === 'Cancelado'))}
           />
           <Kpi
             icon={<MdErrorOutline />}
             accent="bg-gradient-to-br from-rose-700 to-rose-500"
             label="Fallidas"
             value={r.fallidas}
-            onClick={() => abrirLista('Recolecciones fallidas', recolecciones.filter((rec) => (rec.estado || '') === 'Fallido'))}
+            onClick={() => abrirLista('recoleccionesFiltradas fallidas', recoleccionesFiltradas.filter((rec) => (rec.estado || '') === 'Fallido'))}
           />
           <Kpi
             icon={<MdTrendingUp />}
@@ -276,7 +292,7 @@ export default function RecoleccionesDashboard({
             label="Cumplimiento"
             value={`${cumplimiento}%`}
             sub={`${r.entregadas + r.canceladas} de ${r.total}`}
-            onClick={() => abrirLista('Recolecciones resueltas (entregadas + canceladas)', recolecciones.filter((rec) => ESTADOS_CERRADOS_REC.includes(rec.estado || '')))}
+            onClick={() => abrirLista('recoleccionesFiltradas resueltas (entregadas + canceladas)', recoleccionesFiltradas.filter((rec) => ESTADOS_CERRADOS_REC.includes(rec.estado || '')))}
           />
           <Kpi
             icon={<MdAccessTime />}
@@ -284,30 +300,30 @@ export default function RecoleccionesDashboard({
             label="Tiempo promedio"
             value={formatHoras(r.tiempos.promedio)}
             sub={`${r.tiempos.cantidad} con entrega`}
-            onClick={() => abrirLista('Recolecciones entregadas', recolecciones.filter((rec) => (rec.estado || '') === 'Entregado'))}
+            onClick={() => abrirLista('recoleccionesFiltradas entregadas', recoleccionesFiltradas.filter((rec) => (rec.estado || '') === 'Entregado'))}
           />
           <Kpi
             icon={<MdDescription />}
             accent="bg-gradient-to-br from-indigo-500 to-violet-400"
-            label="Con guía de transporte"
+            label="Con guÃ­a de transporte"
             value={r.conGuia}
-            onClick={() => abrirLista('Recolecciones con guía de transporte', recolecciones.filter((rec) => guiasRecoleccion(rec).length > 0))}
+            onClick={() => abrirLista('recoleccionesFiltradas con guÃ­a de transporte', recoleccionesFiltradas.filter((rec) => guiasRecoleccion(rec).length > 0))}
           />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          <Seccion icon={<MdDonutLarge />} titulo="Recolecciones por estado">
+          <Seccion icon={<MdDonutLarge />} titulo="recoleccionesFiltradas por estado">
             <Donut porEstado={r.porEstado} total={r.total} />
           </Seccion>
-          <Seccion icon={<MdAssignmentInd />} titulo="Quién las tiene">
+          <Seccion icon={<MdAssignmentInd />} titulo="QuiÃ©n las tiene">
             <div className="max-h-80 overflow-y-auto [scrollbar-width:thin] pr-1">
               <BarrasAsignado
                 items={asignados}
-                hint="Ver las recolecciones asignadas"
+                hint="Ver las recoleccionesFiltradas asignadas"
                 onClick={(i) =>
                   abrirLista(
-                    `Recolecciones de ${i.nombre}`,
-                    recolecciones.filter((rec) => (String(rec.asignado_a || '').trim() || 'Sin asignar') === i.nombre)
+                    `recoleccionesFiltradas de ${i.nombre}`,
+                    recoleccionesFiltradas.filter((rec) => (String(rec.asignado_a || '').trim() || 'Sin asignar') === i.nombre)
                   )
                 }
               />
@@ -315,7 +331,7 @@ export default function RecoleccionesDashboard({
           </Seccion>
         </div>
 
-        <Seccion icon={<MdBarChart />} titulo="Actividad últimos 14 días">
+        <Seccion icon={<MdBarChart />} titulo="Actividad Ãºltimos 14 dÃ­as">
           <div className="mb-3">
             <EstadoMargen />
           </div>
@@ -327,19 +343,19 @@ export default function RecoleccionesDashboard({
         </Seccion>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          <Seccion icon={<MdToday />} titulo="Recolecciones por día de la semana">
+          <Seccion icon={<MdToday />} titulo="recoleccionesFiltradas por dÃ­a de la semana">
             <Histograma items={semana.map((d) => ({ key: d.dia, label: d.nombre, count: d.count, color: '#003B73' }))} />
           </Seccion>
-          <Seccion icon={<MdAccessTime />} titulo="Franja horaria de creación">
+          <Seccion icon={<MdAccessTime />} titulo="Franja horaria de creaciÃ³n">
             <Histograma items={franjas.map((f) => ({ key: f.key, label: `${f.label} ${f.rango}`, count: f.count, color: f.color }))} />
           </Seccion>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          <Seccion icon={<MdLocationPin />} titulo="Recolecciones por zona">
+          <Seccion icon={<MdLocationPin />} titulo="recoleccionesFiltradas por zona">
             <BarrasH items={zonas.map((z) => ({ nombre: z.nombre, valor: z.count }))} />
           </Seccion>
-          <Seccion icon={<MdCategory />} titulo="Recolecciones por tipo de servicio">
+          <Seccion icon={<MdCategory />} titulo="recoleccionesFiltradas por tipo de servicio">
             <BarrasH items={tipos.map((t) => ({ nombre: t.nombre, valor: t.count }))} colorHex="#3B82F6" />
           </Seccion>
         </div>
@@ -359,13 +375,13 @@ export default function RecoleccionesDashboard({
             <BarrasH
               items={etapas.map((e) => ({ nombre: e.estado, valor: e.promedio, n: e.n }))}
               colorHex="#0EA5E9"
-              formato={(i) => `${formatHoras(i.valor)} · ${i.n ?? 0} ${i.n === 1 ? 'caso' : 'casos'}`}
-              hint="Ver las recolecciones que estuvieron en esta etapa"
+              formato={(i) => `${formatHoras(i.valor)} Â· ${i.n ?? 0} ${i.n === 1 ? 'caso' : 'casos'}`}
+              hint="Ver las recoleccionesFiltradas que estuvieron en esta etapa"
               onClick={(i) => {
                 const etapa = etapas.find((e) => e.estado === i.nombre)
                 if (!etapa) return
                 setLista({
-                  titulo: `Recolecciones en «${etapa.estado}»`,
+                  titulo: `recoleccionesFiltradas en Â«${etapa.estado}Â»`,
                   items: etapa.pedidos.map((p) => ({ id: p.id, cliente: p.cliente, zona: p.zona, estado: etapa.estado, fechaHora: p.entro })),
                 })
               }}
@@ -375,7 +391,7 @@ export default function RecoleccionesDashboard({
             <BarrasH
               items={conductores.map((c) => ({ nombre: c.nombre, valor: c.total, entregados: c.entregados }))}
               colorHex="#A855F7"
-              formato={(i) => `${i.valor} · ${i.entregados} entregadas`}
+              formato={(i) => `${i.valor} Â· ${i.entregados} entregadas`}
             />
           </Seccion>
         </div>
@@ -384,9 +400,9 @@ export default function RecoleccionesDashboard({
           <Seccion icon={<MdBusiness />} titulo="Top clientes">
             <BarrasH items={clientes.map((c) => ({ nombre: c.nombre, valor: c.count }))} colorHex="#F97316" />
           </Seccion>
-          <Seccion icon={<MdWarning />} titulo="Requerir atención (activas > 2 días)">
+          <Seccion icon={<MdWarning />} titulo="Requerir atenciÃ³n (activas > 2 dÃ­as)">
             {lentos.length === 0 ? (
-              <p className="text-sm text-brand-ink/50">Sin recolecciones activas con más de 2 días. ¡Todo va al día!</p>
+              <p className="text-sm text-brand-ink/50">Sin recoleccionesFiltradas activas con mÃ¡s de 2 dÃ­as. Â¡Todo va al dÃ­a!</p>
             ) : (
               <div className="space-y-2">
                 {lentos.map((x) => (
@@ -398,7 +414,7 @@ export default function RecoleccionesDashboard({
                     title={`Ver detalle de ${x.id}`}
                   >
                     <span className="shrink-0 font-extrabold text-brand-deep">{x.id}</span>
-                    <span className="min-w-0 flex-1 truncate text-brand-ink/80">{x.cliente || '—'} <span className="text-brand-ink/40">· {x.zona || '—'}</span></span>
+                    <span className="min-w-0 flex-1 truncate text-brand-ink/80">{x.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {x.zona || 'â€”'}</span></span>
                     <span className={`hidden sm:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(x.estado)}`}>{x.estado}</span>
                     <span className="shrink-0 font-extrabold text-red-600 tabular-nums">{formatHoras(x.horas)}</span>
                   </button>
@@ -408,7 +424,7 @@ export default function RecoleccionesDashboard({
           </Seccion>
         </div>
 
-        <Seccion icon={<MdTimeline />} titulo="Tiempos de entrega (desde la creación hasta la entrega)">
+        <Seccion icon={<MdTimeline />} titulo="Tiempos de entrega (desde la creaciÃ³n hasta la entrega)">
           <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 mb-6">
             <div className="rounded-xl bg-brand-mist/60 ring-1 ring-brand-ink/5 p-3">
               <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-ink/50">
@@ -424,7 +440,7 @@ export default function RecoleccionesDashboard({
             </div>
             <div className="rounded-xl bg-brand-mist/60 ring-1 ring-brand-ink/5 p-3">
               <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-ink/50">
-                <MdLocalShipping /> Máximo
+                <MdLocalShipping /> MÃ¡ximo
               </span>
               <span className="block text-xl font-extrabold text-brand-ink mt-1">{formatHoras(r.tiempos.max)}</span>
             </div>
@@ -432,13 +448,13 @@ export default function RecoleccionesDashboard({
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="min-w-0">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Distribución por rango</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">DistribuciÃ³n por rango</h3>
               <Histograma items={tiempos.buckets} />
             </div>
             <div className="min-w-0">
               <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Promedio por responsable</h3>
               {tiempos.promedioPorNombre.length === 0 ? (
-                <p className="text-sm text-brand-ink/50">Aún no hay entregas con tiempo medible</p>
+                <p className="text-sm text-brand-ink/50">AÃºn no hay entregas con tiempo medible</p>
               ) : (
                 <div className="space-y-2.5">
                   {tiempos.promedioPorNombre.slice(0, 8).map((p) => {
@@ -462,7 +478,7 @@ export default function RecoleccionesDashboard({
 
           {tiempos.ultimasEntregas.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Últimas entregas</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Ãšltimas entregas</h3>
               <div className="rounded-xl border border-brand-ink/10 max-h-80 overflow-y-auto [scrollbar-width:thin]">
                 {tiempos.ultimasEntregas.map((e, i) => (
                   <button
@@ -473,7 +489,7 @@ export default function RecoleccionesDashboard({
                     title={`Ver detalle de ${e.id}`}
                   >
                     <span className="shrink-0 font-extrabold text-brand-deep">{e.id}</span>
-                    <span className="min-w-0 flex-1 truncate text-brand-ink/80">{e.cliente || '—'} <span className="text-brand-ink/40">· {e.zona || '—'}</span></span>
+                    <span className="min-w-0 flex-1 truncate text-brand-ink/80">{e.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {e.zona || 'â€”'}</span></span>
                     <span className={`hidden sm:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(e.estado)}`}>{e.estado}</span>
                     <span className="shrink-0 font-extrabold text-brand-ink tabular-nums">{formatHoras(e.horas)}</span>
                     <MdChevronRight className="shrink-0 text-brand-deep/40" />
@@ -484,9 +500,9 @@ export default function RecoleccionesDashboard({
           )}
         </Seccion>
 
-        <Seccion icon={<MdList />} titulo={`Recolecciones (${recolecciones.length})`}>
+        <Seccion icon={<MdList />} titulo={`recoleccionesFiltradas (${recoleccionesFiltradas.length})`}>
           <div className="rounded-xl border border-brand-ink/10 max-h-[26rem] overflow-y-auto [scrollbar-width:thin]">
-            {recolecciones.map((rec, i) => (
+            {recoleccionesFiltradas.map((rec, i) => (
               <button
                 type="button"
                 key={rec.codigo}
@@ -496,7 +512,7 @@ export default function RecoleccionesDashboard({
               >
                 <span className="shrink-0 font-extrabold text-brand-deep">{rec.codigo}</span>
                 <span className="min-w-0 flex-1 truncate text-brand-ink/80">
-                  {rec.recoge_cliente || '—'} <span className="text-brand-ink/40">· {rec.zona || '—'}</span>
+                  {rec.recoge_cliente || 'â€”'} <span className="text-brand-ink/40">Â· {rec.zona || 'â€”'}</span>
                 </span>
                 <span className={`hidden md:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(rec.estado || 'Abierto')}`}>
                   {rec.estado || 'Abierto'}

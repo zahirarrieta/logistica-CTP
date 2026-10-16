@@ -1,8 +1,9 @@
 {
-  "version": "2026.10.16-81",
+  "version": "2026.10.16-82",
   "fecha": "2026-10-16",
   "cambios": [
-    "Solicitante (modulo Solicitudes): las pestañas ahora dicen «Mis pedidos» y «Mis recolecciones», con iconos.",
-    "Administrador / Mis solicitudes: las sub-pestañas vuelven a «Pedidos» y «Recolecciones»."
+    "Dashboards (conductor, administrador y superadministrador): filtro por mes y año añadido y funcional en los paneles de pedidos (conductor/admin) y recolecciones (admin), incluyendo exportación.",
+    "Administrador: en el tab «Solicitudes» se elimina la sub-pestaña de recolecciones (solo pedidos), ya que no llegarán recolecciones ahí.",
+    "Conductor: el panel de entregas ahora tiene filtro por mes y año."
   ]
 }

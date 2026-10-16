@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import {
   MdInsights,
   MdInbox,
@@ -13,6 +13,7 @@ import {
   MdCategory,
   MdTimeline,
   MdList,
+  MdDateRange,
   MdChevronRight,
   MdBlock,
   MdHistory,
@@ -24,6 +25,7 @@ import {
   seriesPorDia,
   histogramaTiempos,
   formatHoras,
+  parseStamp,
   ESTADOS_FINALES,
   ESTADOS_TRANSITO,
   actividadPorUsuario,
@@ -44,59 +46,89 @@ import {
   EstadoMargen,
 } from '../../Administrador/Components/DashboardTab.jsx'
 
-export default function ConductorDashboard({ solicitudes }) {
+export default function ConductorDashboard({ solicitudes: todas }) {
   const [detalle, setDetalle] = useState(null)
   const [pedidosModal, setPedidosModal] = useState(null)
   const [actividadAbierta, setActividadAbierta] = useState(false)
+  const [mesFiltro, setMesFiltro] = useState('')
+  const [anoFiltro, setAnoFiltro] = useState('')
   const { usuarios } = useUsuarios(true)
   const { account, rol } = useAuth()
   const correoActual = String(account?.username || account?.idTokenClaims?.email || '').trim().toLowerCase()
   const nombreActual = account?.name || ''
-  const r = useMemo(() => resumen(solicitudes), [solicitudes])
-  const zonas = useMemo(() => porZona(solicitudes), [solicitudes])
-  const tipos = useMemo(() => porTipo(solicitudes), [solicitudes])
-  const actividad = useMemo(() => seriesPorDia(solicitudes, 14), [solicitudes])
-  const tiempos = useMemo(() => histogramaTiempos(solicitudes), [solicitudes])
+  const solicitudesFiltradas = useMemo(() => {
+    if (!mesFiltro && !anoFiltro) return todas
+    return todas.filter((s) => {
+      const ts = parseStamp(s.fechaSubida, s.horaSubida)
+      if (!ts) return false
+      const d = new Date(ts)
+      if (mesFiltro && d.getMonth() + 1 !== Number(mesFiltro)) return false
+      if (anoFiltro && d.getFullYear() !== Number(anoFiltro)) return false
+      return true
+    })
+  }, [todas, mesFiltro, anoFiltro])
+
+  const MESES = [
+    { v: 1, n: 'Enero' }, { v: 2, n: 'Febrero' }, { v: 3, n: 'Marzo' },
+    { v: 4, n: 'Abril' }, { v: 5, n: 'Mayo' }, { v: 6, n: 'Junio' },
+    { v: 7, n: 'Julio' }, { v: 8, n: 'Agosto' }, { v: 9, n: 'Septiembre' },
+    { v: 10, n: 'Octubre' }, { v: 11, n: 'Noviembre' }, { v: 12, n: 'Diciembre' },
+  ]
+
+  const anosDisponibles = useMemo(() => {
+    const anos = new Set()
+    for (const s of todas) {
+      const ts = parseStamp(s.fechaSubida, s.horaSubida)
+      if (ts) anos.add(new Date(ts).getFullYear())
+    }
+    return [...anos].sort((a, b) => b - a)
+  }, [todas])
+
+  const r = useMemo(() => resumen(solicitudesFiltradas), [solicitudesFiltradas])
+  const zonas = useMemo(() => porZona(solicitudesFiltradas), [solicitudesFiltradas])
+  const tipos = useMemo(() => porTipo(solicitudesFiltradas), [solicitudesFiltradas])
+  const actividad = useMemo(() => seriesPorDia(solicitudesFiltradas, 14), [solicitudesFiltradas])
+  const tiempos = useMemo(() => histogramaTiempos(solicitudesFiltradas), [solicitudesFiltradas])
   const usuariosActividad = useMemo(() => {
     if (!correoActual) return usuarios
     const ya = usuarios.some((u) => String(u.correo || '').toLowerCase() === correoActual)
     return ya ? usuarios : [...usuarios, { correo: correoActual, nombre: nombreActual, rol }]
   }, [usuarios, correoActual, nombreActual, rol])
   const actividadUsuarios = useMemo(
-    () => actividadPorUsuario(solicitudes, usuariosActividad),
-    [solicitudes, usuariosActividad]
+    () => actividadPorUsuario(solicitudesFiltradas, usuariosActividad),
+    [solicitudesFiltradas, usuariosActividad]
   )
 
-  const abrirDetalle = (id) => setDetalle(solicitudes.find((s) => s.id === id) || null)
+  const abrirDetalle = (id) => setDetalle(solicitudesFiltradas.find((s) => s.id === id) || null)
 
-  // Tarjetas clicables: cada número abre la lista de pedidos que lo compone.
+  // Tarjetas clicables: cada nÃºmero abre la lista de pedidos que lo compone.
   const fila = (s) => ({
     id: s.id,
-    cliente: s.cliente || '—',
-    zona: s.zona || '—',
+    cliente: s.cliente || 'â€”',
+    zona: s.zona || 'â€”',
     estado: s.estado || 'Abierto',
     fechaHora: `${s.fechaSubida || ''} ${s.horaSubida || ''}`.trim(),
   })
   const abrirLista = (titulo, lista) => setPedidosModal({ titulo, items: lista.map(fila) })
 
-  if (solicitudes.length === 0) {
+  if (solicitudesFiltradas.length === 0) {
     return (
       <div className="rounded-3xl bg-white ring-1 ring-brand-ink/10 shadow-sm px-6 py-16 text-center">
         <div className="mx-auto grid place-items-center size-16 rounded-2xl bg-brand-cyan/15 text-brand-deep ring-1 ring-brand-cyan/30 mb-4">
           <MdInsights className="text-3xl" />
         </div>
-        <p className="text-lg font-extrabold text-brand-ink">Aún no hay datos para mostrar</p>
+        <p className="text-lg font-extrabold text-brand-ink">AÃºn no hay datos para mostrar</p>
         <p className="text-sm text-brand-ink/50 mt-1">
-          El dashboard se llenará con las entregas asignadas a ti en tránsito o entregadas.
+          El dashboard se llenarÃ¡ con las entregas asignadas a ti en trÃ¡nsito o entregadas.
         </p>
       </div>
     )
   }
 
   // Un pedido cancelado se considera resuelto (como si se hubiera entregado):
-  // no penaliza el cumplimiento, ya que el pedido dejó de estar activo.
+  // no penaliza el cumplimiento, ya que el pedido dejÃ³ de estar activo.
   const cumplimiento = r.total ? Math.round(((r.entregados + r.cancelados) / r.total) * 100) : 0
-  const enTransitoParcial = solicitudes.filter((s) => (s.estado || '') === 'En Tránsito Parcial').length
+  const enTransitoParcial = solicitudesFiltradas.filter((s) => (s.estado || '') === 'En TrÃ¡nsito Parcial').length
 
   return (
     <>
@@ -110,6 +142,30 @@ export default function ConductorDashboard({ solicitudes }) {
             <p className="text-xs sm:text-sm text-brand-ink/50 mt-1">
               Solo lo asignado a ti en tránsito, entregado o cancelado.
             </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={mesFiltro}
+              onChange={(e) => setMesFiltro(e.target.value)}
+              className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
+              title="Filtrar por mes"
+            >
+              <option value="">Todos los meses</option>
+              {MESES.map((m) => (
+                <option key={m.v} value={m.v}>{m.n}</option>
+              ))}
+            </select>
+            <select
+              value={anoFiltro}
+              onChange={(e) => setAnoFiltro(e.target.value)}
+              className="rounded-xl border border-brand-deep/20 bg-white px-3 py-2 text-sm text-brand-ink shadow-sm focus:border-brand-deep/60 focus:ring-4 focus:ring-brand-deep/10 focus:outline-none transition-all"
+              title="Filtrar por año"
+            >
+              <option value="">Todos los años</option>
+              {anosDisponibles.map((a) => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
           </div>
           <button
             type="button"
@@ -129,18 +185,18 @@ export default function ConductorDashboard({ solicitudes }) {
             accent="bg-gradient-to-br from-brand-navy to-brand-deep"
             label="Total asignados"
             value={r.total}
-            onClick={() => abrirLista('Todos mis pedidos', solicitudes)}
+            onClick={() => abrirLista('Todos mis pedidos', solicitudesFiltradas)}
           />
           <Kpi
             icon={<MdLocalShipping />}
             accent="bg-gradient-to-br from-purple-500 to-fuchsia-400"
-            label="En tránsito"
+            label="En trÃ¡nsito"
             value={r.enTransito}
             sub={`${enTransitoParcial} parcial(es)`}
             onClick={() =>
               abrirLista(
-                'Mis pedidos en tránsito',
-                solicitudes.filter((s) => ESTADOS_TRANSITO.includes(s.estado || ''))
+                'Mis pedidos en trÃ¡nsito',
+                solicitudesFiltradas.filter((s) => ESTADOS_TRANSITO.includes(s.estado || ''))
               )
             }
           />
@@ -153,7 +209,7 @@ export default function ConductorDashboard({ solicitudes }) {
             onClick={() =>
               abrirLista(
                 'Mis pedidos entregados',
-                solicitudes.filter((s) => ESTADOS_FINALES.includes(s.estado || ''))
+                solicitudesFiltradas.filter((s) => ESTADOS_FINALES.includes(s.estado || ''))
               )
             }
           />
@@ -166,7 +222,7 @@ export default function ConductorDashboard({ solicitudes }) {
             onClick={() =>
               abrirLista(
                 'Mis pedidos cancelados',
-                solicitudes.filter((s) => (s.estado || '') === 'Cancelado')
+                solicitudesFiltradas.filter((s) => (s.estado || '') === 'Cancelado')
               )
             }
           />
@@ -179,7 +235,7 @@ export default function ConductorDashboard({ solicitudes }) {
             onClick={() =>
               abrirLista(
                 'Mis pedidos resueltos (entregados + cancelados)',
-                solicitudes.filter(
+                solicitudesFiltradas.filter(
                   (s) => ESTADOS_FINALES.includes(s.estado || '') || (s.estado || '') === 'Cancelado'
                 )
               )
@@ -194,7 +250,7 @@ export default function ConductorDashboard({ solicitudes }) {
             onClick={() =>
               abrirLista(
                 'Mis pedidos entregados (base del tiempo promedio)',
-                solicitudes.filter((s) => ESTADOS_FINALES.includes(s.estado || ''))
+                solicitudesFiltradas.filter((s) => ESTADOS_FINALES.includes(s.estado || ''))
               )
             }
           />
@@ -205,7 +261,7 @@ export default function ConductorDashboard({ solicitudes }) {
           <Seccion icon={<MdDonutLarge />} titulo="Mis pedidos por estado">
             <Donut porEstado={r.porEstado} total={r.total} />
           </Seccion>
-          <Seccion icon={<MdBarChart />} titulo="Actividad últimos 14 días">
+          <Seccion icon={<MdBarChart />} titulo="Actividad Ãºltimos 14 dÃ­as">
             <div className="mb-3">
               <EstadoMargen />
             </div>
@@ -244,20 +300,20 @@ export default function ConductorDashboard({ solicitudes }) {
             </div>
             <div className="rounded-xl bg-brand-mist/60 ring-1 ring-brand-ink/5 p-3">
               <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-brand-ink/50">
-                <MdCheckCircle /> Máximo
+                <MdCheckCircle /> MÃ¡ximo
               </span>
               <span className="block text-xl font-extrabold text-brand-ink mt-1">{formatHoras(r.tiempos.max)}</span>
             </div>
           </div>
 
           <div>
-            <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Distribución por rango</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">DistribuciÃ³n por rango</h3>
             <Histograma items={tiempos.buckets} />
           </div>
 
           {tiempos.ultimasEntregas.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Últimas entregas</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-brand-ink/50 mb-3">Ãšltimas entregas</h3>
               <div className="overflow-hidden rounded-xl border border-brand-ink/10">
                 {tiempos.ultimasEntregas.map((e, i) => (
                   <button
@@ -269,7 +325,7 @@ export default function ConductorDashboard({ solicitudes }) {
                   >
                     <span className="shrink-0 font-extrabold text-brand-deep">{e.id}</span>
                     <span className="min-w-0 flex-1 truncate text-brand-ink/80">
-                      {e.cliente || '—'} <span className="text-brand-ink/40">· {e.zona || '—'}</span>
+                      {e.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {e.zona || 'â€”'}</span>
                     </span>
                     <span className={`hidden sm:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(e.estado)}`}>
                       {e.estado}
@@ -284,9 +340,9 @@ export default function ConductorDashboard({ solicitudes }) {
         </Seccion>
 
         {/* Listado de mis pedidos */}
-        <Seccion icon={<MdList />} titulo={`Mis pedidos (${solicitudes.length})`}>
+        <Seccion icon={<MdList />} titulo={`Mis pedidos (${solicitudesFiltradas.length})`}>
           <div className="overflow-hidden rounded-xl border border-brand-ink/10">
-            {solicitudes.map((s, i) => (
+            {solicitudesFiltradas.map((s, i) => (
               <button
                 type="button"
                 key={s.id}
@@ -296,7 +352,7 @@ export default function ConductorDashboard({ solicitudes }) {
               >
                 <span className="shrink-0 font-extrabold text-brand-deep">{s.id}</span>
                 <span className="min-w-0 flex-1 truncate text-brand-ink/80">
-                  {s.cliente || '—'} <span className="text-brand-ink/40">· {s.zona || '—'}</span>
+                  {s.cliente || 'â€”'} <span className="text-brand-ink/40">Â· {s.zona || 'â€”'}</span>
                 </span>
                 <span className={`hidden md:inline-flex text-[10px] font-extrabold rounded-full px-2 py-0.5 ${getBadgeColor(s.estado || 'Abierto')}`}>
                   {s.estado || 'Abierto'}

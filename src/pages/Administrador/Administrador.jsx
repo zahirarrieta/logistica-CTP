@@ -535,14 +535,16 @@ const esSuper = esSuperAdmin(rol)
             </p>
           ) : (
             <>
-              <SubTabsToggle
-                vista={subVistaActual}
-                onChange={setSubVistaActual}
-                opciones={[
-                  { id: 'pedidos', label: 'Pedidos', Icon: MdInbox, cuenta: baseDelTab.length },
-                  { id: 'recolecciones', label: 'Recolecciones', Icon: MdStorefront, cuenta: baseRecoDelTab.length },
-                ]}
-              />
+              {(esSuper || tab !== 'solicitudes') && (
+                <SubTabsToggle
+                  vista={subVistaActual}
+                  onChange={setSubVistaActual}
+                  opciones={[
+                    { id: 'pedidos', label: 'Pedidos', Icon: MdInbox, cuenta: baseDelTab.length },
+                    { id: 'recolecciones', label: 'Recolecciones', Icon: MdStorefront, cuenta: baseRecoDelTab.length },
+                  ]}
+                />
+              )}
               {subVistaActual === 'recolecciones' ? (
                 <>
               {baseRecoDelTab.length > 0 && (
