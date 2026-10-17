@@ -1,8 +1,8 @@
 {
-  "version": "2026.10.16-84",
+  "version": "2026.10.16-85",
   "fecha": "2026-10-16",
   "cambios": [
-    "Corrección de textos: los dashboards de Administrador, Superadmin (pedidos y recolecciones) y Conductor mostraban las palabras con caracteres dañados («aÃ±o», «trÃ¡nsito», «satisfacciÃ³n», «QuiÃ©n los tiene», «â€”»), que se leían como si estuvieran en portugués. Todos los textos vuelven a verse en español.",
-    "El archivo de estilos también tenía dos comentarios con el mismo daño de codificación; se corrigieron."
+    "Nueva recolección: el botón «GUARDAR» permanece deshabilitado hasta completar todos los campos obligatorios (incluidos el responsable y la declaración del Reglamento).",
+    "Botón de recolección en el inicio: ahora usa la imagen RecoleccionI.png con la misma animación que el botón «Nuevo pedido»."
   ]
 }

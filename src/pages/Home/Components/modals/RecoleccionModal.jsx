@@ -618,6 +618,10 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
   // Los campos se pintan en rojo solo después de intentar guardar.
   const falta = (campo) => errores.includes(campo)
   const faltanEn = (campos) => campos.some(falta)
+  // El botón de guardar permanece deshabilitado hasta completar todos los campos
+  // obligatorios (incluidos responsable y declaración). Así se evita intentar
+  // guardar y recibir el listado de faltantes.
+  const puedeGuardar = validar().length === 0
 
   if (!open) return null
 
@@ -1169,7 +1173,8 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !puedeGuardar}
+                title={puedeGuardar ? undefined : 'Completa los campos obligatorios para guardar'}
                 className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
               >
                 <MdStorefront className="text-lg" />
