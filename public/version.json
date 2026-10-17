@@ -1,8 +1,7 @@
 {
-  "version": "2026.10.16-86",
+  "version": "2026.10.16-87",
   "fecha": "2026-10-16",
   "cambios": [
-    "Modal de nueva recolección: el botón «GUARDAR» ahora muestra la imagen RecoleccionI.png (ya no un icono) con la misma animación que el botón de nuevo pedido.",
-    "Inicio (Home): los botones «Nuevo pedido» y «Recolección» ya no se recortan ni quedan tapados por el footer en portátiles de pantalla baja. El hero pasa a usar flex-1 igual que el Login."
+    "Modal de nueva solicitud: el botón «GUARDAR» permanece deshabilitado hasta completar todos los campos obligatorios, igual que en el modal de nueva recolección."
   ]
 }

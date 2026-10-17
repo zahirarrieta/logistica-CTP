@@ -346,9 +346,10 @@ useEffect(() => {
     onClose()
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-
+  // Campos obligatorios según el tipo de solicitud. Se usa a la vez para validar
+  // al guardar y para mantener el botón de guardar deshabilitado hasta que toda
+  // la información esté completa (igual que en Nueva Recolección).
+  const calcularFaltantes = () => {
     const esAdministrativa = (formData.tipoSolicitud || '').trim().toUpperCase() === 'ADMINISTRATIVA'
     const esVentaDirecta = (formData.tipoSolicitud || '').trim().toUpperCase() === 'VENTA DIRECTA'
     const esTomaInventario = (formData.tipoSolicitud || '').trim().toUpperCase() === 'TOMA DE INVENTARIO'
@@ -380,13 +381,19 @@ useEffect(() => {
       obligatorios.push({ campo: 'ordenCompra', etiqueta: 'N° orden de compra' })
     }
 
-    const faltantes = obligatorios
+    return obligatorios
       .filter((f) => {
         const v = formData[f.campo]
         if (Array.isArray(v)) return v.length === 0
         return !v || `${v}`.trim() === ''
       })
       .map((f) => f.etiqueta)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+
+    const faltantes = calcularFaltantes()
 
     if (faltantes.length > 0) {
       setErrores(faltantes)
@@ -509,6 +516,9 @@ useEffect(() => {
   const esTomaInventario = (formData.tipoSolicitud || '').trim().toUpperCase() === 'TOMA DE INVENTARIO'
   // El adjunto es opcional en ADMINISTRATIVA y en TOMA DE INVENTARIO.
   const adjuntoOpcional = esAdministrativa || esTomaInventario
+  // El botón de guardar permanece deshabilitado hasta que toda la información
+  // obligatoria esté completa (mismo comportamiento que Nueva Recolección).
+  const puedeGuardar = calcularFaltantes().length === 0
 
   return (
     <>
@@ -931,7 +941,8 @@ useEffect(() => {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !puedeGuardar}
+              title={puedeGuardar ? undefined : 'Completa los campos obligatorios para guardar'}
               className="group inline-flex items-center rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
               <img
