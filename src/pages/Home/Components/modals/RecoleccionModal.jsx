@@ -17,6 +17,7 @@ import { cargarClientes } from '../../../../services/solicitudesApi.js'
 import { subirAdjuntos } from '../../../../services/archivosApi.js'
 import { recoleccionCreada, errorRecoleccion } from '../../../../services/notificaciones.jsx'
 import { registrarRecoleccionCreada, corregirRecoleccion } from '../../../../store/recoleccionesStore.js'
+import RecoleccionIcon from '../../../Recolecciones/ImagenICO/RecoleccionI.png'
 
 function formatearBytes(bytes) {
   if (!bytes && bytes !== 0) return ''
@@ -1175,10 +1176,14 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
                 type="submit"
                 disabled={loading || !puedeGuardar}
                 title={puedeGuardar ? undefined : 'Completa los campos obligatorios para guardar'}
-                className="inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                className="group inline-flex items-center gap-2 rounded-full bg-brand-cyan px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-base font-bold text-brand-ink shadow-cyanGlow hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-cyan/70 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
               >
-                <MdStorefront className="text-lg" />
-                {editando ? 'GUARDAR Y REENVIAR' : 'GUARDAR'}
+                <img
+                  src={RecoleccionIcon}
+                  alt="Recolección"
+                  className="w-6 h-6 object-contain transition-all duration-500 ease-out group-hover:translate-x-2 group-hover:scale-110 group-hover:drop-shadow-[0_4px_8px_rgba(0,0,0,0.25)] group-hover:animate-truckMove"
+                />
+                <span className="font-bold tracking-wide text-brand-ink">{editando ? 'GUARDAR Y REENVIAR' : 'GUARDAR'}</span>
               </button>
             </div>
           </form>

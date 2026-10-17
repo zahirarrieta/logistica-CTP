@@ -65,7 +65,7 @@ function Home() {
   return (
     <div className="min-h-screen flex flex-col font-sans bg-brand-ink text-white">
       {/* Card oscura contenedor (Header + Hero) */}
-      <div className="relative overflow-hidden bg-hero-dark text-white rounded-b-[32px] shadow-[0_24px_60px_rgba(0,0,0,0.45)] animate-slideDown">
+      <div className="relative flex-1 flex flex-col overflow-hidden bg-hero-dark text-white rounded-b-[32px] shadow-[0_24px_60px_rgba(0,0,0,0.45)] animate-slideDown">
         {/* Resplandores cian sutiles de fondo */}
         <div aria-hidden className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-brand-cyan/15 blur-[120px]" />
@@ -75,8 +75,11 @@ function Home() {
 
         <Header />
 
-        {/* Hero Section */}
-        <main className="pt-[clamp(0.75rem,3vw,2.5rem)] pb-[clamp(0.75rem,3vw,2rem)] max-lg:pt-4 max-lg:pb-4 relative lg:min-h-[46vh] xl:min-h-[52vh] 2xl:min-h-[56vh] lg:max-h-[82vh]">
+        {/* Hero Section. Se usa `flex-1 flex items-center` (igual que el Login)
+            en vez de min-h/max-h en vh: así el card ocupa el alto disponible
+            entre el header y el footer y los botones nunca quedan recortados ni
+            tapados por el footer en pantallas de poca altura. */}
+        <main className="relative flex-1 flex items-center w-full py-[clamp(0.75rem,3vw,2.5rem)] max-lg:py-4">
           <div className="mx-auto w-full max-w-[min(1680px,88vw)] px-5">
             {/* Card unificado para texto + carrusel */}
             <div className="relative rounded-[2rem] bg-white/[0.04] backdrop-blur-md ring-1 ring-brand-cyan/15 shadow-2xl p-5 sm:p-7 lg:p-8 max-lg:p-6 overflow-hidden">
