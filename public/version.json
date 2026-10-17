@@ -1,7 +1,10 @@
 {
-  "version": "2026.10.16-88",
-  "fecha": "2026-10-16",
+  "version": "2026.10.17-89",
+  "fecha": "2026-10-17",
   "cambios": [
-    "Inicio (Home): los botones «Nuevo pedido» y «Recolección» ahora tienen el mismo ancho y alto (contenido centrado); en móvil ocupan el ancho completo."
+    "Recolección devuelta a solicitante: al corregir, solo quedan en solo lectura los campos que el administrador marcó; el resto se puede editar (antes se bloqueaba todo).",
+    "Notificaciones de recolección: se avisan al iniciar sesión igual que las de solicitudes (se conserva la lista previa en lugar de reiniciarla al cambiar de usuario).",
+    "Conductor: al entregar una recolección ya no se abre automáticamente el modal de detalles de entrega; se guarda la entrega (con observaciones y evidencia) y se vuelve a la lista, igual que en una solicitud.",
+    "Administrador: los filtros (incluido el de ID) ya no se desbordan con scroll horizontal en pantallas de portátil (tablas de Solicitudes, Pedidos y Recolecciones)."
   ]
 }

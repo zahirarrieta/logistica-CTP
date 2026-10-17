@@ -204,10 +204,10 @@ export default function Conductor() {
   })
 
   // El conductor solo entrega, y lo hace con un clic en la fila (no cambia el
-  // estado a mano). Una recogida pendiente abre el modal ENTREGA DE MERCANCÍA (el
-  // mismo de las solicitudes, pero sin encuesta) para dejar observaciones y
-  // evidencia; una ya cerrada («Entregado»/«Fallido»/«Cancelado») abre los
-  // detalles de su entrega. «Fallido» lo pone el administrador desde Recolecciones.
+  // estado a mano). Una recogida pendiente abre el modal ENTREGA DE MERCANCÍA
+  // (observaciones + evidencia, sin encuesta) y una ya cerrada («Entregado»/
+  // «Fallido»/«Cancelado») abre los detalles de su entrega. «Fallido» lo pone el
+  // administrador desde Recolecciones.
   const handleRecoleccionFila = (r) => {
     if (['Entregado', 'Fallido', 'Cancelado'].includes(r.estado)) {
       setDetalleEntregaRecoleccion(adaptarRecoleccion(r))
@@ -216,17 +216,17 @@ export default function Conductor() {
     }
   }
 
-  // Guarda la entrega (con su evidencia ya subida al servidor), marca la fila
-  // como eco local para no duplicar el aviso en vivo y, con la fila fresca que
-  // devuelve la sincronización, abre los detalles de la entrega.
+  // Guarda la entrega con su evidencia, marca la fila como eco local para no
+  // duplicar el aviso en vivo y deja que el listado se refresque solo. NO se abre
+  // después el modal de detalles de entrega: esa apertura automática era la que
+  // molestaba; la recogida queda entregada y el conductor vuelve a la lista (igual
+  // que en una solicitud).
   const handleEntregaRecoleccion = async (codigo, { notaEstado, evidencia }) => {
     try {
-      const frescas = await cambiarEstadoRecoleccion(codigo, 'Entregado', notaEstado || '', {
+      await cambiarEstadoRecoleccion(codigo, 'Entregado', notaEstado || '', {
         evidencia: evidencia || '',
       })
       recoleccionEstadoActualizado(codigo, 'Entregado')
-      const r = (frescas || []).find((x) => x.codigo === codigo)
-      setDetalleEntregaRecoleccion(r ? adaptarRecoleccion(r) : null)
     } catch (e) {
       console.error('[Conductor] error entregando la recolección:', e)
       errorRecoleccion(e?.message || 'No se pudo guardar la entrega de la recogida')
@@ -581,7 +581,8 @@ export default function Conductor() {
       />
 
       {/* Entrega de la recogida: observaciones + evidencia (fotos o PDF), sin
-          encuesta. La evidencia tiene que llegar al servidor antes de guardar. */}
+          encuesta. La evidencia tiene que llegar al servidor antes de guardar.
+          Al guardar NO se abre el modal de detalles (eso era lo que molestaba). */}
       <EntregaConductor
         solicitud={entregaRecoleccion}
         open={entregaRecoleccion !== null}
@@ -592,6 +593,8 @@ export default function Conductor() {
         evidenciaRemotaObligatoria
       />
 
+      {/* Detalles de la entrega: solo se abre a mano, para las recogidas ya
+          cerradas («Ver entrega»). */}
       <EntregaDetallesModal
         solicitud={detalleEntregaRecoleccion}
         open={detalleEntregaRecoleccion !== null}

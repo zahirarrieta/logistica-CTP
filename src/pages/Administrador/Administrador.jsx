@@ -548,7 +548,7 @@ const esSuper = esSuperAdmin(rol)
               {subVistaActual === 'recolecciones' ? (
                 <>
               {baseRecoDelTab.length > 0 && (
-                <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
+                <div className="mb-4 flex flex-col lg:flex-row lg:flex-wrap lg:items-center gap-3">
                   <EstadoFilter
                     solicitudes={baseRecoDelTab}
                     value={filterEstado}
@@ -612,7 +612,7 @@ const esSuper = esSuperAdmin(rol)
           ) : (
             <>
               {baseDelTab.length > 0 && (
-                <div className="mb-4 flex flex-col lg:flex-row lg:items-center gap-3">
+                <div className="mb-4 flex flex-col lg:flex-row lg:flex-wrap lg:items-center gap-3">
                   <EstadoFilter solicitudes={baseDelTab} value={filterEstado} onChange={setFilterEstado} />
                   <AsignadoFilter solicitudes={baseDelTab} value={filtroAsignado} onChange={setFiltroAsignado} />
                   <ConductorFilter solicitudes={baseDelTab} value={filtroConductor} onChange={setFiltroConductor} />

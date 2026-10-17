@@ -4,7 +4,7 @@ export default function SearchFilters({ nombre, onNombreChange, cliente, zona, o
   const mostrarId = typeof onIdChange === 'function'
   const mostrarNombre = typeof onNombreChange === 'function'
   return (
-    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto">
       {mostrarNombre && (
         <div className="relative sm:w-56">
           <MdBadge className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink/40 text-lg" />

@@ -40,24 +40,16 @@ let bloqueado = false
 let cargadas = false
 
 export function setIdentidadRecolecciones({ rol, nombre, correo } = {}) {
-  const siguiente = {
+  identidad = {
     rol: String(rol || ''),
     nombre: String(nombre || '').trim(),
     correo: String(correo || '').trim().toLowerCase(),
   }
-  const cambioUsuario =
-    siguiente.correo !== identidad.correo || siguiente.rol !== identidad.rol
-  identidad = siguiente
-  // Al cambiar de usuario en la misma pestaña la caché ya no es válida: lo que
-  // ve el nuevo usuario depende de su rol y de su correo.
-  if (cambioUsuario && (lista.length > 0 || listaPrevia !== null)) {
-    lista = []
-    listaPrevia = null
-    cargadas = false
-    ecosLocales.clear()
-    idsAvisados.clear()
-    notificar()
-  }
+  // Igual que solicitudesStore: NO se borra `listaPrevia` al cambiar de usuario.
+  // Si se reiniciara, la primera descarga tras iniciar sesión no tendría con qué
+  // comparar y nunca se dispararían los avisos de lo que cambió mientras el
+  // usuario estaba fuera. Conservándola, el primer ciclo compara y avisa igual
+  // que en solicitudes.
 }
 
 function huella(r) {

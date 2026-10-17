@@ -17,6 +17,7 @@ import { cargarClientes } from '../../../../services/solicitudesApi.js'
 import { subirAdjuntos } from '../../../../services/archivosApi.js'
 import { recoleccionCreada, errorRecoleccion } from '../../../../services/notificaciones.jsx'
 import { registrarRecoleccionCreada, corregirRecoleccion } from '../../../../store/recoleccionesStore.js'
+import { CAMPOS_DEVOLUCION_RECOLECCION } from '../../../../utils/estadoRecoleccion.js'
 import RecoleccionIcon from '../../../Recolecciones/ImagenICO/RecoleccionI.png'
 
 function formatearBytes(bytes) {
@@ -277,6 +278,11 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
   // corregir el solicitante («[CORREGIR: …]»). Al corregir, SOLO esos campos
   // quedan editables; el resto se muestra en solo lectura para no cambiar lo que
   // el administrador no pidió. Si no hay marca (recolección vieja) se permite todo.
+  //
+  // La nota guarda las ETIQUETAS («LUGAR DE RECOGIDA»), no los ids, así que hay
+  // que traducirlas al id del campo (recoge, fechaHora, …) antes de comparar;
+  // sin esta traducción `bloqueado(id)` nunca encontraba coincidencia y dejaba
+  // TODOS los campos bloqueados.
   const camposCorregir = useMemo(() => {
     const hist = Array.isArray(recoleccion?.historial) ? recoleccion.historial : []
     const dev = [...hist]
@@ -284,7 +290,16 @@ export default function RecoleccionModal({ open, onClose, onCreated, recoleccion
       .find((h) => h?.campo === 'estado' && h.nuevo === 'Devolución a Solicitante')
     const m = /^\[CORREGIR:\s*([^\]]*)\]/.exec(String(dev?.nota || ''))
     if (!m) return null
-    return new Set(m[1].split(',').map((s) => s.trim()).filter(Boolean))
+    const etiquetaAId = new Map(
+      CAMPOS_DEVOLUCION_RECOLECCION.map((c) => [c.etiqueta.toUpperCase(), c.id])
+    )
+    const ids = m[1]
+      .split(',')
+      .map((s) => etiquetaAId.get(s.trim().toUpperCase()))
+      .filter(Boolean)
+    // Si la marca no trae campos reconocibles (nota antigua con otras etiquetas),
+    // no bloqueamos nada en vez de dejar el formulario entero en solo lectura.
+    return ids.length > 0 ? new Set(ids) : null
   }, [recoleccion])
   const bloqueado = (id) => Boolean(camposCorregir) && !camposCorregir.has(id)
   const [formData, setFormData] = useState(FORM_VACIO)
