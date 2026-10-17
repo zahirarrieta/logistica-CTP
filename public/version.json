@@ -1,7 +1,7 @@
 {
-  "version": "2026.10.16-87",
+  "version": "2026.10.16-88",
   "fecha": "2026-10-16",
   "cambios": [
-    "Modal de nueva solicitud: el botón «GUARDAR» permanece deshabilitado hasta completar todos los campos obligatorios, igual que en el modal de nueva recolección."
+    "Inicio (Home): los botones «Nuevo pedido» y «Recolección» ahora tienen el mismo ancho y alto (contenido centrado); en móvil ocupan el ancho completo."
   ]
 }
